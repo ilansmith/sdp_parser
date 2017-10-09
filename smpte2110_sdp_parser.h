@@ -1,7 +1,10 @@
-#ifndef _SMPTE2110_SDP_H_
-#define _SMPTE2110_SDP_H_
+#ifndef _SMPTE2110_SDP_PARSER_H_
+#define _SMPTE2110_SDP_PARSER_H_
 
-#define SMPTE_2110_SSN "ST2110-20:2017"
+#include <stdint.h>
+#include "sdp_parser.h"
+
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
 
 /* media-level attributes */
 
@@ -98,7 +101,6 @@ struct smpte2110_media_attr_fmtp_params {
 	uint16_t width;
 	uint16_t height;
 	struct smpte_2110_fps exactframerate;
-	struct smpte_2110_fps fps;
 	enum smpte_2110_colorimetry colorimetry;
 	enum smpte_2110_pm pm;
 	enum smpte_2110_signal signal;
@@ -108,5 +110,12 @@ struct smpte2110_media_attr_fmtp_params {
 	struct smpte_2110_par par;
 };
 
+struct smpte2110_media_attr_fmtp {
+	struct smpte2110_media_attr_fmtp_params params;
+	uint32_t err;
+};
+
+enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
+		char *attr, char *value, char *params);
 #endif
 
