@@ -34,6 +34,8 @@ struct attr_params {
 	enum smpte_2110_range range;
 	uint16_t maxudp;
 	struct smpte_2110_par par;
+	uint32_t troff;
+	int cmax;
 };
 
 static void attribute_params_set_defaults(struct attr_params *params)
@@ -443,6 +445,36 @@ static enum sdp_parse_err sdp_attr_param_parse_par(char *str,
 	return SDP_PARSE_OK;
 }
 
+static enum sdp_parse_err sdp_attr_param_parse_troff(char *str,
+		struct attr_params *params, uint32_t *err)
+{
+	uint32_t troff;
+
+	if (sscanf(str, "TROFF=%i", &troff) != 1) {
+		sdperr("parameter format: %s", str);
+		return SDP_PARSE_ERROR;
+	}
+
+	params->troff = troff;
+	*err |= SMPTE_ERR_TROFF;
+	return SDP_PARSE_OK;
+}
+
+static enum sdp_parse_err sdp_attr_param_parse_cmax(char *str,
+		struct attr_params *params, uint32_t *err)
+{
+	int cmax;
+
+	if (sscanf(str, "CMAX=%i", &cmax) != 1) {
+		sdperr("parameter format: %s", str);
+		return SDP_PARSE_ERROR;
+	}
+
+	params->cmax = cmax;
+	*err |= SMPTE_ERR_CMAX;
+	return SDP_PARSE_OK;
+}
+
 enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
 		char *attr, char *value, char *params)
 {
@@ -467,6 +499,8 @@ enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
 		SDP_ATTR_PARAM_PARSE(range),
 		SDP_ATTR_PARAM_PARSE(maxudp),
 		SDP_ATTR_PARAM_PARSE(par),
+		SDP_ATTR_PARAM_PARSE(troff),
+		SDP_ATTR_PARAM_PARSE(cmax),
 	};
 	struct attr_params p;
 	char *token;
