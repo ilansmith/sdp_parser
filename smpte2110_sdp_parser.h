@@ -17,14 +17,15 @@ enum smpte_2110_attr_param_err {
 	SMPTE_ERR_EXACTFRAMERATE = 1<<4,
 	SMPTE_ERR_COLORIMETRY = 1<<5,
 	SMPTE_ERR_PM = 1<<6,
-	SMPTE_ERR_SSN = 1<<7,
+	SMPTE_ERR_TP = 1<<7,
+	SMPTE_ERR_SSN = 1<<8,
 	/* parameters with default values */
-	SMPTE_ERR_INERLACE = 1<<8,
-	SMPTE_ERR_SEGMENTED = 1<<9,
-	SMPTE_ERR_TCS = 1<<10,
-	SMPTE_ERR_RANGE = 1<<11,
-	SMPTE_ERR_MAXUDP = 1<<12,
-	SMPTE_ERR_PAR = 1<<13,
+	SMPTE_ERR_INERLACE = 1<<9,
+	SMPTE_ERR_SEGMENTED = 1<<10,
+	SMPTE_ERR_TCS = 1<<11,
+	SMPTE_ERR_RANGE = 1<<12,
+	SMPTE_ERR_MAXUDP = 1<<13,
+	SMPTE_ERR_PAR = 1<<14,
 };
 
 enum smpte_2110_sampling {
@@ -61,6 +62,12 @@ enum smpte_2110_colorimetry {
 enum smpte_2110_pm {
 	PM_2110GPM,
 	PM_2110BPM
+};
+
+enum smpte_2110_tp {
+	TP_2110TPN,
+	TP_2110TPNL,
+	TP_2110TPW,
 };
 
 enum smpte_2110_signal {
@@ -103,6 +110,7 @@ struct smpte2110_media_attr_fmtp_params {
 	struct smpte_2110_fps exactframerate;
 	enum smpte_2110_colorimetry colorimetry;
 	enum smpte_2110_pm pm;
+	enum smpte_2110_tp tp;
 	enum smpte_2110_signal signal;
 	enum smpte_2110_tcs tcs;
 	enum smpte_2110_range range;
