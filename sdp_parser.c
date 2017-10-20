@@ -466,8 +466,20 @@ static void sdp_attr_free(struct sdp_attr *attr)
 		tmp = attr;
 		attr = attr->next;
 
-		if (tmp->type == SDP_ATTR_SPECIFIC)
+		switch (tmp->type) {
+		case SDP_ATTR_FMTP:
+			if (tmp->value.fmtp.param_dtor) {
+				tmp->value.fmtp.param_dtor(
+					tmp->value.fmtp.params);
+			}
+			break;
+		case SDP_ATTR_SPECIFIC:
 			free(tmp->value.specific);
+			break;
+		default:
+			break;
+		}
+
 		free(tmp);
 	}
 }

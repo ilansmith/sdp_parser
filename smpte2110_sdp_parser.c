@@ -504,20 +504,20 @@ enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
 	};
 	struct attr_params p;
 	char *token;
-	struct smpte2110_media_attr_fmtp *fmtp;
+	struct smpte2110_media_attr_fmtp *smpte2110_fmtp;
 
 	if (strncmp(attr, "fmtp", strlen("fmtp")))
-		return SDP_PARSE_NOT_SUPPORTED;
+		return SDP_PARSE_ERROR;
 
-	fmtp = (struct smpte2110_media_attr_fmtp *)calloc(1,
+	smpte2110_fmtp = (struct smpte2110_media_attr_fmtp *)calloc(1,
 		sizeof(struct smpte2110_media_attr_fmtp));
-	if (!fmtp) {
+	if (!smpte2110_fmtp) {
 		sdperr("Memory allocation");
 		return SDP_PARSE_ERROR;
 	}
 	attribute_params_set_defaults(&p);
 
-	fmtp->err = 0; /* no attribute params have been parsed */
+	smpte2110_fmtp->err = 0; /* no attribute params have been parsed */
 	while ((token = strtok(params, ";"))) {
 		int i;
 
@@ -546,8 +546,8 @@ enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
 		}
 
 		/* parse attribute */
-		if (attribute_param_list[i].parser(token, &p, &fmtp->err) ==
-				SDP_PARSE_ERROR) {
+		if (attribute_param_list[i].parser(token, &p,
+				&smpte2110_fmtp->err) == SDP_PARSE_ERROR) {
 			return SDP_PARSE_ERROR;
 		}
 
@@ -557,10 +557,10 @@ enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
 	}
 
 	/* waver unsupported params */
-	fmtp->err |= (SMPTE_ERR_COLORIMETRY | SMPTE_ERR_SSN);
+	smpte2110_fmtp->err |= (SMPTE_ERR_COLORIMETRY | SMPTE_ERR_SSN);
 
 	/* assert all required attriute parameters have been provided */
-	if (!SMPTE_2110_ATTR_PARAM_REQUIRED(fmtp->err))
+	if (!SMPTE_2110_ATTR_PARAM_REQUIRED(smpte2110_fmtp->err))
 		return SDP_PARSE_ERROR;
 
 	/* assert segmented parameter is not provided without interlace */
@@ -570,23 +570,24 @@ enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
 	}
 
 	/* update output paprameters */
-	fmtp->params.sampling = p.sampling;
-	fmtp->params.depth = p.depth;
-	fmtp->params.width = p.width;
-	fmtp->params.height = p.height;
-	fmtp->params.exactframerate = p.exactframerate;
-	fmtp->params.colorimetry = p.colorimetry;
-	fmtp->params.pm = p.pm;
-	fmtp->params.signal = p.is_interlace ?
+	smpte2110_fmtp->params.sampling = p.sampling;
+	smpte2110_fmtp->params.depth = p.depth;
+	smpte2110_fmtp->params.width = p.width;
+	smpte2110_fmtp->params.height = p.height;
+	smpte2110_fmtp->params.exactframerate = p.exactframerate;
+	smpte2110_fmtp->params.colorimetry = p.colorimetry;
+	smpte2110_fmtp->params.pm = p.pm;
+	smpte2110_fmtp->params.signal = p.is_interlace ?
 		p.is_segmented ? SIGNAL_PSF : SIGNAL_INTERLACE :
 			SIGNAL_PROGRESSIVE;
-	fmtp->params.tcs = p.tcs;
-	fmtp->params.range = p.range;
-	fmtp->params.maxudp = p.maxudp;
-	fmtp->params.par = p.par;
+	smpte2110_fmtp->params.tcs = p.tcs;
+	smpte2110_fmtp->params.range = p.range;
+	smpte2110_fmtp->params.maxudp = p.maxudp;
+	smpte2110_fmtp->params.par = p.par;
 
 	a->type = SDP_ATTR_FMTP;
-	a->value.specific = fmtp;
+	a->value.fmtp.params = smpte2110_fmtp;
+	a->value.fmtp.param_dtor = free;
 
 	return SDP_PARSE_OK;
 }
