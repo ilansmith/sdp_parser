@@ -646,3 +646,45 @@ void sdperr(char *fmt, ...)
 	fflush(stderr);
 }
 
+static struct sdp_media *sdp_media_locate(struct sdp_media *media,
+		enum sdp_media_type type)
+{
+	if (type == SDP_MEDIA_TYPE_NONE)
+		return media;
+
+	for ( ; media && media->m.type != type; media = media->next);
+	return media;
+}
+
+struct sdp_media *sdp_media_get(struct sdp_session *session,
+		enum sdp_media_type type)
+{
+	return sdp_media_locate(session->media, type);
+}
+
+struct sdp_media *sdp_media_get_next(struct sdp_media *media)
+{
+	return sdp_media_locate(media->next, media->m.type);
+}
+
+static struct sdp_attr *sdp_media_attr_locate(struct sdp_attr *attr,
+		enum sdp_attr_type type)
+{
+	if (attr && attr->type == SDP_ATTR_NONE)
+		return attr;
+
+	for ( ; attr && attr->type != type; attr = attr->next);
+	return attr;
+}
+
+struct sdp_attr *sdp_media_attr_get(struct sdp_media *media,
+		enum sdp_attr_type type)
+{
+	return sdp_media_attr_locate(media->a, type);
+}
+
+struct sdp_attr *sdp_media_attr_get_next(struct sdp_attr *attr)
+{
+	return sdp_media_attr_locate(attr->next, attr->type);
+}
+

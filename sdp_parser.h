@@ -189,5 +189,16 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 		parse_attr_specific_t parse_attr_specific);
 
 void sdperr(char *fmt, ...);
+
+/* Accessors */
+struct sdp_media *sdp_media_get(struct sdp_session *session,
+		enum sdp_media_type type);
+
+struct sdp_media *sdp_media_get_next(struct sdp_media *media);
+
+struct sdp_attr *sdp_media_attr_get(struct sdp_media *media,
+		enum sdp_attr_type type);
+
+struct sdp_attr *sdp_media_attr_get_next(struct sdp_attr *attr);
 #endif
 
