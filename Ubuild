@@ -1,0 +1,4 @@
+obj-$(CONFIG_SDP) += sdp.o
+sdp-objs += sdp_stream.o sdp_parser.o smpte2110_sdp_parser.o
+obj-ut-$(CONFIG_SDP) += sdp_parser_test.o
+
