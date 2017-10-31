@@ -515,6 +515,11 @@ enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
 		sdperr("Memory allocation");
 		return SDP_PARSE_ERROR;
 	}
+
+	a->type = SDP_ATTR_FMTP;
+	a->value.fmtp.params = smpte2110_fmtp;
+	a->value.fmtp.param_dtor = free;
+
 	attribute_params_set_defaults(&p);
 
 	smpte2110_fmtp->err = 0; /* no attribute params have been parsed */
@@ -581,10 +586,6 @@ enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
 	smpte2110_fmtp->params.range = p.range;
 	smpte2110_fmtp->params.maxudp = p.maxudp;
 	smpte2110_fmtp->params.par = p.par;
-
-	a->type = SDP_ATTR_FMTP;
-	a->value.fmtp.params = smpte2110_fmtp;
-	a->value.fmtp.param_dtor = free;
 
 	return SDP_PARSE_OK;
 }
