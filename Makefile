@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-Wall -Werror -O0 -g
 APP=test
-OBJS=test.o sdp_parser.o sdp_stream.o smpte2110_sdp_parser.o
+OBJS=sdp_stream.o sdp_parser.o smpte2110_sdp_parser.o test.o
 
 %.o: %.c
 	$(CC) -o $@ $(CFLAGS) -c $<

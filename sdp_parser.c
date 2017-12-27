@@ -25,16 +25,16 @@ static char *common_level_attr[] = {
 	"lang",
 };
 
-static size_t sdp_getline(char **line, size_t *len, FILE *sdp)
+static ssize_t sdp_getline(char **line, size_t *len, sdp_stream_t sdp)
 {
 	char *tmp;
-	size_t ret;
+	ssize_t ret;
 
 	if (!*line)
-		return getline(line, len, sdp);
+		return sdp_stream_getline(line, len, sdp);
 
 	tmp = strdup(*line);
-	ret = getline(line, len, sdp);
+	ret = sdp_stream_getline(line, len, sdp);
 	if (!ret || !strcmp(tmp, *line)) {
 		free(*line);
 		*line = NULL;
@@ -83,7 +83,7 @@ static char sdp_parse_descriptor_type(char *line)
 	return descriptor;
 }
 
-static enum sdp_parse_err sdp_parse_non_supported(FILE *sdp, char **line,
+static enum sdp_parse_err sdp_parse_non_supported(sdp_stream_t sdp, char **line,
 		size_t *len, char *not_supported)
 {
 	if (!*line)
@@ -103,8 +103,8 @@ static enum sdp_parse_err sdp_parse_non_supported(FILE *sdp, char **line,
 	return SDP_PARSE_NOT_SUPPORTED;
 }
 
-static enum sdp_parse_err sdp_parse_version(FILE *sdp, char **line, size_t *len,
-		struct sdp_session_v *v)
+static enum sdp_parse_err sdp_parse_version(sdp_stream_t sdp, char **line,
+		size_t *len, struct sdp_session_v *v)
 {
 	int version;
 	char *ptr;
@@ -131,7 +131,7 @@ static enum sdp_parse_err sdp_parse_version(FILE *sdp, char **line, size_t *len,
 	return SDP_PARSE_OK;
 }
 
-static enum sdp_parse_err sdp_parse_connection_information(FILE *sdp,
+static enum sdp_parse_err sdp_parse_connection_information(sdp_stream_t sdp,
 		char **line, size_t *len, struct sdp_connection_information *c)
 {
 	char *nettype;
@@ -190,8 +190,8 @@ static enum sdp_parse_err sdp_parse_connection_information(FILE *sdp,
 	return SDP_PARSE_OK;
 }
 
-static enum sdp_parse_err sdp_parse_media(FILE *sdp, char **line, size_t *len,
-		struct sdp_media_m *media)
+static enum sdp_parse_err sdp_parse_media(sdp_stream_t sdp, char **line,
+		size_t *len, struct sdp_media_m *media)
 {
 	char *type;
 	char *proto;
@@ -342,8 +342,8 @@ static enum sdp_parse_err parse_attr_media(struct sdp_attr *a, char *attr,
 	return SDP_PARSE_OK;
 }
 
-static enum sdp_parse_err sdp_parse_attr(FILE *sdp, char **line, size_t *len,
-		struct sdp_media *media,
+static enum sdp_parse_err sdp_parse_attr(sdp_stream_t sdp, char **line,
+		size_t *len, struct sdp_media *media,
 		char **attr_common, int attr_common_len,
 		char **attr_level, int attr_level_len,
 		enum sdp_parse_err (*parse_level)(struct sdp_attr *a,
@@ -426,8 +426,8 @@ static enum sdp_parse_err sdp_parse_attr(FILE *sdp, char **line, size_t *len,
 	return SDP_PARSE_OK;
 }
 
-static enum sdp_parse_err sdp_parse_media_level_attr(FILE *sdp, char **line,
-		size_t *len, struct sdp_media *media,
+static enum sdp_parse_err sdp_parse_media_level_attr(sdp_stream_t sdp,
+		char **line, size_t *len, struct sdp_media *media,
 		parse_attr_specific_t parse_attr_specific)
 {
 	static char *media_level_attr[] = {
@@ -498,7 +498,7 @@ static void media_free(struct sdp_media *media)
 	}
 }
 
-struct sdp_session *sdp_parser_init(char *path)
+struct sdp_session *sdp_parser_init(enum sdp_stream_type type, void *ctx)
 {
 	struct sdp_session *session;
 
@@ -506,7 +506,7 @@ struct sdp_session *sdp_parser_init(char *path)
 	if (!session)
 		return NULL;
 
-	if (!(session->sdp = fopen(path, "r"))) {
+	if (!(session->sdp = sdp_stream_open(type, ctx))) {
 		free(session);
 		return NULL;
 	}
@@ -516,7 +516,7 @@ struct sdp_session *sdp_parser_init(char *path)
 
 void sdp_parser_uninit(struct sdp_session *session)
 {
-	fclose(session->sdp);
+	sdp_stream_close(session->sdp);
 	media_free(session->media);
 	free(session);
 }
@@ -527,7 +527,7 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 	enum sdp_parse_err err = SDP_PARSE_ERROR;
 	char *line = NULL;
 	size_t len = 0;
-	FILE *sdp = session->sdp;
+	sdp_stream_t sdp = session->sdp;
 
 	/* parse v= */
 	if (sdp_parse_version(sdp, &line, &len, &session->v) ==
