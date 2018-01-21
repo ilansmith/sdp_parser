@@ -437,6 +437,22 @@ static enum sdp_parse_err parse_attr_media(struct sdp_attr *a, char *attr,
 			sdperr("attribute bad format - %s", attr);
 			return SDP_PARSE_ERROR;
 		}
+	} else if (!strncmp(attr, "mid", strlen("mid"))) {
+		char *identification_tag;
+
+		a->type = SDP_ATTR_MID;
+		identification_tag = strtok(value, "\n");
+		if (!identification_tag) {
+			sdperr("attribute bad format - %s", attr);
+			return SDP_PARSE_ERROR;
+		}
+
+		a->value.mid.identification_tag = strdup(value);
+		if (!a->value.mid.identification_tag) {
+			sdperr("failed to allocate memory for "
+				"identification_tag: %s", value);
+			return SDP_PARSE_ERROR;
+		}
 	} else {
 		a->type = SDP_ATTR_NOT_SUPPORTED;
 		return SDP_PARSE_NOT_SUPPORTED;
@@ -542,6 +558,7 @@ static enum sdp_parse_err sdp_parse_media_level_attr(sdp_stream_t sdp,
 		"quality",
 		"fmtp",
 		"source-filter",
+		"mid",
 	};
 
 	return sdp_parse_attr(sdp, line, len, media,
@@ -578,6 +595,9 @@ static void sdp_attr_free(struct sdp_attr *attr)
 			break;
 		case SDP_ATTR_SOURCE_FILTER:
 			free(tmp->value.source_filter.spec.src_list.next);
+			break;
+		case SDP_ATTR_MID:
+			free(tmp->value.mid.identification_tag);
 			break;
 		case SDP_ATTR_SPECIFIC:
 			free(tmp->value.specific);
