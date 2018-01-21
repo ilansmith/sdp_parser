@@ -190,6 +190,7 @@ void sdp_parser_uninit(struct sdp_session *session);
 enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 		parse_attr_specific_t parse_attr_specific);
 
+void sdpwarn(char *fmt, ...);
 void sdperr(char *fmt, ...);
 
 /* Accessors */

@@ -16,6 +16,15 @@
 	*_ptr_; \
 })
 
+#define SDPOUT(func_suffix, level) \
+	void sdp ## func_suffix(char *fmt, ...) \
+	{ \
+		va_list va; \
+		va_start(va, fmt); \
+		sdpout(level, fmt, va); \
+		va_end(va); \
+	}
+
 static char *common_level_attr[] = {
 	"recvonly",
 	"sendrecv",
@@ -632,18 +641,16 @@ exit:
 	return err;
 }
 
-void sdperr(char *fmt, ...)
+static void sdpout(char *level, char *fmt, va_list va)
 {
-	va_list va;
-
-	va_start(va, fmt);
-	fprintf(stderr, "SDP parse error - ");
+	fprintf(stderr, "SDP parse %s - ", level);
 	vfprintf(stderr, fmt, va);
 	fprintf(stderr, "\n");
-	va_end(va);
-
 	fflush(stderr);
 }
+
+SDPOUT(warn, "warning")
+SDPOUT(err, "error")
 
 static struct sdp_media *sdp_media_locate(struct sdp_media *media,
 		enum sdp_media_type type)
