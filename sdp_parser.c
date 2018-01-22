@@ -25,15 +25,6 @@
 		va_end(va); \
 	}
 
-static char *common_level_attr[] = {
-	"recvonly",
-	"sendrecv",
-	"sendoly",
-	"inactive",
-	"sdplang",
-	"lang",
-};
-
 static ssize_t sdp_getline(char **line, size_t *len, sdp_stream_t sdp)
 {
 	char *tmp;
@@ -288,9 +279,119 @@ static enum sdp_parse_err sdp_parse_media(sdp_stream_t sdp, char **line,
 }
 
 static enum sdp_parse_err parse_attr_common(struct sdp_attr *a, char *attr,
-		char *value, char *params)
+		char *value, char *params,
+		parse_attr_specific_t parse_attr_specific)
 {
+	return SDP_PARSE_OK;
+}
+
+static enum sdp_parse_err sdp_parse_attr(sdp_stream_t sdp, char **line,
+		size_t *len, struct sdp_attr **a, char **attr_level,
+		enum sdp_parse_err (*parse_level)(struct sdp_attr *a,
+			char *attr, char *value, char *params,
+			parse_attr_specific_t parse_attr_specific),
+		parse_attr_specific_t parse_attr_specific)
+{
+	char **supported_attr;
+	char *attr;
+	char *value = NULL;
+	char *params = NULL;
+	enum sdp_parse_err err;
+	char *ptr = *line;
+	char *tmp;
+
+	char *common_level_attr[] = {
+#if 0
+		"recvonly",
+		"sendrecv",
+		"sendoly",
+		"inactive",
+		"sdplang",
+		"lang",
+#endif
+		NULL
+	};
+
+	while (*line && **line != '\n' &&
+			sdp_parse_descriptor_type(*line) == 'a') {
+		ptr = *line + 2;
+
+		attr = strtok_r(ptr, ":\n", &tmp);
+		if (*tmp)
+			value = strtok_r(NULL, " ", &tmp);
+		if (*tmp)
+			params = tmp;
+
+		*a = calloc(1, sizeof(struct sdp_attr));
+		if (!*a) {
+			sdperr("memory acllocation");
+			return SDP_PARSE_ERROR;
+		}
+
+		/* try to find a supported attribute in the session/media
+		 * common list */
+		for (supported_attr = common_level_attr; *supported_attr &&
+			strcmp(*supported_attr, attr); supported_attr++);
+		if (*supported_attr) {
+			err = parse_attr_common(*a, *supported_attr, value,
+				params, parse_attr_specific);
+			if (err == SDP_PARSE_ERROR) {
+				free(*a);
+				*a = NULL;
+				sdperr("parsing attribute: %s", attr);
+				return SDP_PARSE_ERROR;
+			}
+
+			a = &(*a)->next;
+			sdp_getline(line, len, sdp);
+			continue;
+		}
+
+		/* try to find supported attribute in current level list */
+		for (supported_attr = attr_level; *supported_attr &&
+			strcmp(*supported_attr, attr); supported_attr++);
+		if (*supported_attr) {
+			err = parse_level(*a, *supported_attr, value, params,
+					parse_attr_specific);
+			if (err == SDP_PARSE_ERROR) {
+				free(*a);
+				*a = NULL;
+				sdperr("parsing attribute: %s", attr);
+				return SDP_PARSE_ERROR;
+			}
+
+			a = &(*a)->next;
+			sdp_getline(line, len, sdp);
+			continue;
+		}
+
+		/* attribute is not supported */
+		free(*a);
+		*a = NULL;
+		sdp_getline(line, len, sdp);
+	}
+
+	return SDP_PARSE_OK;
+}
+
+static enum sdp_parse_err parse_attr_session(struct sdp_attr *a, char *attr,
+		char *value, char *params,
+		parse_attr_specific_t parse_attr_specific)
+{
+	a->type = SDP_ATTR_NOT_SUPPORTED;
 	return SDP_PARSE_NOT_SUPPORTED;
+}
+
+static enum sdp_parse_err sdp_parse_session_level_attr(sdp_stream_t sdp,
+		char **line, size_t *len, struct sdp_attr **a,
+		parse_attr_specific_t parse_attr_specific)
+{
+	static char *session_level_attr[] = {
+		NULL
+	};
+
+	return sdp_parse_attr(sdp, line, len, a, session_level_attr,
+		parse_attr_session, parse_attr_specific);
 }
 
 static enum sdp_parse_err sdp_parse_attr_source_filter(
@@ -461,109 +562,26 @@ static enum sdp_parse_err parse_attr_media(struct sdp_attr *a, char *attr,
 	return SDP_PARSE_OK;
 }
 
-static enum sdp_parse_err sdp_parse_attr(sdp_stream_t sdp, char **line,
-		size_t *len, struct sdp_media *media,
-		char **attr_common, int attr_common_len,
-		char **attr_level, int attr_level_len,
-		enum sdp_parse_err (*parse_level)(struct sdp_attr *a,
-			char *attr, char *value, char *params,
-			parse_attr_specific_t parse_attr_specific),
-		parse_attr_specific_t parse_attr_specific)
-{
-	struct sdp_attr **a = &media->a; /* a=* */
-	char *attr;
-	char *value = NULL;
-	char *params = NULL;
-	int is_attr = 0;
-	int i;
-	enum sdp_parse_err err;
-	char *ptr = *line;
-	char *tmp;
-
-	while (*line && **line != '\n' &&
-			sdp_parse_descriptor_type(*line) == 'a') {
-		ptr = *line + 2;
-		is_attr = 0;
-
-		attr = strtok_r(ptr, ":", &tmp);
-		if (*tmp)
-			value = strtok_r(NULL, " ", &tmp);
-		if (*tmp)
-			params = tmp;
-
-		*a = calloc(1, sizeof(struct sdp_attr));
-		if (!*a) {
-			sdperr("memory acllocation");
-			return SDP_PARSE_ERROR;
-		}
-
-		for (i = 0; !is_attr && i < attr_common_len; i++) {
-			if (!strncmp(attr, attr_common[i],
-					strlen(attr_common[i]))) {
-				if ((err = parse_attr_common(*a, attr,
-						value, params)) !=
-						SDP_PARSE_OK) {
-					free(*a);
-					return err;
-				}
-
-				is_attr = 1;
-			}
-		}
-
-		for (i = 0; !is_attr && i < attr_level_len; i++) {
-			if (!strncmp(attr, attr_level[i],
-					strlen(attr_level[i]))) {
-				if ((err = parse_level(*a, attr, value,
-						params, parse_attr_specific)) !=
-						SDP_PARSE_OK) {
-					return err;
-				}
-
-				is_attr = 1;
-			}
-		}
-
-		if (!is_attr && parse_attr_specific) {
-			(*a)->type = SDP_ATTR_SPECIFIC;
-			is_attr =
-				parse_attr_specific(*a, attr, value, params) !=
-				SDP_PARSE_ERROR;
-		}
-
-		/* XXX non supported attributes are not handled/reported */
-		if (is_attr) {
-			a = &(*a)->next;
-		} else {
-			free(*a);
-			*a = NULL;
-		}
-
-		sdp_getline(line, len, sdp);
-	}
-
-	return SDP_PARSE_OK;
-}
-
 static enum sdp_parse_err sdp_parse_media_level_attr(sdp_stream_t sdp,
-		char **line, size_t *len, struct sdp_media *media,
+		char **line, size_t *len, struct sdp_attr **a,
 		parse_attr_specific_t parse_attr_specific)
 {
 	static char *media_level_attr[] = {
+#if 0
 		"ptime",
 		"maxptime",
-		"rtpmap",
 		"orient",
 		"framerate",
 		"quality",
+#endif
+		"rtpmap",
 		"fmtp",
 		"source-filter",
 		"mid",
+		NULL
 	};
 
-	return sdp_parse_attr(sdp, line, len, media,
-		common_level_attr, ARRAY_SIZE(common_level_attr),
-		media_level_attr, ARRAY_SIZE(media_level_attr),
+	return sdp_parse_attr(sdp, line, len, a, media_level_attr,
 		parse_attr_media, parse_attr_specific);
 }
 
@@ -644,6 +662,7 @@ struct sdp_session *sdp_parser_init(enum sdp_stream_type type, void *ctx)
 void sdp_parser_uninit(struct sdp_session *session)
 {
 	sdp_stream_close(session->sdp);
+	sdp_attr_free(session->a);
 	media_free(session->media);
 	free(session);
 }
@@ -686,8 +705,18 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 	}
 
 	/* skip parsing of non supported session-level descriptors */
-	if (sdp_parse_non_supported(sdp, &line, &len, "btvuezka") ==
+	if (sdp_parse_non_supported(sdp, &line, &len, "btvuezk") ==
 			SDP_PARSE_ERROR) {
+		goto exit;
+	}
+
+	if (!line) {
+		err = SDP_PARSE_OK;
+		goto exit;
+	}
+
+	if (sdp_parse_session_level_attr(sdp, &line, &len, &session->a,
+			parse_attr_specific) == SDP_PARSE_ERROR) {
 		goto exit;
 	}
 
@@ -745,7 +774,7 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 			return SDP_PARSE_OK;
 
 		/* parse media-level a=* */
-		if (sdp_parse_media_level_attr(sdp, &line, &len, media,
+		if (sdp_parse_media_level_attr(sdp, &line, &len, &media->a,
 				parse_attr_specific) == SDP_PARSE_ERROR) {
 			goto exit;
 		}
@@ -791,7 +820,7 @@ struct sdp_media *sdp_media_get_next(struct sdp_media *media)
 	return sdp_media_locate(media->next, media->m.type);
 }
 
-static struct sdp_attr *sdp_media_attr_locate(struct sdp_attr *attr,
+static struct sdp_attr *sdp_attr_locate(struct sdp_attr *attr,
 		enum sdp_attr_type type)
 {
 	if (attr && attr->type == SDP_ATTR_NONE)
@@ -804,11 +833,17 @@ static struct sdp_attr *sdp_media_attr_locate(struct sdp_attr *attr,
 struct sdp_attr *sdp_media_attr_get(struct sdp_media *media,
 		enum sdp_attr_type type)
 {
-	return sdp_media_attr_locate(media->a, type);
+	return sdp_attr_locate(media->a, type);
 }
 
-struct sdp_attr *sdp_media_attr_get_next(struct sdp_attr *attr)
+struct sdp_attr *sdp_session_attr_get(struct sdp_session *session,
+		enum sdp_attr_type type)
 {
-	return sdp_media_attr_locate(attr->next, attr->type);
+	return sdp_attr_locate(session->a, type);
+}
+
+struct sdp_attr *sdp_attr_get_next(struct sdp_attr *attr)
+{
+	return sdp_attr_locate(attr->next, attr->type);
 }
 
