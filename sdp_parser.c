@@ -378,8 +378,18 @@ static enum sdp_parse_err parse_attr_session(struct sdp_attr *a, char *attr,
 		char *value, char *params,
 		parse_attr_specific_t parse_attr_specific)
 {
-	a->type = SDP_ATTR_NOT_SUPPORTED;
-	return SDP_PARSE_NOT_SUPPORTED;
+	if (!strncmp(attr, "group", strlen("group"))) {
+		/* currently not supporting the general case */
+		if (!parse_attr_specific)
+			return SDP_PARSE_NOT_SUPPORTED;
+
+		return parse_attr_specific(a, attr, value, params);
+	} else {
+		a->type = SDP_ATTR_NOT_SUPPORTED;
+		return SDP_PARSE_NOT_SUPPORTED;
+	}
+
+	return SDP_PARSE_OK;
 }
 
 static enum sdp_parse_err sdp_parse_session_level_attr(sdp_stream_t sdp,
@@ -387,6 +397,7 @@ static enum sdp_parse_err sdp_parse_session_level_attr(sdp_stream_t sdp,
 		parse_attr_specific_t parse_attr_specific)
 {
 	static char *session_level_attr[] = {
+		"group",
 		NULL
 	};
 
@@ -605,6 +616,21 @@ static void sdp_attr_free(struct sdp_attr *attr)
 		attr = attr->next;
 
 		switch (tmp->type) {
+		case SDP_ATTR_GROUP:
+		{
+			struct group_identification_tag *tag;
+
+			while ((tag = tmp->value.group.tag)) {
+				tmp->value.group.tag =
+					tmp->value.group.tag->next;
+
+				free(tag->identification_tag);
+				free(tag);
+			}
+
+			free(tmp->value.group.semantic);
+		}
+		break;
 		case SDP_ATTR_FMTP:
 			if (tmp->value.fmtp.param_dtor) {
 				tmp->value.fmtp.param_dtor(
