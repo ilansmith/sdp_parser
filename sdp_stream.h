@@ -1,6 +1,10 @@
 #ifndef _SDP_STREAM_
 #define _SDP_STREAM_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Available stream sources */
 enum sdp_stream_type {
 	SDP_STREAM_TYPE_FILE, /* Regular file */
@@ -45,6 +49,10 @@ int sdp_stream_close(sdp_stream_t stream);
  *         terminating '\0'), -1 otherwise.
  */
 ssize_t sdp_stream_getline(char **lineptr, size_t *n, sdp_stream_t stream);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

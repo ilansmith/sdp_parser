@@ -6,6 +6,10 @@
 
 #include "sdp_stream.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define IS_WHITESPACE(_char_) ((_char_) == ' ' || (_char_) == '\t')
 
 enum sdp_parse_err {
@@ -258,5 +262,10 @@ struct sdp_attr *sdp_session_attr_get(struct sdp_session *session,
 		enum sdp_attr_type type);
 
 struct sdp_attr *sdp_attr_get_next(struct sdp_attr *attr);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif
 
