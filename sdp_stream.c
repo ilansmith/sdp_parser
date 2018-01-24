@@ -64,7 +64,7 @@ static ssize_t sdp_stream_getline_char(char **lineptr, size_t *n,
 {
 	char *buf = bs->buf + bs->offset;
 	char *eol = strchr(buf, '\n');
-	ssize_t size = eol - buf + 1;
+	size_t size = eol - buf + 1;
 
 	if (!n)
 		return -1;

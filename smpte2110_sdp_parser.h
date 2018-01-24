@@ -4,8 +4,6 @@
 #include <stdint.h>
 #include "sdp_parser.h"
 
-#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
-
 /* media-level attributes */
 
 enum smpte_2110_attr_param_err {

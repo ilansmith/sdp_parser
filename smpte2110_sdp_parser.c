@@ -2,6 +2,10 @@
 #include <string.h>
 #include "smpte2110_sdp_parser.h"
 
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
+#endif
+
 #define SMPTE_2110_ATTR_PARAM_ERR_REQUIRED (SMPTE_ERR_SAMPLING | \
 		SMPTE_ERR_DEPTH | SMPTE_ERR_WIDTH | SMPTE_ERR_HEIGHT | \
 		SMPTE_ERR_EXACTFRAMERATE | SMPTE_ERR_COLORIMETRY | \
@@ -476,7 +480,7 @@ static enum sdp_parse_err sdp_attr_param_parse_cmax(char *str,
 }
 
 static enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
-		char *attr, char *value, char *params)
+		char *params)
 {
 	struct {
 		char *param;
@@ -517,7 +521,7 @@ static enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
 
 	smpte2110_fmtp->err = 0; /* no attribute params have been parsed */
 	while ((token = strtok(params, ";"))) {
-		int i;
+		size_t i;
 
 		/* skip the white space(s) peceding the current token */
 		while (IS_WHITESPACE(*token))
@@ -592,7 +596,7 @@ fail:
 }
 
 static enum sdp_parse_err smpte2110_sdp_parse_group(struct sdp_attr *a,
-		char *attr, char *value, char *params)
+		char *value, char *params)
 {
 	char *id[2] = {0};
 	char *tmp;
@@ -608,7 +612,7 @@ static enum sdp_parse_err smpte2110_sdp_parse_group(struct sdp_attr *a,
 	for (i = 0; i < 2; i++) {
 		id[i] = strtok_r(params, " \n", &tmp);
 		if (!id[i] || (i ? *tmp : !*tmp)) {
-			sdperr("group DUP attribute bad format - %s", attr);
+			sdperr("group DUP attribute bad format");
 			return SDP_PARSE_ERROR;
 		}
 
@@ -651,10 +655,10 @@ enum sdp_parse_err smpte2110_sdp_parse_specific(struct sdp_attr *a, char *attr,
 		char *value, char *params)
 {
 	if (!strncmp(attr, "fmtp", strlen("fmtp")))
-		return smpte2110_sdp_parse_fmtp_params(a, attr, value, params);
+		return smpte2110_sdp_parse_fmtp_params(a, params);
 
 	if (!strncmp(attr, "group", strlen("group")))
-		return smpte2110_sdp_parse_group(a, attr, value, params);
+		return smpte2110_sdp_parse_group(a, value, params);
 
 	return SDP_PARSE_ERROR;
 }

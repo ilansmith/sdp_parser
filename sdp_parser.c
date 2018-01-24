@@ -6,7 +6,9 @@
 
 #include "sdp_parser.h"
 
-#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
+#ifndef NOT_IN_USE
+#define NOT_IN_USE(a) ((void)(a))
+#endif
 
 #define SKIP_WHITESPACES(_ptr_) ({ \
 	do { \
@@ -282,6 +284,12 @@ static enum sdp_parse_err parse_attr_common(struct sdp_attr *a, char *attr,
 		char *value, char *params,
 		parse_attr_specific_t parse_attr_specific)
 {
+	NOT_IN_USE(a);
+	NOT_IN_USE(attr);
+	NOT_IN_USE(value);
+	NOT_IN_USE(params);
+	NOT_IN_USE(parse_attr_specific);
+
 	return SDP_PARSE_OK;
 }
 
