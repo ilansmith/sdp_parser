@@ -10,6 +10,8 @@
 extern "C" {
 #endif
 
+#define STRNLENS_DEFAULT_MAX 100
+
 #define IS_WHITESPACE(_char_) ((_char_) == ' ' || (_char_) == '\t')
 
 enum sdp_parse_err {

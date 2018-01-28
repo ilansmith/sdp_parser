@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <safe_mem_lib.h>
+
 #include "sdp_stream.h"
 
 struct sdp_stream {
@@ -79,7 +81,7 @@ static ssize_t sdp_stream_getline_char(char **lineptr, size_t *n,
 		*lineptr = ptr;
 	}
 
-	memcpy(*lineptr, buf, size);
+	memcpy_s(*lineptr, size, buf, size);
 	(*lineptr)[size] = 0;
 	bs->offset += size;
 	return size;

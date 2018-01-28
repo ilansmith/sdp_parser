@@ -1,5 +1,8 @@
 #include <stdlib.h>
 #include <string.h>
+
+#include <safe_str_lib.h>
+
 #include "smpte2110_sdp_parser.h"
 
 #ifndef ARRAY_SIZE
@@ -509,6 +512,7 @@ static enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
 	struct attr_params p;
 	char *token;
 	struct smpte2110_media_attr_fmtp *smpte2110_fmtp;
+	size_t slmax;
 
 	smpte2110_fmtp = (struct smpte2110_media_attr_fmtp *)calloc(1,
 		sizeof(struct smpte2110_media_attr_fmtp));
@@ -520,7 +524,9 @@ static enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
 	attribute_params_set_defaults(&p);
 
 	smpte2110_fmtp->err = 0; /* no attribute params have been parsed */
-	while ((token = strtok(params, ";"))) {
+	slmax = strnlen_s(params, STRNLENS_DEFAULT_MAX);
+	strtok_s(params, &slmax, ";", &token);
+	while (token) {
 		size_t i;
 
 		/* skip the white space(s) peceding the current token */
@@ -556,6 +562,8 @@ static enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
 		/* mark attriute as parsed */
 		attribute_param_list[i].is_parsed = 1;
 		params = NULL;
+
+		strtok_s(params, &slmax, ";", &token);
 	}
 
 	/* assert all required attriute parameters have been provided */
@@ -602,6 +610,7 @@ static enum sdp_parse_err smpte2110_sdp_parse_group(struct sdp_attr *a,
 	char *tmp;
 	struct group_identification_tag **tag;
 	struct sdp_attr_value_group *group = &a->value.group;
+	size_t slmax = strnlen_s(params, STRNLENS_DEFAULT_MAX);
 	int i;
 
 	if (strncmp(value, "DUP", strlen("DUP"))) {
@@ -610,7 +619,8 @@ static enum sdp_parse_err smpte2110_sdp_parse_group(struct sdp_attr *a,
 	}
 
 	for (i = 0; i < 2; i++) {
-		id[i] = strtok_r(params, " \n", &tmp);
+
+		id[i] = strtok_s(params, &slmax, " \n", &tmp);
 		if (!id[i] || (i ? *tmp : !*tmp)) {
 			sdperr("group DUP attribute bad format");
 			return SDP_PARSE_ERROR;

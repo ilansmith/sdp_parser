@@ -4,6 +4,9 @@
 #include <string.h>
 #include <stdarg.h>
 
+#include <safe_mem_lib.h>
+#include <safe_str_lib.h>
+
 #include "sdp_parser.h"
 
 #ifndef NOT_IN_USE
@@ -31,13 +34,15 @@ static ssize_t sdp_getline(char **line, size_t *len, sdp_stream_t sdp)
 {
 	char *tmp;
 	ssize_t ret;
+	int strcmp_eq;
 
 	if (!*line)
 		return sdp_stream_getline(line, len, sdp);
 
 	tmp = strdup(*line);
 	ret = sdp_stream_getline(line, len, sdp);
-	if (!ret || !strcmp(tmp, *line)) {
+	strcmp_s(tmp, *len, *line, &strcmp_eq);
+	if (!ret || !strcmp_eq) {
 		free(*line);
 		*line = NULL;
 		ret = 0;
@@ -142,23 +147,27 @@ static enum sdp_parse_err sdp_parse_connection_information(sdp_stream_t sdp,
 	char *ptr;
 	char *tmp;
 	int ttl = 1;
+	size_t slmax;
+	int strcmp_eq;
 
-	if (strncmp(*line, "c=", 2))
+	strcmp_s(*line, 2, "c=", &strcmp_eq);
+	if (strcmp_eq)
 		return SDP_PARSE_OK;
 
 	ptr = *line + 2;
-	nettype = strtok_r(ptr, " ", &tmp);
+	slmax = strnlen_s(ptr, 47);
+	nettype = strtok_s(ptr, &slmax, " ", &tmp);
 	if (!nettype) {
 		sdperr("bad connection information nettype");
 		return SDP_PARSE_ERROR;
 	}
-	addrtype = strtok_r(NULL, " ", &tmp);
+	addrtype = strtok_s(NULL, &slmax, " ", &tmp);
 	if (!addrtype) {
 		sdperr("bad connection information addrtype");
 		return SDP_PARSE_ERROR;
 	}
 
-	addr = strtok_r(NULL, "/", &tmp);
+	addr = strtok_s(NULL, &slmax, "/", &tmp);
 	if (!addr) {
 		addr = tmp;
 	} else {
@@ -171,19 +180,25 @@ static enum sdp_parse_err sdp_parse_connection_information(sdp_stream_t sdp,
 		}
 	}
 
-	if (!strncmp(nettype, "IN", strlen("IN")))
+	strcmp_s(nettype, 2, "IN", &strcmp_eq);
+	if (!strcmp_eq)
 		c->nettype = SDP_CI_NETTYPE_IN;
 	else
 		c->nettype = SDP_CI_NETTYPE_NOT_SUPPORTED;
 
-	if (!strncmp(addrtype, "IP4", strlen("IP4")))
+	strcmp_s(addrtype, 3, "IP4", &strcmp_eq);
+	if (!strcmp_eq)
 		c->addrtype = SDP_CI_ADDRTYPE_IPV4;
-	else if (!strncmp(nettype, "IP6", strlen("IP6")))
-		c->addrtype = SDP_CI_ADDRTYPE_IPV6;
-	else
-		c->addrtype = SDP_CI_ADDRTYPE_NOT_SUPPORTED;
+	else {
+		strcmp_s(nettype, 3, "IP6", &strcmp_eq);
+		if (!strcmp_eq)
+			c->addrtype = SDP_CI_ADDRTYPE_IPV6;
+		else
+			c->addrtype = SDP_CI_ADDRTYPE_NOT_SUPPORTED;
+	}
 
-	strncpy(c->sdp_ci_addr, addr, sizeof(c->sdp_ci_addr));
+	strncpy_s(c->sdp_ci_addr, sizeof(c->sdp_ci_addr), addr,
+		sizeof(c->sdp_ci_addr));
 	c->sdp_ci_ttl = ttl;
 	c->count = 1;
 
@@ -206,27 +221,32 @@ static enum sdp_parse_err sdp_parse_media(sdp_stream_t sdp, char **line,
 	char *endptr;
 	struct sdp_media_fmt **smf = &media->fmt.next;
 	enum sdp_parse_err err = SDP_PARSE_OK;
+	size_t slmax;
+	int strcmp_eq;
 
-	if (strncmp(*line, "m=", 2)) {
+	strcmp_s(*line, 2, "m=", &strcmp_eq);
+	if (strcmp_eq) {
 		sdperr("bad media descriptor - m=");
 		return SDP_PARSE_ERROR;
 	}
 
 	ptr = *line + 2;
-	type = strtok_r(ptr, " ", &tmp);
+	slmax = strnlen_s(ptr, STRNLENS_DEFAULT_MAX);
+	type = strtok_s(ptr, &slmax, " ", &tmp);
 	if (!type) {
 		sdperr("bad media descriptor");
 		return SDP_PARSE_ERROR;
 	}
 	slash = strchr(tmp, '/');
-	port = strtol(strtok_r(NULL, " /", &tmp), &endptr, 10);
+	port = strtol(strtok_s(NULL, &slmax, " /", &tmp), &endptr, 10);
 	if (*endptr && *endptr != '\n') {
 		sdperr("bad media descriptor - port");
 		return SDP_PARSE_ERROR;
 	}
 
 	if (slash + 1 == tmp) {
-		num_ports = strtol(strtok_r(NULL, " ", &tmp), &endptr, 10);
+		num_ports = strtol(strtok_s(NULL, &slmax, " ", &tmp), &endptr,
+			10);
 		if (*endptr && *endptr != '\n') {
 			sdperr("bad media descriptor - num_ports");
 			return SDP_PARSE_ERROR;
@@ -235,21 +255,23 @@ static enum sdp_parse_err sdp_parse_media(sdp_stream_t sdp, char **line,
 		num_ports = 1;
 	}
 
-	proto = strtok_r(NULL, " ", &tmp);
-	fmt = strtol(strtok_r(NULL, " \n", &tmp), &endptr, 10);
+	proto = strtok_s(NULL, &slmax, " ", &tmp);
+	fmt = strtol(strtok_s(NULL, &slmax, " \n", &tmp), &endptr, 10);
 	if (*endptr && *endptr != '\n') {
 		sdperr("bad media descriptor - fmt");
 		return SDP_PARSE_ERROR;
 	}
 
-	if (!strncmp(type, "video", strlen("video"))) {
+	strcmp_s(type, 5, "video", &strcmp_eq);
+	if (!strcmp_eq) {
 		media->type = SDP_MEDIA_TYPE_VIDEO;
 	} else {
 		media->type = SDP_MEDIA_TYPE_NOT_SUPPORTED;
 		err = SDP_PARSE_NOT_SUPPORTED;
 	}
 
-	if (!strncmp(proto, "RTP/AVP", strlen("RTP/AVP"))) {
+	strcmp_s(proto, 7, "RTP/AVP", &strcmp_eq);
+	if (!strcmp_eq) {
 		media->proto = SDP_MEDIA_PROTO_RTP_AVP;
 	} else {
 		media->proto = SDP_MEDIA_PROTO_NOT_SUPPORTED;
@@ -266,7 +288,7 @@ static enum sdp_parse_err sdp_parse_media(sdp_stream_t sdp, char **line,
 			return SDP_PARSE_ERROR;
 		}
 
-		fmt = strtol(strtok_r(NULL, " \n", &tmp), &endptr, 10);
+		fmt = strtol(strtok_s(NULL, &slmax, " \n", &tmp), &endptr, 10);
 		if (*endptr && *endptr != '\n') {
 			sdperr("bad media descriptor - fmt");
 			return SDP_PARSE_ERROR;
@@ -307,6 +329,7 @@ static enum sdp_parse_err sdp_parse_attr(sdp_stream_t sdp, char **line,
 	enum sdp_parse_err err;
 	char *ptr = *line;
 	char *tmp;
+	int strcmp_eq;
 
 	char *common_level_attr[] = {
 #if 0
@@ -322,11 +345,13 @@ static enum sdp_parse_err sdp_parse_attr(sdp_stream_t sdp, char **line,
 
 	while (*line && **line != '\n' &&
 			sdp_parse_descriptor_type(*line) == 'a') {
-		ptr = *line + 2;
+		size_t slmax;
 
-		attr = strtok_r(ptr, ":\n", &tmp);
+		ptr = *line + 2;
+		slmax = strnlen_s(ptr, STRNLENS_DEFAULT_MAX);
+		attr = strtok_s(ptr, &slmax, ":\n", &tmp);
 		if (*tmp)
-			value = strtok_r(NULL, " ", &tmp);
+			value = strtok_s(NULL, &slmax, " ", &tmp);
 		if (*tmp)
 			params = tmp;
 
@@ -338,8 +363,11 @@ static enum sdp_parse_err sdp_parse_attr(sdp_stream_t sdp, char **line,
 
 		/* try to find a supported attribute in the session/media
 		 * common list */
-		for (supported_attr = common_level_attr; *supported_attr &&
-			strcmp(*supported_attr, attr); supported_attr++);
+		slmax = strnlen_s(attr, STRNLENS_DEFAULT_MAX);
+		for (supported_attr = common_level_attr,
+			strcmp_s(*supported_attr, slmax, attr, &strcmp_eq);
+			*supported_attr && strcmp_eq; supported_attr++,
+			strcmp_s(*supported_attr, slmax, attr, &strcmp_eq));
 		if (*supported_attr) {
 			err = parse_attr_common(*a, *supported_attr, value,
 				params, parse_attr_specific);
@@ -356,8 +384,10 @@ static enum sdp_parse_err sdp_parse_attr(sdp_stream_t sdp, char **line,
 		}
 
 		/* try to find supported attribute in current level list */
-		for (supported_attr = attr_level; *supported_attr &&
-			strcmp(*supported_attr, attr); supported_attr++);
+		for (supported_attr = common_level_attr,
+			strcmp_s(*supported_attr, slmax, attr, &strcmp_eq);
+			*supported_attr && strcmp_eq; supported_attr++,
+			strcmp_s(*supported_attr, slmax, attr, &strcmp_eq));
 		if (*supported_attr) {
 			err = parse_level(*a, *supported_attr, value, params,
 					parse_attr_specific);
@@ -386,7 +416,10 @@ static enum sdp_parse_err parse_attr_session(struct sdp_attr *a, char *attr,
 		char *value, char *params,
 		parse_attr_specific_t parse_attr_specific)
 {
-	if (!strncmp(attr, "group", strlen("group"))) {
+	int strcmp_eq;
+
+	strcmp_s(attr, 5, "group", &strcmp_eq);
+	if (!strcmp_eq) {
 		/* currently not supporting the general case */
 		if (!parse_attr_specific)
 			return SDP_PARSE_NOT_SUPPORTED;
@@ -424,43 +457,52 @@ static enum sdp_parse_err sdp_parse_attr_source_filter(
 	char *tmp;
 	struct source_filter_src_addr src_list;
 	int src_list_len;
+	size_t slmax;
+	int strcmp_eq;
 
 	/* filter-mode */
-	if (!strncmp(value, "incl", strlen("incl"))) {
+	strcmp_s(value, 4, "incl", &strcmp_eq);
+	if (!strcmp_eq) {
 		source_filter->mode = SDP_ATTR_SRC_FLT_INCL;
-	} else if (!strncmp(value, "excl", strlen("excl"))) {
-		source_filter->mode = SDP_ATTR_SRC_FLT_EXCL;
 	} else {
-		sdperr("bad source-filter mode type");
+		strcmp_s(value, 4, "excl", &strcmp_eq);
+
+		if (!strcmp_eq)
+			source_filter->mode = SDP_ATTR_SRC_FLT_EXCL;
+		else
+			sdperr("bad source-filter mode type");
+
 		return SDP_PARSE_ERROR;
 	}
 
+	slmax = strnlen_s(params, STRNLENS_DEFAULT_MAX);
 	/* filter-spec */
-	nettype = strtok_r(params, " ", &tmp);
+	nettype = strtok_s(params, &slmax, " ", &tmp);
 	if (!nettype) {
 		sdperr("bad source-filter nettype");
 		return SDP_PARSE_ERROR;
 	}
 
-	addrtype = strtok_r(NULL, " ", &tmp);
+	addrtype = strtok_s(NULL, &slmax, " ", &tmp);
 	if (!addrtype) {
 		sdperr("bad source-filter addrtype");
 		return SDP_PARSE_ERROR;
 	}
 
-	dst_addr = strtok_r(NULL, " ", &tmp);
+	dst_addr = strtok_s(NULL, &slmax, " ", &tmp);
 	if (!dst_addr) {
 		sdperr("bad source-filter dst-addr");
 		return SDP_PARSE_ERROR;
 	}
 
-	src_addr = strtok_r(NULL, " \n", &tmp);
+	src_addr = strtok_s(NULL, &slmax, " \n", &tmp);
 	if (!src_addr) {
 		sdperr("bad source-filter src-addr");
 		return SDP_PARSE_ERROR;
 	}
-	memset(&src_list, 0, sizeof(struct source_filter_src_addr));
-	strncpy(src_list.addr, src_addr, sizeof(src_list.addr));
+	memset_s(&src_list, sizeof(struct source_filter_src_addr), 0);
+	strncpy_s(src_list.addr, sizeof(src_list.addr), src_addr,
+		sizeof(src_list.addr));
 	src_list.next = NULL;
 	src_list_len = 1;
 
@@ -474,22 +516,32 @@ static enum sdp_parse_err sdp_parse_attr_source_filter(
 		*tmp = 0;
 	}
 
-	if (!strncmp(nettype, "IN", strlen("IN")))
+	strcmp_s(nettype, 2, "IN", &strcmp_eq);
+	if (!strcmp_eq)
 		source_filter->spec.nettype = SDP_CI_NETTYPE_IN;
 	else
 		source_filter->spec.nettype = SDP_CI_NETTYPE_NOT_SUPPORTED;
 
-	if (!strncmp(addrtype, "IP4", strlen("IP4")))
+	strcmp_s(addrtype, 3, "IP4", &strcmp_eq);
+	if (!strcmp_eq) {
 		source_filter->spec.addrtype = SDP_CI_ADDRTYPE_IPV4;
-	else if (!strncmp(nettype, "IP6", strlen("IP6")))
-		source_filter->spec.addrtype = SDP_CI_ADDRTYPE_IPV6;
-	else
-		source_filter->spec.addrtype = SDP_CI_ADDRTYPE_NOT_SUPPORTED;
+	} else {
+		strcmp_s(nettype, 3, "IP6", &strcmp_eq);
 
-	strncpy(source_filter->spec.dst_addr, dst_addr,
+		if (!strcmp_eq) {
+			source_filter->spec.addrtype = SDP_CI_ADDRTYPE_IPV6;
+		} else {
+			source_filter->spec.addrtype =
+				SDP_CI_ADDRTYPE_NOT_SUPPORTED;
+		}
+	}
+
+	strncpy_s(source_filter->spec.dst_addr,
+		sizeof(source_filter->spec.dst_addr), dst_addr,
 		sizeof(source_filter->spec.dst_addr));
 
-	memcpy(&source_filter->spec.src_list, &src_list,
+	memcpy_s(&source_filter->spec.src_list,
+		sizeof(struct source_filter_src_addr), &src_list,
 		sizeof(struct source_filter_src_addr));
 
 	source_filter->spec.src_list_len = src_list_len;
@@ -501,14 +553,18 @@ static enum sdp_parse_err parse_attr_media(struct sdp_attr *a, char *attr,
 		parse_attr_specific_t parse_attr_specific)
 {
 	char *endptr;
+	size_t slmax;
+	int strcmp_eq;
 
-	if (!strncmp(attr, "rtpmap", strlen("rtpmap"))) {
+	strcmp_s(attr, 6, "rtpmap", &strcmp_eq);
+	if (!strcmp_eq) {
 		struct sdp_attr_value_rtpmap *rtpmap = &a->value.rtpmap;
 		char *media_subtype, *clock_rate;
 
 		a->type = SDP_ATTR_RTPMAP;
 
-		media_subtype = strtok_r(params, "/", &clock_rate);
+		slmax = strnlen_s(params, STRNLENS_DEFAULT_MAX);
+		media_subtype = strtok_s(params, &slmax, "/", &clock_rate);
 
 		if (!media_subtype || !clock_rate) {
 			sdperr("attribute bad format - %s", attr);
@@ -521,62 +577,83 @@ static enum sdp_parse_err parse_attr_media(struct sdp_attr *a, char *attr,
 			return SDP_PARSE_ERROR;
 		}
 
-		strncpy(rtpmap->media_subtype, media_subtype,
-			sizeof(rtpmap->media_subtype));
+		strncpy_s(rtpmap->media_subtype, sizeof(rtpmap->media_subtype),
+			media_subtype, sizeof(rtpmap->media_subtype));
 
 		rtpmap->clock_rate = strtol(clock_rate, &endptr, 10);
 		if (*endptr && *endptr != '\n') {
 			sdperr("attribute bad format - %s", attr);
 			return SDP_PARSE_ERROR;
 		}
-	} else if (!strncmp(attr, "fmtp", strlen("fmtp"))) {
-		struct sdp_attr_value_fmtp *fmtp = &a->value.fmtp;
-		char *endptr;
-
-		a->type = SDP_ATTR_FMTP;
-
-		fmtp->fmt = strtol(value, &endptr, 10);
-		if (*endptr && *endptr != '\n') {
-			sdperr("attribute bad format - %s", attr);
-			return SDP_PARSE_ERROR;
-		}
-
-		if (*params && (!parse_attr_specific ||
-				parse_attr_specific(a, attr, value, params) ==
-				SDP_PARSE_ERROR)) {
-			return SDP_PARSE_ERROR;
-		}
-	} else if (!strncmp(attr, "source-filter", strlen("source-filter"))) {
-		struct sdp_attr_value_source_filter *source_filter;
-
-		source_filter = &a->value.source_filter;
-		a->type = SDP_ATTR_SOURCE_FILTER;
-
-		if (sdp_parse_attr_source_filter(source_filter, attr, value,
-				params)) {
-			sdperr("attribute bad format - %s", attr);
-			return SDP_PARSE_ERROR;
-		}
-	} else if (!strncmp(attr, "mid", strlen("mid"))) {
-		char *identification_tag;
-
-		a->type = SDP_ATTR_MID;
-		identification_tag = strtok(value, "\n");
-		if (!identification_tag) {
-			sdperr("attribute bad format - %s", attr);
-			return SDP_PARSE_ERROR;
-		}
-
-		a->value.mid.identification_tag = strdup(value);
-		if (!a->value.mid.identification_tag) {
-			sdperr("failed to allocate memory for "
-				"identification_tag: %s", value);
-			return SDP_PARSE_ERROR;
-		}
 	} else {
-		a->type = SDP_ATTR_NOT_SUPPORTED;
-		return SDP_PARSE_NOT_SUPPORTED;
-	}
+		strcmp_s(attr, 4, "fmtp", &strcmp_eq);
+
+		if (!strcmp_eq) {
+			struct sdp_attr_value_fmtp *fmtp = &a->value.fmtp;
+			char *endptr;
+
+			a->type = SDP_ATTR_FMTP;
+
+			fmtp->fmt = strtol(value, &endptr, 10);
+			if (*endptr && *endptr != '\n') {
+				sdperr("attribute bad format - %s", attr);
+				return SDP_PARSE_ERROR;
+			}
+
+			if (*params && (!parse_attr_specific ||
+				parse_attr_specific(a, attr, value, params) ==
+					SDP_PARSE_ERROR)) {
+				return SDP_PARSE_ERROR;
+			}
+		} else {
+			strcmp_s(attr, 13, "source-filter", &strcmp_eq);
+
+			if (!strcmp_eq) {
+				struct sdp_attr_value_source_filter *source_filter;
+
+				source_filter = &a->value.source_filter;
+				a->type = SDP_ATTR_SOURCE_FILTER;
+
+				if (sdp_parse_attr_source_filter(source_filter,
+						attr, value, params)) {
+					sdperr("attribute bad format - %s",
+						attr);
+					return SDP_PARSE_ERROR;
+				}
+			} else {
+				strcmp_s(attr, 3, "mid", &strcmp_eq);
+
+				if (!strcmp_eq) {
+					char *identification_tag;
+					char *tmp;
+
+					a->type = SDP_ATTR_MID;
+					slmax = strnlen_s(value,
+						STRNLENS_DEFAULT_MAX);
+					identification_tag = strtok_s(value,
+						&slmax, "\n", &tmp);
+					if (!identification_tag) {
+						sdperr("attribute bad format - "
+							"%s", attr);
+						return SDP_PARSE_ERROR;
+					}
+
+					a->value.mid.identification_tag =
+						strdup(value);
+					if (!a->value.mid.identification_tag) {
+						sdperr("failed to allocate "
+							"memory for "
+							"identification_tag: "
+							"%s", value);
+						return SDP_PARSE_ERROR;
+					}
+				} else {
+					a->type = SDP_ATTR_NOT_SUPPORTED;
+					return SDP_PARSE_NOT_SUPPORTED;
+				}
+			}
+		}
+	} 
 
 	return SDP_PARSE_OK;
 }
