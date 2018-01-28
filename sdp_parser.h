@@ -10,7 +10,7 @@
 extern "C" {
 #endif
 
-#define STRNLENS_DEFAULT_MAX 100
+#define STRNLENS_DEFAULT_MAX 256
 
 #define IS_WHITESPACE(_char_) ((_char_) == ' ' || (_char_) == '\t')
 

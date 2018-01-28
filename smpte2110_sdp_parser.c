@@ -1,8 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <safe_str_lib.h>
-
+#include "safestringlib/safe_str_lib.h"
 #include "smpte2110_sdp_parser.h"
 
 #ifndef ARRAY_SIZE
@@ -227,19 +226,19 @@ static enum sdp_parse_err sdp_attr_param_parse_colorimetry(char *str,
 		return SDP_PARSE_ERROR;
 	}
 
-	if (!strncmp(colorimetry, "BT601", strlen("BT601")))
+	if (!strncmp(colorimetry, "BT601", 5))
 		params->colorimetry = COLORIMETRY_BT601;
-	else if (!strncmp(colorimetry, "BT709", strlen("BT709")))
+	else if (!strncmp(colorimetry, "BT709", 5))
 		params->colorimetry = COLORIMETRY_BT709;
-	else if (!strncmp(colorimetry, "BT2020", strlen("BT2020")))
+	else if (!strncmp(colorimetry, "BT2020", 6))
 		params->colorimetry = COLORIMETRY_BT2020;
-	else if (!strncmp(colorimetry, "BT2100", strlen("BT2100")))
+	else if (!strncmp(colorimetry, "BT2100", 6))
 		params->colorimetry = COLORIMETRY_BT2100;
-	else if (!strncmp(colorimetry, "ST2065_1", strlen("ST2065_1")))
+	else if (!strncmp(colorimetry, "ST2065_1", 8))
 		params->colorimetry = COLORIMETRY_ST2065_1;
-	else if (!strncmp(colorimetry, "ST2065_3", strlen("ST2065_3")))
+	else if (!strncmp(colorimetry, "ST2065_3", 8))
 		params->colorimetry = COLORIMETRY_ST2065_3;
-	else if (!strncmp(colorimetry, "UNSPECIFIED", strlen("UNSPECIFIED")))
+	else if (!strncmp(colorimetry, "UNSPECIFIED", 11))
 		params->colorimetry = COLORIMETRY_UNSPECIFIED;
 	else
 		goto err;
@@ -263,9 +262,9 @@ static enum sdp_parse_err sdp_attr_param_parse_pm(char *str,
 		return SDP_PARSE_ERROR;
 	}
 
-	if (!strncmp(pm, "2110GPM", strlen("2110GPM")))
+	if (!strncmp(pm, "2110GPM", 7))
 		params->pm = PM_2110GPM;
-	else if (!strncmp(pm, "2110BPM", strlen("2110BPM")))
+	else if (!strncmp(pm, "2110BPM", 7))
 		params->pm = PM_2110BPM;
 	else
 		goto err;
@@ -288,11 +287,11 @@ static enum sdp_parse_err sdp_attr_param_parse_tp(char *str,
 		return SDP_PARSE_ERROR;
 	}
 
-	if (!strncmp(tp, "2110TPN", strlen("2110TPN")))
+	if (!strncmp(tp, "2110TPN", 7))
 		params->tp = TP_2110TPN;
-	else if (!strncmp(tp, "2110TPNL", strlen("2110TPNL")))
+	else if (!strncmp(tp, "2110TPNL", 8))
 		params->tp = TP_2110TPNL;
-	else if (!strncmp(tp, "2110TPW", strlen("2110TPW")))
+	else if (!strncmp(tp, "2110TPW", 7))
 		params->tp = TP_2110TPW;
 	else
 		goto err;
@@ -308,7 +307,8 @@ err:
 static enum sdp_parse_err sdp_attr_param_parse_ssn(char *str,
 		struct attr_params *params, uint32_t *err)
 {
-	if (strncmp(str, "SSN=ST2110-20:2017", strlen("SSN=ST2110-20:2017"))) {
+	if (strncmp(str, "SSN=ST2110-20:2017", 18) &&
+			strncmp(str, "\"SSN=ST2110-20:2017\"", 20)) {
 		sdperr("parameter format: %s", str);
 		return SDP_PARSE_ERROR;
 	}
@@ -321,7 +321,7 @@ static enum sdp_parse_err sdp_attr_param_parse_ssn(char *str,
 static enum sdp_parse_err sdp_attr_param_parse_interlace(char *str,
 		struct attr_params *params, uint32_t *err)
 {
-	if (strncmp(str, "interlace", strlen("interlace"))) {
+	if (strncmp(str, "interlace", 9)) {
 		sdperr("parameter format: interlace");
 		return SDP_PARSE_ERROR;
 	}
@@ -334,7 +334,7 @@ static enum sdp_parse_err sdp_attr_param_parse_interlace(char *str,
 static enum sdp_parse_err sdp_attr_param_parse_segmented(char *str,
 		struct attr_params *params, uint32_t *err)
 {
-	if (strncmp(str, "segmented", strlen("segmented"))) {
+	if (strncmp(str, "segmented", 9)) {
 		sdperr("parameter format: segmented");
 		return SDP_PARSE_ERROR;
 	}
@@ -354,25 +354,25 @@ static enum sdp_parse_err sdp_attr_param_parse_tcs(char *str,
 		return SDP_PARSE_ERROR;
 	}
 
-	if (!strncmp(tcs, "SDR", strlen("SDR")))
+	if (!strncmp(tcs, "SDR", 3))
 		params->tcs = TCS_SDR;
-	else if (!strncmp(tcs, "PQ", strlen("PQ")))
+	else if (!strncmp(tcs, "PQ", 2))
 		params->tcs = TCS_PQ;
-	else if (!strncmp(tcs, "HLG", strlen("HLGS")))
+	else if (!strncmp(tcs, "HLG", 4))
 		params->tcs = TCS_HLG;
-	else if (!strncmp(tcs, "LINEAR", strlen("LINEAR")))
+	else if (!strncmp(tcs, "LINEAR", 6))
 		params->tcs = TCS_LINEAR;
-	else if (!strncmp(tcs, "BT2100LINPQ", strlen("BT2100LINPQ")))
+	else if (!strncmp(tcs, "BT2100LINPQ", 11))
 		params->tcs = TCS_BT2100LINPQ;
-	else if (!strncmp(tcs, "BT2100LINHLG", strlen("BT2100LINHLG")))
+	else if (!strncmp(tcs, "BT2100LINHLG", 12))
 		params->tcs = TCS_BT2100LINHLG;
-	else if (!strncmp(tcs, "ST2065-1", strlen("ST2065-1")))
+	else if (!strncmp(tcs, "ST2065-1", 8))
 		params->tcs = TCS_ST2065_1;
-	else if (!strncmp(tcs, "ST428-1", strlen("ST428-1")))
+	else if (!strncmp(tcs, "ST428-1", 7))
 		params->tcs = TCS_ST428_1;
-	else if (!strncmp(tcs, "DENSITY", strlen("DENSITY")))
+	else if (!strncmp(tcs, "DENSITY", 7))
 		params->tcs = TCS_DENSITY;
-	else if (!strncmp(tcs, "UNSPECIFIED", strlen("UNSPECIFIED")))
+	else if (!strncmp(tcs, "UNSPECIFIED", 11))
 		params->tcs = TCS_UNSPECIFIED;
 	else
 		goto err;
@@ -396,11 +396,11 @@ static enum sdp_parse_err sdp_attr_param_parse_range(char *str,
 		return SDP_PARSE_ERROR;
 	}
 
-	if (!strncmp(range, "NARROW", strlen("NARROW")))
+	if (!strncmp(range, "NARROW", 6))
 		params->range = RANGE_NARROW;
-	else if (!strncmp(range, "FULL", strlen("FULL")))
+	else if (!strncmp(range, "FULL", 4))
 		params->range = RANGE_FULL;
-	else if (!strncmp(range, "FULLPROTECT", strlen("FULLPROTECT")))
+	else if (!strncmp(range, "FULLPROTECT", 11))
 		params->range = RANGE_FULLPROTECT;
 	else
 		goto err;
@@ -511,6 +511,7 @@ static enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
 	};
 	struct attr_params p;
 	char *token;
+	char *tmp;
 	struct smpte2110_media_attr_fmtp *smpte2110_fmtp;
 	size_t slmax;
 
@@ -525,8 +526,7 @@ static enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
 
 	smpte2110_fmtp->err = 0; /* no attribute params have been parsed */
 	slmax = strnlen_s(params, STRNLENS_DEFAULT_MAX);
-	strtok_s(params, &slmax, ";", &token);
-	while (token) {
+	while ((token = strtok_s(params, &slmax, ";", &tmp))) {
 		size_t i;
 
 		/* skip the white space(s) peceding the current token */
@@ -536,9 +536,15 @@ static enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
 		if (*token == '\n')
 			break;
 
-		for (i = 0; i < ARRAY_SIZE(attribute_param_list) &&
-			strncasecmp(token, attribute_param_list[i].param,
-				strlen(attribute_param_list[i].param)); i++);
+		for (i = 0; i < ARRAY_SIZE(attribute_param_list); i++) {
+			size_t cmplen = strnlen_s(attribute_param_list[i].param,
+				STRNLENS_DEFAULT_MAX);
+
+			if (!strncasecmp(token, attribute_param_list[i].param,
+					cmplen)) {
+				break;
+			}
+		}
 
 		/* verify attribute is found in list */
 		if (i == ARRAY_SIZE(attribute_param_list)) {
@@ -562,8 +568,6 @@ static enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
 		/* mark attriute as parsed */
 		attribute_param_list[i].is_parsed = 1;
 		params = NULL;
-
-		strtok_s(params, &slmax, ";", &token);
 	}
 
 	/* assert all required attriute parameters have been provided */
@@ -613,7 +617,7 @@ static enum sdp_parse_err smpte2110_sdp_parse_group(struct sdp_attr *a,
 	size_t slmax = strnlen_s(params, STRNLENS_DEFAULT_MAX);
 	int i;
 
-	if (strncmp(value, "DUP", strlen("DUP"))) {
+	if (strncmp(value, "DUP", 3)) {
 		sdperr("unsupported group semantic for media: %s", value);
 		return SDP_PARSE_ERROR;
 	}
@@ -664,10 +668,10 @@ fail:
 enum sdp_parse_err smpte2110_sdp_parse_specific(struct sdp_attr *a, char *attr,
 		char *value, char *params)
 {
-	if (!strncmp(attr, "fmtp", strlen("fmtp")))
+	if (!strncmp(attr, "fmtp", 4))
 		return smpte2110_sdp_parse_fmtp_params(a, params);
 
-	if (!strncmp(attr, "group", strlen("group")))
+	if (!strncmp(attr, "group", 5))
 		return smpte2110_sdp_parse_group(a, value, params);
 
 	return SDP_PARSE_ERROR;

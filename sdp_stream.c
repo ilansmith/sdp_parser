@@ -2,8 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <safe_mem_lib.h>
-
+#include "safestringlib/safe_mem_lib.h"
 #include "sdp_stream.h"
 
 struct sdp_stream {
