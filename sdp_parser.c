@@ -8,8 +8,6 @@
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
 
-#define IS_WHITESPACE(_char_) ((_char_) == ' ' || (_char_) == '\t')
-
 #define SKIP_WHITESPACES(_ptr_) ({ \
 	do { \
 		while ((*_ptr_) == ' ') \
@@ -17,25 +15,6 @@
 	} while (0); \
 	*_ptr_; \
 })
-
-#define SDP_ATTR_PARAM_PARSE(_param_) \
-	{ \
-		.param = # _param_, \
-		.parser = sdp_attr_param_parse_ ## _param_, \
-		.is_parsed = 0 \
-	}
-
-#define FREE_LIST_TEMPLATE(list, type) \
-	static void list ## _free(type *t) \
-	{ \
-		while (t) { \
-			type *tmp; \
-			\
-			tmp = t; \
-			t = t->next; \
-			free(tmp); \
-		} \
-	}
 
 static char *common_level_attr[] = {
 	"recvonly",
@@ -45,9 +24,6 @@ static char *common_level_attr[] = {
 	"sdplang",
 	"lang",
 };
-
-FREE_LIST_TEMPLATE(media_fmt, struct sdp_media_fmt)
-FREE_LIST_TEMPLATE(sdp_attr, struct sdp_attr)
 
 static size_t sdp_getline(char **line, size_t *len, FILE *sdp)
 {
@@ -67,19 +43,6 @@ static size_t sdp_getline(char **line, size_t *len, FILE *sdp)
 
 	free(tmp);
 	return ret;
-}
-
-static void sdperr(char *fmt, ...)
-{
-	va_list va;
-
-	va_start(va, fmt);
-	fprintf(stderr, "SDP parse error - ");
-	vfprintf(stderr, fmt, va);
-	fprintf(stderr, "\n");
-	va_end(va);
-
-	fflush(stderr);
 }
 
 static char sdp_parse_descriptor_type(char *line)
@@ -325,7 +288,7 @@ static enum sdp_parse_err parse_attr_common(struct sdp_attr *a, char *attr,
 
 static enum sdp_parse_err parse_attr_media(struct sdp_attr *a, char *attr,
 		char *value, char *params,
-		parse_specific_attr_func parse_specific)
+		parse_attr_specific_t parse_attr_specific)
 {
 	char *endptr;
 
@@ -366,8 +329,9 @@ static enum sdp_parse_err parse_attr_media(struct sdp_attr *a, char *attr,
 			return SDP_PARSE_ERROR;
 		}
 
-		if (*params && (!parse_specific ||
-				parse_specific(a, attr, value, params))) {
+		if (*params && (!parse_attr_specific ||
+				parse_attr_specific(a, attr, value, params) ==
+				SDP_PARSE_ERROR)) {
 			return SDP_PARSE_ERROR;
 		}
 
@@ -386,8 +350,8 @@ static enum sdp_parse_err sdp_parse_attr(FILE *sdp, char **line, size_t *len,
 		char **attr_level, int attr_level_len,
 		enum sdp_parse_err (*parse_level)(struct sdp_attr *a,
 			char *attr, char *value, char *params,
-			parse_specific_attr_func parse_specific),
-		parse_specific_attr_func parse_specific)
+			parse_attr_specific_t parse_attr_specific),
+		parse_attr_specific_t parse_attr_specific)
 {
 	struct sdp_attr **a = &media->a; /* a=* */
 	char *attr;
@@ -434,7 +398,7 @@ static enum sdp_parse_err sdp_parse_attr(FILE *sdp, char **line, size_t *len,
 			if (!strncmp(attr, attr_level[i],
 					strlen(attr_level[i]))) {
 				if ((err = parse_level(*a, attr, value,
-						params, parse_specific)) !=
+						params, parse_attr_specific)) !=
 						SDP_PARSE_OK) {
 					free(*a);
 					return err;
@@ -444,9 +408,11 @@ static enum sdp_parse_err sdp_parse_attr(FILE *sdp, char **line, size_t *len,
 			}
 		}
 
-		if (!is_attr && parse_specific) {
+		if (!is_attr && parse_attr_specific) {
 			(*a)->type = SDP_ATTR_SPECIFIC;
-			is_attr = !parse_specific(*a, attr, value, params);
+			is_attr =
+				parse_attr_specific(*a, attr, value, params) !=
+				SDP_PARSE_ERROR;
 		}
 
 		/* XXX non supported attributes are not handled/reported */
@@ -465,7 +431,7 @@ static enum sdp_parse_err sdp_parse_attr(FILE *sdp, char **line, size_t *len,
 
 static enum sdp_parse_err sdp_parse_media_level_attr(FILE *sdp, char **line,
 		size_t *len, struct sdp_media *media,
-		parse_specific_attr_func parse_specific)
+		parse_attr_specific_t parse_attr_specific)
 {
 	static char *media_level_attr[] = {
 		"ptime",
@@ -480,7 +446,32 @@ static enum sdp_parse_err sdp_parse_media_level_attr(FILE *sdp, char **line,
 	return sdp_parse_attr(sdp, line, len, media,
 		common_level_attr, ARRAY_SIZE(common_level_attr),
 		media_level_attr, ARRAY_SIZE(media_level_attr),
-		parse_attr_media, parse_specific);
+		parse_attr_media, parse_attr_specific);
+}
+
+static void media_fmt_free(struct sdp_media_fmt *fmt)
+{
+	while (fmt) {
+		struct sdp_media_fmt *tmp;
+
+		tmp = fmt;
+		fmt = fmt->next;
+		free(tmp);
+	}
+}
+
+static void sdp_attr_free(struct sdp_attr *attr)
+{
+	while (attr) {
+		struct sdp_attr *tmp;
+
+		tmp = attr;
+		attr = attr->next;
+
+		if (tmp->type == SDP_ATTR_SPECIFIC)
+			free(tmp->value.specific);
+		free(tmp);
+	}
 }
 
 static void media_free(struct sdp_media *media)
@@ -522,7 +513,7 @@ void sdp_parser_uninit(struct sdp_session *session)
 }
 
 enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
-		parse_specific_attr_func parse_specific)
+		parse_attr_specific_t parse_attr_specific)
 {
 	enum sdp_parse_err err = SDP_PARSE_ERROR;
 	char *line = NULL;
@@ -573,6 +564,7 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 
 	do {
 		struct sdp_media *media;
+		struct sdp_media **next;
 
 		if (sdp_parse_descriptor_type(line) != 'm')
 			goto exit;
@@ -614,13 +606,13 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 
 		/* parse media-level a=* */
 		if (sdp_parse_media_level_attr(sdp, &line, &len, media,
-				parse_specific) == SDP_PARSE_ERROR) {
+				parse_attr_specific) == SDP_PARSE_ERROR) {
 			goto exit;
 		}
 
 		/* add media to session */
-		media->next = session->media;
-		session->media = media;
+		for (next = &session->media; *next; next = &(*next)->next);
+		*next = media;
 	} while (line && *line != '\n');
 
 	err = SDP_PARSE_OK;
@@ -630,3 +622,17 @@ exit:
 	free(line);
 	return err;
 }
+
+void sdperr(char *fmt, ...)
+{
+	va_list va;
+
+	va_start(va, fmt);
+	fprintf(stderr, "SDP parse error - ");
+	vfprintf(stderr, fmt, va);
+	fprintf(stderr, "\n");
+	va_end(va);
+
+	fflush(stderr);
+}
+
