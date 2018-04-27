@@ -239,8 +239,8 @@ struct sdp_session {
 	struct sdp_media *media; /* media-level descriptor(s) */
 };
 
-typedef enum sdp_parse_err (*parse_attr_specific_t)(struct sdp_attr *a,
-	char *attr, char *value, char *params);
+typedef enum sdp_parse_err (*parse_attr_specific_t)(struct sdp_media *media,
+	struct sdp_attr *a, char *attr, char *value, char *params);
 
 struct sdp_session *sdp_parser_init(enum sdp_stream_type type, void *ctx);
 void sdp_parser_uninit(struct sdp_session *session);

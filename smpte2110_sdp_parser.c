@@ -496,13 +496,17 @@ static enum sdp_parse_err sdp_attr_param_parse_cmax(char *str,
 	return SDP_PARSE_OK;
 }
 
-static enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
+static enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(
+		struct sdp_media *media,struct sdp_attr *a, char *value,
 		char *params)
 {
 	struct attr_params p;
 	char *token;
+	char *endptr;
 	struct smpte2110_media_attr_fmtp *smpte2110_fmtp;
 	size_t i;
+	int fmt;
+	struct sdp_attr *rtpmap_attr;
 	SMPTE_2110_FMTP_TABLE_START(attribute_param_list, FMTP_PARAMS_NUM)
 		SMPTE_2110_FMTP_NUM_ENTRY(sampling);
 		SMPTE_2110_FMTP_NUM_ENTRY(depth);
@@ -522,6 +526,30 @@ static enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
 		SMPTE_2110_FMTP_NUM_ENTRY(troff);
 		SMPTE_2110_FMTP_NUM_ENTRY(cmax);
 	SMPTE_2110_FMTP_TABLE_END
+
+	/* identify if this a=fmtp descirbes raw video or not */
+	fmt = strtol(value, &endptr, 10);
+	if (*endptr) {
+		sdperr("bad fmt - %s", value);
+		return SDP_PARSE_ERROR;
+	}
+	/* Assumption: a=rtpmap comes before a=fmtp in the media block */
+	for (rtpmap_attr = sdp_media_attr_get(media, SDP_ATTR_RTPMAP);
+			rtpmap_attr;
+			rtpmap_attr = sdp_attr_get_next(rtpmap_attr )) {
+		if (strncmp(rtpmap_attr->value.rtpmap.media_subtype, "raw", 3))
+			continue;
+
+		if (rtpmap_attr->value.rtpmap.fmt == fmt)
+			break;
+		
+		sdperr("fmtp wrong format - %d (expected - %d)", fmt,
+			rtpmap_attr->value.rtpmap.fmt);
+		return SDP_PARSE_ERROR;
+	}
+
+	if (!rtpmap_attr)
+		return SDP_PARSE_NOT_SUPPORTED;
 
 	smpte2110_fmtp = (struct smpte2110_media_attr_fmtp *)calloc(1,
 		sizeof(struct smpte2110_media_attr_fmtp));
@@ -667,11 +695,14 @@ fail:
 	return SDP_PARSE_ERROR;
 }
 
-enum sdp_parse_err smpte2110_sdp_parse_specific(struct sdp_attr *a, char *attr,
-		char *value, char *params)
+enum sdp_parse_err smpte2110_sdp_parse_specific(struct sdp_media *media,
+		struct sdp_attr *a, char *attr, char *value, char *params)
 {
+	if (media && media->m.type != SDP_MEDIA_TYPE_VIDEO)
+		return SDP_PARSE_OK;
+
 	if (!strncmp(attr, "fmtp", strlen("fmtp")))
-		return smpte2110_sdp_parse_fmtp_params(a, params);
+		return smpte2110_sdp_parse_fmtp_params(media, a, value, params);
 
 	if (!strncmp(attr, "group", strlen("group")))
 		return smpte2110_sdp_parse_group(a, value, params);
