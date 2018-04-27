@@ -472,6 +472,111 @@ static int test017(void)
 	return test_generic(content, SDP_PARSE_OK, assert_source_filter);
 }
 
+static int assert_mid(struct sdp_session *session)
+{
+	struct sdp_media *media;
+	int cnt_m;
+
+	/* loop over all m= blocks */
+	for (media = sdp_media_get(session, SDP_MEDIA_TYPE_VIDEO), cnt_m = 0;
+		media; media = sdp_media_get_next(media), cnt_m++) {
+		struct sdp_attr *attr;
+		int cnt_a;
+
+		if (1 < cnt_m) {
+			printf("%s(): excess media clauses\n", __FUNCTION__);
+			return -1;
+		}
+
+		/* loop over all a=mid blocks */
+		for (attr = sdp_media_attr_get(media, SDP_ATTR_MID),
+			cnt_a = 0; attr;
+			attr = sdp_attr_get_next(attr), cnt_a++) {
+			struct sdp_attr_value_mid *mid;
+			char *identification_tag[2] = {
+				"primary", "secondary"
+			};
+
+			if (0 < cnt_a) {
+				printf("%s(): excess media stream "
+					"identification attributes\n",
+					__FUNCTION__);
+				return -1;
+			}
+
+			/* assert attribute type */
+			if (attr->type != SDP_ATTR_MID) {
+				printf("%s(): bad attr type: %d\n",
+					__FUNCTION__, attr->type);
+				return -1;
+			}
+
+			mid = &attr->value.mid;
+
+			/* assert identification tag */
+			if (strncmp(mid->identification_tag,
+					identification_tag[cnt_m],
+					strlen(mid->identification_tag))) {
+				printf("%s(): bad identification tag: %s\n",
+					__FUNCTION__, mid->identification_tag);
+				return -1;
+			}
+
+		}
+
+		if (cnt_a != 1) {
+			printf("%s() Wrong number of media steram "
+				"identification attributes: %d\n", __FUNCTION__,
+				cnt_a);
+			return -1;
+		}
+	}
+
+	if (cnt_m != 2) {
+		printf("%s() Wrong number of media clauses: %d\n", __FUNCTION__,
+			cnt_m);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int test018(void)
+{
+	char *content  =
+		"v=0\n"
+		"o=- 123456 11 IN IP4 192.168.100.2\n"
+		"s=Example of a SMPTE ST2110-20 signal\n"
+		"i=this example is for 720p video at 59.94\n"
+		"t=0 0\n"
+		"a=recvonly\n"
+		"a=group:DUP primary secondary\n"
+		"m=video 50000 RTP/AVP 112\n"
+		"c=IN IP4 239.100.9.10/32\n"
+		"a=source-filter:incl IN IP4 239.100.9.10 192.168.100.2\n"
+		"a=rtpmap:112 raw/90000\n"
+		"a=fmtp:112 sampling=YCbCr-4:2:2; width=1280; height=720; "
+			"exactframerate=60000/1001; depth=10; TCS=SDR; "
+			"colorimetry=BT709; PM=2110GPM; TP=2110TPN; "
+			"SSN=ST2110-20:2017; \n"
+		"a=ts-refclk:ptp=IEEE1588-2008:39-A7-94-FF-FE-07-CB-D0:37\n"
+		"a=mediaclk:direct=0\n"
+		"a=mid:primary\n"
+		"m=video 50020 RTP/AVP 112\n"
+		"c=IN IP4 239.101.9.10/32\n"
+		"a=source-filter:incl IN IP4 239.101.9.10 192.168.101.2\n"
+		"a=rtpmap:112 raw/90000\n"
+		"a=fmtp:112 sampling=YCbCr-4:2:2; width=1280; height=720; "
+			"exactframerate=60000/1001; depth=10; TCS=SDR; "
+			"colorimetry=BT709; PM=2110GPM; TP=2110TPN; "
+			"SSN=ST2110-20:2017; \n"
+		"a=ts-refclk:ptp=IEEE1588-2008:39-A7-94-FF-FE-07-CB-D0:37\n"
+		"a=mediaclk:direct=0\n"
+		"a=mid:secondary\n";
+
+	return test_generic(content, SDP_PARSE_OK, assert_mid);
+}
+
 static struct single_test sdp_tests[] = {
 	{
 		description: "SMPTE2110-10 annex B example SDP",
@@ -540,6 +645,10 @@ static struct single_test sdp_tests[] = {
 	{
 		description: "a=source-filter: <filter-mode> <filter-spec>",
 		func: test017,
+	},
+	{
+		description: "a=mid: <identification_tag>",
+		func: test018,
 	},
 };
 
