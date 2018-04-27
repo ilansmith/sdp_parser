@@ -538,7 +538,7 @@ static enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
 		while (IS_WHITESPACE(*token))
 			token++;
 
-		if (*token == '\n')
+		if (!*token)
 			break;
 
 		for (i = 0; i < ARRAY_SIZE(attribute_param_list) &&
