@@ -2,6 +2,7 @@ test
 sdp_extractor
 *.o
 *.a
+built-in.supp
 tags
 .vs/*
 Debug/*
