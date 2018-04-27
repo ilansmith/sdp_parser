@@ -1,5 +1,7 @@
 test
+sdp_extractor
 *.o
+*.a
 tags
 .vs/*
 Debug/*
