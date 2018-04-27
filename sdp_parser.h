@@ -81,6 +81,7 @@ enum sdp_attr_type {
       SDP_ATTR_RTPMAP,
       SDP_ATTR_FMTP,
       SDP_ATTR_SOURCE_FILTER,
+      SDP_ATTR_MID,
       SDP_ATTR_SPECIFIC,
       SDP_ATTR_NOT_SUPPORTED,
 };
@@ -123,6 +124,11 @@ struct sdp_attr_value_source_filter {
 	struct sdp_attr_source_filter_spec spec;
 };
 
+/* a=mid:<identification_tag> */
+struct sdp_attr_value_mid {
+	char *identification_tag;
+};
+
 union sdp_attr_value {
 	/* Common */
 
@@ -132,6 +138,7 @@ union sdp_attr_value {
 	struct sdp_attr_value_rtpmap rtpmap;
 	struct sdp_attr_value_fmtp fmtp;
 	struct sdp_attr_value_source_filter source_filter;
+	struct sdp_attr_value_mid mid;
 
 	/* Specific */
 	void *specific;
