@@ -2,6 +2,10 @@
 #include <string.h>
 #include "smpte2110_sdp_parser.h"
 
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
+#endif
+
 #define SMPTE_2110_ATTR_PARAM_ERR_REQUIRED (SMPTE_ERR_SAMPLING | \
 		SMPTE_ERR_DEPTH | SMPTE_ERR_WIDTH | SMPTE_ERR_HEIGHT | \
 		SMPTE_ERR_EXACTFRAMERATE | SMPTE_ERR_COLORIMETRY | \
@@ -52,7 +56,7 @@ static void attribute_params_set_defaults(struct attr_params *params)
 	params->maxudp = 1460;
 	params->par.width = 1;
 	params->par.height = 1;
-};
+}
 
 /* attribute parsers */
 
@@ -148,7 +152,7 @@ static enum sdp_parse_err sdp_attr_param_parse_width(char *str,
 {
 	uint32_t width;
 
-	if (sscanf(str, "width=%i", &width) != 1) {
+	if (sscanf(str, "width=%u", &width) != 1) {
 		sdperr("parameter format: %s", str);
 		return SDP_PARSE_ERROR;
 	}
@@ -168,7 +172,7 @@ static enum sdp_parse_err sdp_attr_param_parse_height(char *str,
 {
 	uint32_t height;
 
-	if (sscanf(str, "height=%i", &height) != 1) {
+	if (sscanf(str, "height=%u", &height) != 1) {
 		sdperr("parameter format: %s", str);
 		return SDP_PARSE_ERROR;
 	}
@@ -301,7 +305,9 @@ err:
 static enum sdp_parse_err sdp_attr_param_parse_ssn(char *str,
 		struct attr_params *params, uint32_t *err)
 {
-	if (strncmp(str, "SSN=ST2110-20:2017", strlen("SSN=ST2110-20:2017"))) {
+	if (strncmp(str, "SSN=ST2110-20:2017", strlen("SSN=ST2110-20:2017")) &&
+			strncmp(str, "SSN=\"ST2110-20:2017\"",
+			strlen("SSN=\"ST2110-20:2017\""))) {
 		sdperr("parameter format: %s", str);
 		return SDP_PARSE_ERROR;
 	}
@@ -411,7 +417,7 @@ static enum sdp_parse_err sdp_attr_param_parse_maxudp(char *str,
 {
 	uint32_t maxudp;
 
-	if (sscanf(str, "MAXUDP=%i", &maxudp) != 1) {
+	if (sscanf(str, "MAXUDP=%u", &maxudp) != 1) {
 		sdperr("parameter format: %s", str);
 		return SDP_PARSE_ERROR;
 	}
@@ -434,7 +440,7 @@ static enum sdp_parse_err sdp_attr_param_parse_par(char *str,
 	uint32_t width;
 	uint32_t height;
 
-	if (sscanf(str, "PAR=%i:%i", &width, &height) != 2) {
+	if (sscanf(str, "PAR=%u:%u", &width, &height) != 2) {
 		sdperr("parameter format: %s", str);
 		return SDP_PARSE_ERROR;
 	}
@@ -450,7 +456,7 @@ static enum sdp_parse_err sdp_attr_param_parse_troff(char *str,
 {
 	uint32_t troff;
 
-	if (sscanf(str, "TROFF=%i", &troff) != 1) {
+	if (sscanf(str, "TROFF=%u", &troff) != 1) {
 		sdperr("parameter format: %s", str);
 		return SDP_PARSE_ERROR;
 	}
@@ -476,7 +482,7 @@ static enum sdp_parse_err sdp_attr_param_parse_cmax(char *str,
 }
 
 static enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
-		char *attr, char *value, char *params)
+		char *params)
 {
 	struct {
 		char *param;
@@ -517,7 +523,7 @@ static enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
 
 	smpte2110_fmtp->err = 0; /* no attribute params have been parsed */
 	while ((token = strtok(params, ";"))) {
-		int i;
+		size_t i;
 
 		/* skip the white space(s) peceding the current token */
 		while (IS_WHITESPACE(*token))
@@ -592,7 +598,7 @@ fail:
 }
 
 static enum sdp_parse_err smpte2110_sdp_parse_group(struct sdp_attr *a,
-		char *attr, char *value, char *params)
+		char *value, char *params)
 {
 	char *id[2] = {0};
 	char *tmp;
@@ -608,7 +614,7 @@ static enum sdp_parse_err smpte2110_sdp_parse_group(struct sdp_attr *a,
 	for (i = 0; i < 2; i++) {
 		id[i] = strtok_r(params, " \n", &tmp);
 		if (!id[i] || (i ? *tmp : !*tmp)) {
-			sdperr("group DUP attribute bad format - %s", attr);
+			sdperr("group DUP attribute bad format");
 			return SDP_PARSE_ERROR;
 		}
 
@@ -616,7 +622,8 @@ static enum sdp_parse_err smpte2110_sdp_parse_group(struct sdp_attr *a,
 	}
 
 	for (tag = &group->tag, i = 0; i < 2; i++) {
-		*tag = calloc(1, sizeof(struct group_identification_tag));
+		*tag = (struct group_identification_tag*)calloc(1,
+			sizeof(struct group_identification_tag));
 		if (!*tag || !((*tag)->identification_tag = strdup(id[i]))) {
 			sdperr("memory allocation");
 			goto fail;
@@ -651,10 +658,10 @@ enum sdp_parse_err smpte2110_sdp_parse_specific(struct sdp_attr *a, char *attr,
 		char *value, char *params)
 {
 	if (!strncmp(attr, "fmtp", strlen("fmtp")))
-		return smpte2110_sdp_parse_fmtp_params(a, attr, value, params);
+		return smpte2110_sdp_parse_fmtp_params(a, params);
 
 	if (!strncmp(attr, "group", strlen("group")))
-		return smpte2110_sdp_parse_group(a, attr, value, params);
+		return smpte2110_sdp_parse_group(a, value, params);
 
 	return SDP_PARSE_ERROR;
 }
