@@ -78,39 +78,96 @@ static void attribute_params_set_defaults(struct attr_params *params)
 static enum sdp_parse_err sdp_attr_param_parse_sampling(char *str,
 		struct attr_params *params, uint32_t *err)
 {
-	int y;
-	int cb;
-	int cr;
+	unsigned int i;
+	int a;
+	int b;
+	int c;
+	struct {
+		char *string;
+		enum smpte_2110_sampling value;
+	} sampling_strings[] = {
+		{ "RGB", SAMPLING_RGB },
+		{ "XYZ", SAMPLING_XYZ },
+		{ "KEY", SAMPLING_KEY },
+	};
+	struct {
+		char *prefix;
+		enum smpte_2110_sampling values[3];
+	} sampling[] = {
+		{
+			"YCbCr",
+			{
+				SAMPLING_YCbCr_444,
+				SAMPLING_YCbCr_422,
+				SAMPLING_YCbCr_420
+			}
+		},
+		{
+			"CLYCbCr",
+			{
+				SAMPLING_CLYCbCr_444,
+				SAMPLING_CLYCbCr_422,
+				SAMPLING_CLYCbCr_420
+			}
+		},
+		{
+			"ICtCp",
+			{
+				SAMPLING_ICtCp_444,
+				SAMPLING_ICtCp_422,
+				SAMPLING_ICtCp_420
+			}
+		}
+	};
 
-	if (sscanf(str, "sampling=YCbCr-%i:%i:%i", &y, &cb, &cr) != 3) {
-		sdperr("parameter format: %s", str);
-		return SDP_PARSE_ERROR;
+	for (i = 0; i < ARRAY_SIZE(sampling_strings); i++) {
+		char parameter[13];
+
+		snprintf(parameter, sizeof(parameter), "sampling=%s",
+			sampling_strings[i].string);
+		if (!strncmp(str, parameter, strlen(parameter))) {
+			params->sampling = sampling_strings[i].value;
+			goto exit;
+		}
 	}
 
-	if (y != 4)
+	for (i = 0; i < ARRAY_SIZE(sampling); i++) {
+		char prefix[8];
+
+		if (sscanf(str, "sampling=%7[YCbrLItp]-%i:%i:%i", prefix, &a,
+				&b, &c) == 4) {
+			break;
+		}
+	}
+
+	if (i == ARRAY_SIZE(sampling))
 		goto err;
 
-	if (cb == 4) {
-		if (cr == 4)
-			params->sampling = SAMPLING_YCbCr_444;
+	if (a != 4)
+		goto err;
+
+	if (b == 4) {
+		if (c == 4)
+			params->sampling = sampling[i].values[0];
 		else
 			goto err;
-	} else if (cb == 2) {
-		if (cr == 2)
-			params->sampling = SAMPLING_YCbCr_422;
-		else if (cr == 0)
-			params->sampling = SAMPLING_YCbCr_420;
+	} else if (b == 2) {
+		if (c == 2)
+			params->sampling = sampling[i].values[1];
+		else if (c == 0)
+			params->sampling = sampling[i].values[2];
 		else
 			goto err;
 	} else {
 		goto err;
 	}
 
+exit:
 	*err |= SMPTE_ERR_SAMPLING;
 	return SDP_PARSE_OK;
 
 err:
-	sdperr("supported samplings: 4:4:4, 4:2:2, 4:2:0");
+	sdperr("parameter format: %s", str);
 	return SDP_PARSE_ERROR;
 }
 
