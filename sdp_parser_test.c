@@ -8,13 +8,28 @@
 #include "smpte2110_sdp_parser.h"
 #include "unit_test.h"
 
-static void tmpfile_close(int fd, char *path)
+struct test_ctx {
+	enum sdp_stream_type type;
+	union {
+		struct {
+			int fd;
+			char *path;
+		} file;
+		char *buf;
+	} data;
+	struct sdp_session *session;
+};
+
+static void tmpfile_close(struct test_ctx *ctx)
 {
-	close(fd);
-	unlink(path);
+	if (ctx->data.file.fd == -1)
+		return;
+
+	close(ctx->data.file.fd);
+	unlink(ctx->data.file.path);
 }
 
-static int tmpfile_open(char *content, char **ptr)
+static int tmpfile_open(char *content, struct test_ctx *ctx)
 {
 	static char name[11];
 	int fd;
@@ -48,42 +63,126 @@ static int tmpfile_open(char *content, char **ptr)
 	if (ret != len) {
 		printf("%s(): Error writing content to temp file.\n",
 			__FUNCTION__);
-		tmpfile_close(fd, name);
+		close(fd);
+		unlink(name);
+		return -1;
 	}
 
-	*ptr = name;
-	return fd;
+	ctx->data.file.fd = fd;
+	ctx->data.file.path = name;
+	return 0;
+}
+
+static void tmpbuf_uninit(struct test_ctx *ctx)
+{
+	if (ctx->data.buf) {
+		memset(ctx->data.buf, 0, strlen(ctx->data.buf));
+		free(ctx->data.buf);
+	}
+}
+
+static int tmpbuf_init(char *content, struct test_ctx *ctx)
+{
+	int len = strlen(content);
+	char *tmp;
+
+	tmp = (char*)calloc(len + 1, 1);
+	if (!tmp)
+		return -1;
+
+	strncpy(tmp, content, len);
+
+	ctx->data.buf = tmp;
+	return 0;
+}
+
+static void generic_context_uninit(struct test_ctx *ctx)
+{
+	if (ctx->session)
+		sdp_parser_uninit(ctx->session);
+
+	switch (ctx->type) {
+	case SDP_STREAM_TYPE_FILE:
+		tmpfile_close(ctx);
+		break;
+	case SDP_STREAM_TYPE_CHAR:
+		tmpbuf_uninit(ctx);
+		break;
+	default:
+		break;
+	}
+
+	free(ctx);
+}
+
+static struct test_ctx *generic_context_init(enum sdp_stream_type type,
+		char *content)
+{
+	struct test_ctx *ctx;
+	int ret = -1;
+
+	ctx = calloc(1, sizeof(struct test_ctx));
+	if (!ctx)
+		return NULL;
+
+	switch (type) {
+	case SDP_STREAM_TYPE_FILE:
+		if (tmpfile_open(content, ctx))
+			goto exit;
+
+		ctx->session = sdp_parser_init(SDP_STREAM_TYPE_FILE,
+			ctx->data.file.path);
+		if (!ctx->session) {
+			printf("failed to init sdp session from file\n");
+			goto exit;
+		}
+
+		ctx->type = SDP_STREAM_TYPE_FILE;
+		break;
+	case SDP_STREAM_TYPE_CHAR:
+		if (tmpbuf_init(content, ctx))
+			goto exit;
+
+		ctx->session = sdp_parser_init(SDP_STREAM_TYPE_CHAR,
+			ctx->data.buf);
+		if (!ctx->session) {
+			printf("failed to init sdp session from buffer\n");
+			goto exit;
+		}
+
+		ctx->type = SDP_STREAM_TYPE_CHAR;
+		break;
+	default:
+		break;
+	}
+
+	ret = 0;
+
+exit:
+	if (ret) {
+		generic_context_uninit(ctx);
+		ctx = NULL;
+	}
+
+	return ctx;
 }
 
 static int test_generic(char *content, enum sdp_parse_err expected,
 		int (*verifier)(struct sdp_session *session))
 {
 	int ret = -1;
-	int sdp;
-	char *path;
+	struct test_ctx *ctx;
 	enum sdp_parse_err err;
-	struct sdp_session *session;
 
-	sdp = tmpfile_open(content, &path);
-	if (sdp == -1)
-		goto exit;
+	ctx = generic_context_init(SDP_STREAM_TYPE_CHAR, content);
+	if (!ctx)
+		return -1;
 
-	session = sdp_parser_init(SDP_STREAM_TYPE_FILE, path);
-	if (!session) {
-		printf("failed to parse sdp session\n");
-		goto exit;
-	}
-
-	err = sdp_session_parse(session, smpte2110_sdp_parse_specific);
+	err = sdp_session_parse(ctx->session, smpte2110_sdp_parse_specific);
 	if (err == expected)
-		ret = (!verifier || !verifier(session)) ? 0 : -1;
+		ret = (!verifier || !verifier(ctx->session)) ? 0 : -1;
 
-	sdp_parser_uninit(session);
-
-exit:
-	if (sdp != -1)
-		tmpfile_close(sdp, path);
-
+	generic_context_uninit(ctx);
 	return ret;
 
 }
