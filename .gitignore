@@ -1,3 +1,13 @@
 test
 *.o
 tags
+.vs/*
+Debug/*
+SDP Parser.VC.opendb
+SDP Parser.sdf
+SDP Parser.vcxproj.filters
+SDP Parser.VC.VC.opendb
+SDP Parser.VC.db
+SDP Parser.vcxproj.user
+ipch/
+x64/*

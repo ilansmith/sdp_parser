@@ -11,9 +11,11 @@
 		SMPTE_ERR_EXACTFRAMERATE | SMPTE_ERR_COLORIMETRY | \
 		SMPTE_ERR_PM | SMPTE_ERR_TP | SMPTE_ERR_SSN)
 
-#define SMPTE_2110_ATTR_PARAM_REQUIRED(_err_) \
-	(((_err_) & SMPTE_2110_ATTR_PARAM_ERR_REQUIRED) == \
-	 SMPTE_2110_ATTR_PARAM_ERR_REQUIRED)
+#define IS_SMPTE_2110_ATTR_PARAM_ERR_REQUIRED(_err_) \
+	(SMPTE_2110_ATTR_PARAM_ERR_REQUIRED & (1 << (_err_)) ? 1 : 0)
+
+#define IS_SMPTE_2110_ATTR_PARAM_ERR_MAPPED(_err_, _map_) \
+	(_map_ & (1 << (_err_)) ? 1 : 0)
 
 #define FMTP_PARAMS_NUM 17
 
@@ -500,6 +502,7 @@ static enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
 	struct attr_params p;
 	char *token;
 	struct smpte2110_media_attr_fmtp *smpte2110_fmtp;
+	size_t i;
 	SMPTE_2110_FMTP_TABLE_START(attribute_param_list, FMTP_PARAMS_NUM)
 		SMPTE_2110_FMTP_NUM_ENTRY(sampling);
 		SMPTE_2110_FMTP_NUM_ENTRY(depth);
@@ -531,8 +534,6 @@ static enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
 
 	smpte2110_fmtp->err = 0; /* no attribute params have been parsed */
 	while ((token = strtok(params, ";"))) {
-		size_t i;
-
 		/* skip the white space(s) peceding the current token */
 		while (IS_WHITESPACE(*token))
 			token++;
@@ -569,8 +570,15 @@ static enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
 	}
 
 	/* assert all required attriute parameters have been provided */
-	if (!SMPTE_2110_ATTR_PARAM_REQUIRED(smpte2110_fmtp->err))
-		goto fail;
+	for (i = 0; i < ARRAY_SIZE(attribute_param_list); i++) {
+		if ((IS_SMPTE_2110_ATTR_PARAM_ERR_REQUIRED(i)) &&
+			!IS_SMPTE_2110_ATTR_PARAM_ERR_MAPPED(i,
+				smpte2110_fmtp->err)) {
+			sdperr("missing required fmtp parameter: %s",
+				attribute_param_list[i].param);
+			goto fail;
+		}
+	}
 
 	/* assert segmented parameter is not provided without interlace */
 	if (p.is_segmented && ! p.is_interlace) {
