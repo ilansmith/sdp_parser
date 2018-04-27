@@ -12,7 +12,7 @@ int main (int argc, char **argv)
 	};
 
 
-	session = sdp_parser_init("./sdp.txt");
+	session = sdp_parser_init(SDP_STREAM_TYPE_FILE, "./sdp.txt");
 	if (!session) {
 		printf("failed to initialize sdp session\n");
 		return -1;
