@@ -1,8 +1,14 @@
 #ifndef _SDP_STREAM_
 #define _SDP_STREAM_
 
+#ifdef _WIN32
+#include "sdp_compat.h"
+#endif
+
+#ifdef __linux__
 #ifdef __cplusplus
 extern "C" {
+#endif
 #endif
 
 /* Available stream sources */
@@ -50,8 +56,10 @@ int sdp_stream_close(sdp_stream_t stream);
  */
 ssize_t sdp_stream_getline(char **lineptr, size_t *n, sdp_stream_t stream);
 
+#ifdef __linux__
 #ifdef __cplusplus
 }
+#endif
 #endif
 
 #endif
