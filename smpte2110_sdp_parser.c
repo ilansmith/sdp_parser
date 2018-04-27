@@ -556,9 +556,6 @@ enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
 		params = NULL;
 	}
 
-	/* waver unsupported params */
-	smpte2110_fmtp->err |= (SMPTE_ERR_COLORIMETRY | SMPTE_ERR_SSN);
-
 	/* assert all required attriute parameters have been provided */
 	if (!SMPTE_2110_ATTR_PARAM_REQUIRED(smpte2110_fmtp->err))
 		return SDP_PARSE_ERROR;
