@@ -913,6 +913,26 @@ static int test022(void)
 	return test_generic_get_error(content, SDP_PARSE_OK);
 }
 
+static int test023(void)
+{
+	char *content =
+		"v=0\n"
+		"o=- 804326665 0 IN IP4 192.168.3.77\n"
+		"s=Gefei XIO9101 2110\n"
+		"t=0 0\n"
+		"m=video 5000 RTP/AVP 100\n"
+		"c=IN IP4 239.10.10.100\n"
+		"a=rtpmap:96 raw/90000\n"
+		"a=fmtp:96 sampling=YCbCr-4:2:2; width=1920; height=1080; "
+			"exactframerate=30000/1001; depth=10; TCS=SDR; "
+			"colorimetry=BT709; PM=2110BPM; "
+			"SSN=\"ST2110-20:2017\"; interlace; TP=2110TPN\n"
+		"a=tsrefclk:ptp=IEEE1588-2008:08-00-11-FF-FE-22-39-E4:125\n"
+		"a=mediaclk:direct=0\n"
+		"a=mid:VID\n";
+
+	return test_generic_get_error(content, SDP_PARSE_ERROR);
+}
 static struct single_test sdp_tests[] = {
 	{
 		description: "SMPTE2110-10 annex B example SDP",
@@ -1001,6 +1021,10 @@ static struct single_test sdp_tests[] = {
 	{
 		description: "a=fmtp for non raw video format",
 		func: test022,
+	},
+	{
+		description: "no ttl for c=<ipv4-addr>",
+		func: test023,
 	},
 };
 
