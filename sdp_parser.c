@@ -5,6 +5,7 @@
 #include <stdarg.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include "sdp_parser.h"
 
@@ -187,40 +188,12 @@ static enum sdp_parse_err sdp_parse_session_name(sdp_stream_t sdp, char **line,
 	return SDP_PARSE_OK;
 }
 
-static int is_addr_multicast(enum sdp_ci_addrtype addrtype, char *addr)
+static int is_multicast_addr(enum sdp_ci_addrtype addrtype, char *addr)
 {
 	switch (addrtype) {
 	case SDP_CI_ADDRTYPE_IPV4:
-	{
-		char ip[16];
-		char *ptr = ip;
-		unsigned int octets[4];
-		unsigned int i;
-
-		strncpy(ip, addr, sizeof(ip));
-		for (i = 0; i < ARRAY_SIZE(octets); i++) {
-			char *octet;
-			char *endptr;
-
-			octet = strtok(ptr, ".");
-			if (!octet)
-				return 0;
-
-			octets[i] = (unsigned int)strtol(octet, &endptr, 10);
-			if (*endptr)
-				return 0;
-
-			if (255 < octets[i])
-				return 0;
-
-			ptr = NULL;
-		}
-
-		if (strtok(ptr, "."))
-			return 0;
-
-		return 224 <= octets[0] && octets[0] <= 239;
-	}
+		return ((unsigned long)inet_addr(addr) & htonl(0xf0000000)) ==
+			htonl(0xe0000000); /* 224.0.0.0 - 239.255.255.255 */
 	case SDP_CI_ADDRTYPE_IPV6:
 		/* not supported */
 	default:
@@ -278,7 +251,7 @@ static enum sdp_parse_err sdp_parse_connection_information(sdp_stream_t sdp,
 		c->nettype = SDP_CI_NETTYPE_NOT_SUPPORTED;
 
 	if (!strncmp(addrtype, "IP4", strlen("IP4"))) {
-		if (!is_ttl_set && is_addr_multicast(SDP_CI_ADDRTYPE_IPV4,
+		if (!is_ttl_set && is_multicast_addr(SDP_CI_ADDRTYPE_IPV4,
 				addr)) {
 			sdperr("connection information with an IP4 multicast "
 				"address requires a TTL value");
