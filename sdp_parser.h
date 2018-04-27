@@ -78,12 +78,25 @@ struct sdp_media_m {
 /* a=<attribute> / a=<attribute>:<value> */
 enum sdp_attr_type {
       SDP_ATTR_NONE,
+      SDP_ATTR_GROUP,
       SDP_ATTR_RTPMAP,
       SDP_ATTR_FMTP,
       SDP_ATTR_SOURCE_FILTER,
       SDP_ATTR_MID,
       SDP_ATTR_SPECIFIC,
       SDP_ATTR_NOT_SUPPORTED,
+};
+
+struct group_identification_tag {
+	char *identification_tag;
+	struct group_identification_tag *next;
+};
+
+/* a=group:<semantic> *<SP identification-tag> */
+struct sdp_attr_value_group {
+	char *semantic;
+	struct group_identification_tag *tag;
+	int num_tags;
 };
 
 /* a=rtpmap:<val> <subytype>/<clock> */
@@ -135,6 +148,7 @@ union sdp_attr_value {
 	/* Session */
 
 	/* Media */
+	struct sdp_attr_value_group group;
 	struct sdp_attr_value_rtpmap rtpmap;
 	struct sdp_attr_value_fmtp fmtp;
 	struct sdp_attr_value_source_filter source_filter;
