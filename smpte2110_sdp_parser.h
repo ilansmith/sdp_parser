@@ -26,6 +26,8 @@ enum smpte_2110_attr_param_err {
 	SMPTE_ERR_RANGE = 1<<12,
 	SMPTE_ERR_MAXUDP = 1<<13,
 	SMPTE_ERR_PAR = 1<<14,
+	SMPTE_ERR_TROFF = 1<<15,
+	SMPTE_ERR_CMAX = 1<<16,
 };
 
 enum smpte_2110_sampling {
@@ -119,6 +121,8 @@ struct smpte2110_media_attr_fmtp_params {
 	enum smpte_2110_range range;
 	uint16_t maxudp;
 	struct smpte_2110_par par;
+	uint64_t troff;
+	int cmax;
 };
 
 struct smpte2110_media_attr_fmtp {
