@@ -933,6 +933,54 @@ static int test023(void)
 
 	return test_generic_get_error(content, SDP_PARSE_ERROR);
 }
+
+static int test024(void)
+{
+	char *sdp_prefix =
+		"v=0\n"
+		"o=- 804326665 0 IN IP4 192.168.3.77\n"
+		"s=Gefei XIO9101 2110\n"
+		"t=0 0\n"
+		"m=video 5000 RTP/AVP 96\n"
+		"c=IN IP4 239.10.10.100/96\n"
+		"a=rtpmap:96 raw/90000\n"
+		"a=fmtp:96";
+	char *sdp_suffix =
+		"width=1920; height=1080; exactframerate=30000/1001; depth=10; "
+		"TCS=SDR; colorimetry=BT709; PM=2110BPM; "
+		"SSN=\"ST2110-20:2017\"; interlace; TP=2110TPN\n"
+		"a=tsrefclk:ptp=IEEE1588-2008:08-00-11-FF-FE-22-39-E4:125\n"
+		"a=mediaclk:direct=0\n"
+		"a=mid:VID\n";
+	char *sampling_parameters[] = {
+		"YCbCr-4:4:4",
+		"YCbCr-4:2:2",
+		"YCbCr-4:2:0",
+		"CLYCbCr-4:4:4",
+		"CLYCbCr-4:2:2",
+		"CLYCbCr-4:2:0",
+		"ICtCp-4:4:4",
+		"ICtCp-4:2:2",
+		"ICtCp-4:2:0",
+		"RGB",
+		"XYZ",
+		"KEY", 
+	};
+	char sdp[1024];
+	int i;
+
+	for (i = 0; i < ARRAY_SZ(sampling_parameters); i++) {
+		snprintf(sdp, sizeof(sdp), "%s sampling=%s; %s", sdp_prefix,
+			sampling_parameters[i], sdp_suffix);
+
+		printf(" sampling=%s\n", sampling_parameters[i]);
+		if (test_generic_get_error(sdp, SDP_PARSE_OK))
+			return SDP_PARSE_ERROR;
+	}
+
+	return SDP_PARSE_OK;
+}
+
 static struct single_test sdp_tests[] = {
 	{
 		description: "SMPTE2110-10 annex B example SDP",
@@ -1025,6 +1073,10 @@ static struct single_test sdp_tests[] = {
 	{
 		description: "no ttl for c=<ipv4-addr>",
 		func: test023,
+	},
+	{
+		description: "sampling parameters",
+		func: test024,
 	},
 };
 
