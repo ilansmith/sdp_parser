@@ -15,12 +15,25 @@
 	(((_err_) & SMPTE_2110_ATTR_PARAM_ERR_REQUIRED) == \
 	 SMPTE_2110_ATTR_PARAM_ERR_REQUIRED)
 
-#define SDP_ATTR_PARAM_PARSE(_param_) \
-	{ \
-		.param = # _param_, \
-		.parser = sdp_attr_param_parse_ ## _param_, \
-		.is_parsed = 0 \
-	}
+#define FMTP_PARAMS_NUM 17
+
+#define SMPTE_2110_FMTP_TABLE_START(_table_, _size_) \
+	struct { \
+		char *param; \
+		enum sdp_parse_err (*parser)(char *str, \
+			struct attr_params *params, uint32_t *err); \
+		int is_parsed; \
+	} _table_[_size_]; \
+	do { \
+		int i = 0;
+#define SMPTE_2110_FMTP_NUM_ENTRY(_param_) \
+	attribute_param_list[i].param = # _param_; \
+	attribute_param_list[i].parser = sdp_attr_param_parse_## _param_; \
+	attribute_param_list[i].is_parsed = 0; \
+	i++
+
+#define SMPTE_2110_FMTP_TABLE_END \
+} while (0);
 
 struct attr_params {
 	enum smpte_2110_sampling sampling;
@@ -484,33 +497,28 @@ static enum sdp_parse_err sdp_attr_param_parse_cmax(char *str,
 static enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
 		char *params)
 {
-	struct {
-		char *param;
-		enum sdp_parse_err (*parser)(char *str,
-			struct attr_params *params, uint32_t *err);
-		int is_parsed;
-	} attribute_param_list[] = {
-		SDP_ATTR_PARAM_PARSE(sampling),
-		SDP_ATTR_PARAM_PARSE(depth),
-		SDP_ATTR_PARAM_PARSE(width),
-		SDP_ATTR_PARAM_PARSE(height),
-		SDP_ATTR_PARAM_PARSE(exactframerate),
-		SDP_ATTR_PARAM_PARSE(colorimetry),
-		SDP_ATTR_PARAM_PARSE(pm),
-		SDP_ATTR_PARAM_PARSE(tp),
-		SDP_ATTR_PARAM_PARSE(ssn),
-		SDP_ATTR_PARAM_PARSE(interlace),
-		SDP_ATTR_PARAM_PARSE(segmented),
-		SDP_ATTR_PARAM_PARSE(tcs),
-		SDP_ATTR_PARAM_PARSE(range),
-		SDP_ATTR_PARAM_PARSE(maxudp),
-		SDP_ATTR_PARAM_PARSE(par),
-		SDP_ATTR_PARAM_PARSE(troff),
-		SDP_ATTR_PARAM_PARSE(cmax),
-	};
 	struct attr_params p;
 	char *token;
 	struct smpte2110_media_attr_fmtp *smpte2110_fmtp;
+	SMPTE_2110_FMTP_TABLE_START(attribute_param_list, FMTP_PARAMS_NUM)
+		SMPTE_2110_FMTP_NUM_ENTRY(sampling);
+		SMPTE_2110_FMTP_NUM_ENTRY(depth);
+		SMPTE_2110_FMTP_NUM_ENTRY(width);
+		SMPTE_2110_FMTP_NUM_ENTRY(height);
+		SMPTE_2110_FMTP_NUM_ENTRY(exactframerate);
+		SMPTE_2110_FMTP_NUM_ENTRY(colorimetry);
+		SMPTE_2110_FMTP_NUM_ENTRY(pm);
+		SMPTE_2110_FMTP_NUM_ENTRY(tp);
+		SMPTE_2110_FMTP_NUM_ENTRY(ssn);
+		SMPTE_2110_FMTP_NUM_ENTRY(interlace);
+		SMPTE_2110_FMTP_NUM_ENTRY(segmented);
+		SMPTE_2110_FMTP_NUM_ENTRY(tcs);
+		SMPTE_2110_FMTP_NUM_ENTRY(range);
+		SMPTE_2110_FMTP_NUM_ENTRY(maxudp);
+		SMPTE_2110_FMTP_NUM_ENTRY(par);
+		SMPTE_2110_FMTP_NUM_ENTRY(troff);
+		SMPTE_2110_FMTP_NUM_ENTRY(cmax);
+	SMPTE_2110_FMTP_TABLE_END
 
 	smpte2110_fmtp = (struct smpte2110_media_attr_fmtp *)calloc(1,
 		sizeof(struct smpte2110_media_attr_fmtp));
