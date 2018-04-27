@@ -616,43 +616,40 @@ fail:
 static enum sdp_parse_err smpte2110_sdp_parse_group(struct sdp_attr *a,
 		char *value, char *params)
 {
-	char *id[2] = {0};
 	char *tmp;
 	struct group_identification_tag **tag;
 	struct sdp_attr_value_group *group = &a->value.group;
-	int i;
 
 	if (strncmp(value, "DUP", strlen("DUP"))) {
 		sdperr("unsupported group semantic for media: %s", value);
 		return SDP_PARSE_ERROR;
 	}
 
-	for (i = 0; i < 2; i++) {
-		id[i] = strtok_r(params, " \n", &tmp);
-		if (!id[i] || (i ? *tmp : !*tmp)) {
-			sdperr("group DUP attribute bad format");
-			return SDP_PARSE_ERROR;
-		}
-
-		params = NULL;
-	}
-
-	for (tag = &group->tag, i = 0; i < 2; i++) {
-		*tag = (struct group_identification_tag*)calloc(1,
-                	sizeof(struct group_identification_tag));
-		if (!*tag || !((*tag)->identification_tag = strdup(id[i]))) {
-			sdperr("memory allocation");
-			goto fail;
-		}
-
-		group->num_tags++;
-		tag = &(*tag)->next;
+	if (!params) {
+		sdperr("group DUP attriute bad format - no params");
+		return SDP_PARSE_ERROR;
 	}
 
 	if (!(group->semantic = strdup(value))) {
 		sdperr("memory allocation");
 		goto fail;
 	}
+
+	tag = &group->tag;
+	do {
+		char *cur = strtok_r(params, " ", &tmp);
+
+		*tag = (struct group_identification_tag*)calloc(1,
+                	sizeof(struct group_identification_tag));
+		if (!*tag || !((*tag)->identification_tag = strdup(cur))) {
+			sdperr("memory allocation");
+			goto fail;
+		}
+
+		group->num_tags++;
+		tag = &(*tag)->next;
+		params = NULL;
+	} while (*tmp);
 
 	a->type = SDP_ATTR_GROUP;
 	return SDP_PARSE_OK;
