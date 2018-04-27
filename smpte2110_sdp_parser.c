@@ -5,7 +5,7 @@
 #define SMPTE_2110_ATTR_PARAM_ERR_REQUIRED (SMPTE_ERR_SAMPLING | \
 		SMPTE_ERR_DEPTH | SMPTE_ERR_WIDTH | SMPTE_ERR_HEIGHT | \
 		SMPTE_ERR_EXACTFRAMERATE | SMPTE_ERR_COLORIMETRY | \
-		SMPTE_ERR_PM | SMPTE_ERR_SSN)
+		SMPTE_ERR_PM | SMPTE_ERR_TP | SMPTE_ERR_SSN)
 
 #define SMPTE_2110_ATTR_PARAM_REQUIRED(_err_) \
 	(((_err_) & SMPTE_2110_ATTR_PARAM_ERR_REQUIRED) == \
@@ -26,6 +26,7 @@ struct attr_params {
 	struct smpte_2110_fps exactframerate;
 	enum smpte_2110_colorimetry colorimetry;
 	enum smpte_2110_pm pm;
+	enum smpte_2110_tp tp;
 	int is_ssn;
 	int is_interlace;
 	int is_segmented;
@@ -268,6 +269,33 @@ err:
 	return SDP_PARSE_ERROR;
 }
 
+static enum sdp_parse_err sdp_attr_param_parse_tp(char *str,
+		struct attr_params *params, uint32_t *err)
+{
+	char tp[256];
+
+	if (sscanf(str, "TP=%s", tp) != 1) {
+		sdperr("parameter format: %s", str);
+		return SDP_PARSE_ERROR;
+	}
+
+	if (!strncmp(tp, "2110TPN", strlen("2110TPN")))
+		params->tp = TP_2110TPN;
+	else if (!strncmp(tp, "2110TPNL", strlen("2110TPNL")))
+		params->tp = TP_2110TPNL;
+	else if (!strncmp(tp, "2110TPW", strlen("2110TPW")))
+		params->tp = TP_2110TPW;
+	else
+		goto err;
+
+	*err |= SMPTE_ERR_TP;
+	return SDP_PARSE_OK;
+
+err:
+	sdperr("TP can be: 2110TPN, 2110TPNL, 2110TPW");
+	return SDP_PARSE_ERROR;
+}
+
 static enum sdp_parse_err sdp_attr_param_parse_ssn(char *str,
 		struct attr_params *params, uint32_t *err)
 {
@@ -431,6 +459,7 @@ enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
 		SDP_ATTR_PARAM_PARSE(exactframerate),
 		SDP_ATTR_PARAM_PARSE(colorimetry),
 		SDP_ATTR_PARAM_PARSE(pm),
+		SDP_ATTR_PARAM_PARSE(tp),
 		SDP_ATTR_PARAM_PARSE(ssn),
 		SDP_ATTR_PARAM_PARSE(interlace),
 		SDP_ATTR_PARAM_PARSE(segmented),
