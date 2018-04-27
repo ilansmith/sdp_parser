@@ -207,7 +207,13 @@ struct sdp_session {
 	   =============
 
 	   o=  (originator and session identifier)
-	   s=  (session name)
+	*/
+
+	char *s; /* s= */
+
+	/* not supported
+	   =============
+
 	   i=* (session information)
 	   u=* (URI of description)
 	   e=* (email address)

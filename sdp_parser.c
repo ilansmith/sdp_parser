@@ -148,6 +148,39 @@ static enum sdp_parse_err sdp_parse_version(sdp_stream_t sdp, char **line,
 	return SDP_PARSE_OK;
 }
 
+static enum sdp_parse_err sdp_parse_session_name(sdp_stream_t sdp, char **line,
+		size_t *len, char **s)
+{
+	char *ptr;
+
+	if (strncmp(*line, "s=", 2)) {
+		sdperr("missing required sdp session name");
+		return SDP_PARSE_ERROR;
+	}
+
+	ptr = *line + 2;
+	if (!*ptr) {
+		sdperr("sdp session name cannot remain empty");
+		return SDP_PARSE_ERROR;
+	}
+
+	*s = strdup(ptr);
+	if (!*s) {
+		sdperr("memory acllocation");
+		return SDP_PARSE_ERROR;
+	}
+
+	if (!sdp_getline(line, len, sdp)) {
+		sdperr("no more sdp fields after session name");
+		free(*s);
+		*s = NULL;
+
+		return SDP_PARSE_ERROR;
+	}
+
+	return SDP_PARSE_OK;
+}
+
 static enum sdp_parse_err sdp_parse_connection_information(sdp_stream_t sdp,
 		char **line, size_t *len, struct sdp_connection_information *c)
 {
@@ -342,7 +375,7 @@ static enum sdp_parse_err sdp_parse_attr(sdp_stream_t sdp, char **line,
 	char *params;
 	enum sdp_parse_err err;
 	char *ptr = *line;
-	char *tmp;
+	char *tmp = NULL;
 
 	char *common_level_attr[] = {
 #if 0
@@ -743,6 +776,7 @@ struct sdp_session *sdp_parser_init(enum sdp_stream_type type, void *ctx)
 void sdp_parser_uninit(struct sdp_session *session)
 {
 	sdp_stream_close(session->sdp);
+	free(session->s);
 	sdp_attr_free(session->a);
 	media_free(session->media);
 	free(session);
@@ -763,7 +797,19 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 	}
 
 	/* skip parsing of non supported session-level descriptors */
-	if (sdp_parse_non_supported(sdp, &line, &len, "osiuep") ==
+	if (sdp_parse_non_supported(sdp, &line, &len, "o") ==
+			SDP_PARSE_ERROR) {
+		goto exit;
+	}
+
+	/* parse s= */
+	if (sdp_parse_session_name(sdp, &line, &len, &session->s) ==
+			SDP_PARSE_ERROR) {
+		goto exit;
+	}
+
+	/* skip parsing of non supported session-level descriptors */
+	if (sdp_parse_non_supported(sdp, &line, &len, "iuep") ==
 			SDP_PARSE_ERROR) {
 		goto exit;
 	}
