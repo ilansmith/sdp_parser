@@ -63,53 +63,40 @@ static ssize_t sdp_stream_getline_char(char **lineptr, size_t *n,
 		struct buf_stream *bs)
 {
 	char *buf = bs->buf + bs->offset;
-	char *eol;
-	size_t size;
-	int crlf;
+	char *next_line;
+	size_t len; /* length of string returned */
+	size_t size; /* realloc allocation size */
 
-	/* lines end either with "\r\n" or "\n" (we also don't fail if last
-	 * line emits both).
-	 *
-	 * crlf depicts if relative to the single character delim ('\n') if
-	 * there's an extra character ("\r\n") or if there's deficit a deficit
-	 * (""), and hence has values:
-	 *
-	 * "\n"     -> 0
-	 * "\r\n"   -> 1
-	 * ""      -> -1
-	 *
-	 * */
-	if (!(eol = strchr(buf, '\n'))) {
-		if (!(eol = strchr(buf, '\0')))
-			return -1; /* should never get here */
-		if (buf == eol)
-			return 0; /* parsing complete */
-		crlf = -1;
-	} else if (buf < eol && *(eol-1) == '\r') {
-		crlf = 1;
-		eol--;
+	if (!(next_line = strchr(buf, '\n'))) {
+		size_t len_to_eof = strlen(buf);
+
+		if (!len_to_eof)
+			return -1;
+
+		next_line = buf + len_to_eof;
 	} else {
-		crlf = 0;
+		next_line++;
 	}
 
-	size = eol - buf + 1;
 	if (!n)
 		return -1;
 
+	len = next_line - buf;
+	size = len + 1;
 	if (!*lineptr || *n < size) {
-		char *ptr = (char*)realloc(*lineptr, size + 1);
+		char *ptr = (char*)realloc(*lineptr, size);
 
 		if (!ptr)
 			return -1;
 
-		*n = size + 1;
+		*n = size;
 		*lineptr = ptr;
 	}
 
-	memcpy(*lineptr, buf, size);
-	(*lineptr)[size] = 0;
-	bs->offset += (size + crlf);
-	return size;
+	memcpy(*lineptr, buf, len);
+	(*lineptr)[len] = 0;
+	bs->offset += len;
+	return len;
 }
 
 /* Network stream */
