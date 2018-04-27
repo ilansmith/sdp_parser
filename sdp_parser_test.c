@@ -8,6 +8,9 @@
 #include "smpte2110_sdp_parser.h"
 #include "unit_test.h"
 
+#define C_ITALIC "\033[00;03m"
+#define C_NORMAL "\033[00;00;00m"
+
 struct test_ctx {
 	enum sdp_stream_type type;
 	union {
@@ -167,14 +170,15 @@ exit:
 	return ctx;
 }
 
-static int test_generic(char *content, enum sdp_parse_err expected,
-		int (*verifier)(struct sdp_session *session))
+static int run_test_generic(char *content, enum sdp_parse_err expected,
+		int (*verifier)(struct sdp_session *session),
+		enum sdp_stream_type stream_type)
 {
 	int ret = -1;
 	struct test_ctx *ctx;
 	enum sdp_parse_err err;
 
-	ctx = generic_context_init(SDP_STREAM_TYPE_CHAR, content);
+	ctx = generic_context_init(stream_type, content);
 	if (!ctx)
 		return -1;
 
@@ -185,6 +189,29 @@ static int test_generic(char *content, enum sdp_parse_err expected,
 	generic_context_uninit(ctx);
 	return ret;
 
+}
+
+static int test_generic(char *content, enum sdp_parse_err expected,
+		int (*verifier)(struct sdp_session *session))
+{
+	int i;
+	int ret;
+	struct {
+		enum sdp_stream_type type;
+		char *name;
+	} stream_types[] = {
+		{ SDP_STREAM_TYPE_FILE, "file" },
+		{ SDP_STREAM_TYPE_CHAR, "memory" },
+	};
+
+	for (ret = 0, i = 0; !ret && i < ARRAY_SZ(stream_types); i++) {
+		printf("%s  running %s stream based test%s\n", C_ITALIC,
+			stream_types[i].name, C_NORMAL);
+		ret = run_test_generic(content, expected, verifier,
+			stream_types[i].type);
+	}
+
+	return ret;
 }
 
 static int test_generic_get_error(char *content, enum sdp_parse_err expected)
