@@ -577,6 +577,156 @@ static int test018(void)
 	return test_generic(content, SDP_PARSE_OK, assert_mid);
 }
 
+static int assert_group(struct sdp_session *session)
+{
+	struct sdp_attr *attr;
+	int cnt_a;
+
+	/* loop over all a=group blocks (should be only one) */
+	for (attr = sdp_session_attr_get(session, SDP_ATTR_GROUP), cnt_a = 0;
+			attr; attr = sdp_attr_get_next(attr), cnt_a++) {
+		struct sdp_attr_value_group *group;
+		struct group_member *member;
+		char *identification_tag[2] = {
+			"primary", "secondary"
+		};
+		int i;
+
+		if (0 < cnt_a) {
+			printf("%s(): excess media stream group attributes\n",
+				__FUNCTION__);
+			return -1;
+		}
+
+		/* assert attribute type */
+		if (attr->type != SDP_ATTR_GROUP) {
+			printf("%s(): bad attr type: %d\n", __FUNCTION__,
+				attr->type);
+			return -1;
+		}
+
+		group = &attr->value.group;
+
+		/* assert that group semantic is "DUP" */
+		if (strncmp(group->semantic, "DUP", strlen("DUP"))) {
+			printf("%s(): bad group semantic: %s\n", __FUNCTION__,
+				group->semantic);
+			return -1;
+		}
+
+		/* assert that number of tags in group is 2 */
+		if (group->num_tags != 2) {
+			printf("%s(): bad number of tags: %d\n", __FUNCTION__,
+				group->num_tags);
+			return -1;
+		}
+
+		/* assert group identification tags */
+		for (member = group->member, i = 0;
+				member && i < group->num_tags;
+				member = member->next, i++) {
+			if (strncmp(member->identification_tag,
+					identification_tag[i],
+					strlen(identification_tag[i]))) {
+				printf("%s(): bad group identification tag: "
+					"%s\n", __FUNCTION__,
+					member->identification_tag);
+				return -1;
+			}
+		}
+
+		/* assert that there are no excess tags */
+		if (member) {
+			printf("%s(): last group identification tag points to "
+				"dangling location: %p", __FUNCTION__, member);
+			return -1;
+		}
+	}
+
+	/* assert a single media group attribute */
+	if (cnt_a != 1) {
+		printf("%s() Wrong number of media steram group attributes: "
+			"attributes: %d\n", __FUNCTION__, cnt_a);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int assert_no_group(struct sdp_session *session)
+{
+	struct sdp_attr *attr;
+
+	attr = sdp_session_attr_get(session, SDP_ATTR_GROUP);
+	if (attr) {
+		printf("%s(): found non existing media group identification\n",
+			__FUNCTION__);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int test019(void)
+{
+	char *content  =
+		"v=0\n"
+		"o=- 123456 11 IN IP4 192.168.100.2\n"
+		"s=Example of a SMPTE ST2110-20 signal\n"
+		"i=this example is for 720p video at 59.94\n"
+		"t=0 0\n"
+		"a=recvonly\n"
+		"a=group:DUP primary secondary\n"
+		"m=video 50000 RTP/AVP 112\n"
+		"c=IN IP4 239.100.9.10/32\n"
+		"a=source-filter:incl IN IP4 239.100.9.10 192.168.100.2\n"
+		"a=rtpmap:112 raw/90000\n"
+		"a=fmtp:112 sampling=YCbCr-4:2:2; width=1280; height=720; "
+			"exactframerate=60000/1001; depth=10; TCS=SDR; "
+			"colorimetry=BT709; PM=2110GPM; TP=2110TPN; "
+			"SSN=ST2110-20:2017; \n"
+		"a=ts-refclk:ptp=IEEE1588-2008:39-A7-94-FF-FE-07-CB-D0:37\n"
+		"a=mediaclk:direct=0\n"
+		"a=mid:primary\n"
+		"m=video 50020 RTP/AVP 112\n"
+		"c=IN IP4 239.101.9.10/32\n"
+		"a=source-filter:incl IN IP4 239.101.9.10 192.168.101.2\n"
+		"a=rtpmap:112 raw/90000\n"
+		"a=fmtp:112 sampling=YCbCr-4:2:2; width=1280; height=720; "
+			"exactframerate=60000/1001; depth=10; TCS=SDR; "
+			"colorimetry=BT709; PM=2110GPM; TP=2110TPN; "
+			"SSN=ST2110-20:2017; \n"
+		"a=ts-refclk:ptp=IEEE1588-2008:39-A7-94-FF-FE-07-CB-D0:37\n"
+		"a=mediaclk:direct=0\n"
+		"a=mid:secondary\n";
+
+	return test_generic(content, SDP_PARSE_OK, assert_group);
+}
+
+static int test020(void)
+{
+	char *content  =
+		"v=0\n"
+		"o=- 123456 11 IN IP4 192.168.100.2\n"
+		"s=Example of a SMPTE ST2110-20 signal\n"
+		"i=this example is for 720p video at 59.94\n"
+		"t=0 0\n"
+		"a=recvonly\n"
+		"m=video 50000 RTP/AVP 112\n"
+		"c=IN IP4 239.100.9.10/32\n"
+		"a=source-filter:incl IN IP4 239.100.9.10 192.168.100.2\n"
+		"a=rtpmap:112 raw/90000\n"
+		"a=fmtp:112 sampling=YCbCr-4:2:2; width=1280; height=720; "
+			"exactframerate=60000/1001; depth=10; TCS=SDR; "
+			"colorimetry=BT709; PM=2110GPM; TP=2110TPN; "
+			"SSN=ST2110-20:2017; \n"
+		"a=ts-refclk:ptp=IEEE1588-2008:39-A7-94-FF-FE-07-CB-D0:37\n"
+		"a=mediaclk:direct=0\n"
+		"a=mid:primary\n";
+
+	return test_generic(content, SDP_PARSE_OK, assert_no_group);
+}
+
 static struct single_test sdp_tests[] = {
 	{
 		description: "SMPTE2110-10 annex B example SDP",
@@ -649,6 +799,14 @@ static struct single_test sdp_tests[] = {
 	{
 		description: "a=mid: <identification_tag>",
 		func: test018,
+	},
+	{
+		description: "a=group:DUP <primary> <secondary>",
+		func: test019,
+	},
+	{
+		description: "Identify no a=group attribute",
+		func: test020,
 	},
 };
 
