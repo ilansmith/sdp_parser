@@ -1,4 +1,5 @@
-#include "sdp_parser.h"
+#include <stdlib.h>
+#include <string.h>
 #include "smpte2110_sdp_parser.h"
 
 #define SMPTE_2110_ATTR_PARAM_ERR_REQUIRED (SMPTE_ERR_SAMPLING | \
@@ -10,13 +11,19 @@
 	(((_err_) & SMPTE_2110_ATTR_PARAM_ERR_REQUIRED) == \
 	 SMPTE_2110_ATTR_PARAM_ERR_REQUIRED)
 
+#define SDP_ATTR_PARAM_PARSE(_param_) \
+	{ \
+		.param = # _param_, \
+		.parser = sdp_attr_param_parse_ ## _param_, \
+		.is_parsed = 0 \
+	}
+
 struct attr_params {
 	enum smpte_2110_sampling sampling;
 	enum smpte_2110_depth depth;
 	uint16_t width;
 	uint16_t height;
 	struct smpte_2110_fps exactframerate;
-	struct smpte_2110_fps fps;
 	enum smpte_2110_colorimetry colorimetry;
 	enum smpte_2110_pm pm;
 	int is_ssn;
@@ -181,13 +188,13 @@ static enum sdp_parse_err sdp_attr_param_parse_exactframerate(char *str,
 
 	ret = sscanf(str, "exactframerate=%i/1001", &rate);
 	if (ret == 1) {
-		params->fps.is_integer = 0;
+		params->exactframerate.is_integer = 0;
 		goto exit;
 	}
 
 	ret = sscanf(str, "exactframerate=%i", &rate);
 	if (ret == 1) {
-		params->fps.is_integer = 1;
+		params->exactframerate.is_integer = 1;
 		goto exit;
 	}
 
@@ -195,7 +202,7 @@ static enum sdp_parse_err sdp_attr_param_parse_exactframerate(char *str,
 	return SDP_PARSE_ERROR;
 
 exit:
-	params->fps.nominator = rate;
+	params->exactframerate.nominator = rate;
 	*err |= SMPTE_ERR_EXACTFRAMERATE;
 	return SDP_PARSE_OK;
 }
@@ -211,7 +218,7 @@ static enum sdp_parse_err sdp_attr_param_parse_colorimetry(char *str,
 	}
 
 	if (!strncmp(colorimetry, "BT601", strlen("BT601")))
-		params->colorimetry =  COLORIMETRY_BT601;
+		params->colorimetry = COLORIMETRY_BT601;
 	else if (!strncmp(colorimetry, "BT709", strlen("BT709")))
 		params->colorimetry = COLORIMETRY_BT709;
 	else if (!strncmp(colorimetry, "BT2020", strlen("BT2020")))
@@ -247,7 +254,7 @@ static enum sdp_parse_err sdp_attr_param_parse_pm(char *str,
 	}
 
 	if (!strncmp(pm, "2110GPM", strlen("2110GPM")))
-		params->pm =  PM_2110GPM;
+		params->pm = PM_2110GPM;
 	else if (!strncmp(pm, "2110BPM", strlen("2110BPM")))
 		params->pm = PM_2110BPM;
 	else
@@ -311,7 +318,7 @@ static enum sdp_parse_err sdp_attr_param_parse_tcs(char *str,
 	}
 
 	if (!strncmp(tcs, "SDR", strlen("SDR")))
-		params->tcs =  TCS_SDR;
+		params->tcs = TCS_SDR;
 	else if (!strncmp(tcs, "PQ", strlen("PQ")))
 		params->tcs = TCS_PQ;
 	else if (!strncmp(tcs, "HLG", strlen("HLGS")))
@@ -353,7 +360,7 @@ static enum sdp_parse_err sdp_attr_param_parse_range(char *str,
 	}
 
 	if (!strncmp(range, "NARROW", strlen("NARROW")))
-		params->range =  RANGE_NARROW;
+		params->range = RANGE_NARROW;
 	else if (!strncmp(range, "FULL", strlen("FULL")))
 		params->range = RANGE_FULL;
 	else if (!strncmp(range, "FULLPROTECT", strlen("FULLPROTECT")))
@@ -408,9 +415,8 @@ static enum sdp_parse_err sdp_attr_param_parse_par(char *str,
 	return SDP_PARSE_OK;
 }
 
-
-static enum sdp_parse_err sdp_parse_media_attr_params(char *line,
-		struct media_attr_fmtp *fmtp)
+enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
+		char *attr, char *value, char *params)
 {
 	struct {
 		char *param;
@@ -433,21 +439,34 @@ static enum sdp_parse_err sdp_parse_media_attr_params(char *line,
 		SDP_ATTR_PARAM_PARSE(maxudp),
 		SDP_ATTR_PARAM_PARSE(par),
 	};
-	struct attr_params params;
+	struct attr_params p;
 	char *token;
+	struct smpte2110_media_attr_fmtp *fmtp;
 
-	attribute_params_set_defaults(&params);
+	if (strncmp(attr, "fmtp", strlen("fmtp")))
+		return SDP_PARSE_NOT_SUPPORTED;
+
+	fmtp = (struct smpte2110_media_attr_fmtp *)calloc(1,
+		sizeof(struct smpte2110_media_attr_fmtp));
+	if (!fmtp) {
+		sdperr("Memory allocation");
+		return SDP_PARSE_ERROR;
+	}
+	attribute_params_set_defaults(&p);
 
 	fmtp->err = 0; /* no attribute params have been parsed */
-	while ((token = strtok(line, ";"))) {
+	while ((token = strtok(params, ";"))) {
 		int i;
 
 		/* skip the white space(s) peceding the current token */
 		while (IS_WHITESPACE(*token))
 			token++;
 
+		if (*token == '\n')
+			break;
+
 		for (i = 0; i < ARRAY_SIZE(attribute_param_list) &&
-			strncmp(token, attribute_param_list[i].param,
+			strncasecmp(token, attribute_param_list[i].param,
 				strlen(attribute_param_list[i].param)); i++);
 
 		/* verify attribute is found in list */
@@ -464,13 +483,14 @@ static enum sdp_parse_err sdp_parse_media_attr_params(char *line,
 		}
 
 		/* parse attribute */
-		if (attribute_param_list[i].parser(token, &params,
-				&fmtp->err) == SDP_PARSE_ERROR) {
+		if (attribute_param_list[i].parser(token, &p, &fmtp->err) ==
+				SDP_PARSE_ERROR) {
 			return SDP_PARSE_ERROR;
 		}
 
 		/* mark attriute as parsed */
 		attribute_param_list[i].is_parsed = 1;
+		params = NULL;
 	}
 
 	/* waver unsupported params */
@@ -481,26 +501,29 @@ static enum sdp_parse_err sdp_parse_media_attr_params(char *line,
 		return SDP_PARSE_ERROR;
 
 	/* assert segmented parameter is not provided without interlace */
-	if (params.is_segmented && ! params.is_interlace) {
+	if (p.is_segmented && ! p.is_interlace) {
 		sdperr("cannot signal 'segmented' without 'interlace'");
 		return SDP_PARSE_ERROR;
 	}
 
 	/* update output paprameters */
-	fmtp->params.sampling = params.sampling;
-	fmtp->params.depth = params.depth;
-	fmtp->params.width = params.width;
-	fmtp->params.height = params.height;
-	fmtp->params.exactframerate = params.exactframerate;
-	fmtp->params.colorimetry = params.colorimetry;
-	fmtp->params.pm = params.pm;
-	fmtp->params.signal = params.is_interlace ?
-		params.is_segmented ? SIGNAL_PSF : SIGNAL_INTERLACE :
-		SIGNAL_PROGRESSIVE;
-	fmtp->params.tcs = params.tcs;
-	fmtp->params.range = params.range;
-	fmtp->params.maxudp = params.maxudp;
-	fmtp->params.par = params.par;
+	fmtp->params.sampling = p.sampling;
+	fmtp->params.depth = p.depth;
+	fmtp->params.width = p.width;
+	fmtp->params.height = p.height;
+	fmtp->params.exactframerate = p.exactframerate;
+	fmtp->params.colorimetry = p.colorimetry;
+	fmtp->params.pm = p.pm;
+	fmtp->params.signal = p.is_interlace ?
+		p.is_segmented ? SIGNAL_PSF : SIGNAL_INTERLACE :
+			SIGNAL_PROGRESSIVE;
+	fmtp->params.tcs = p.tcs;
+	fmtp->params.range = p.range;
+	fmtp->params.maxudp = p.maxudp;
+	fmtp->params.par = p.par;
+
+	a->type = SDP_ATTR_FMTP;
+	a->value.specific = fmtp;
 
 	return SDP_PARSE_OK;
 }

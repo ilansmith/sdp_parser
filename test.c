@@ -1,12 +1,5 @@
 #include <stdio.h>
-#include "sdp_parser.h"
-
-static int parse_specific_attr(struct sdp_attr *a, char *attr, char *value,
-		char *params)
-{
-	a->sdp_attr_type_specific = 10;
-	return 0;
-}
+#include "smpte2110_sdp_parser.h"
 
 int main (int argc, char **argv)
 {
@@ -25,7 +18,7 @@ int main (int argc, char **argv)
 		return -1;
 	}
 
-	err = sdp_session_parse(session, parse_specific_attr);
+	err = sdp_session_parse(session, smpte2110_sdp_parse_fmtp_params);
 	printf("parsing result: %s\n", err2str[err]);
 
 	sdp_parser_uninit(session);
