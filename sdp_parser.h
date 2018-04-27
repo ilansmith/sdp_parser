@@ -82,6 +82,7 @@ enum sdp_attr_type {
       SDP_ATTR_NONE,
       SDP_ATTR_RTPMAP,
       SDP_ATTR_FMTP,
+      SDP_ATTR_SOURCE_FILTER,
       SDP_ATTR_SPECIFIC,
       SDP_ATTR_NOT_SUPPORTED,
 };
@@ -100,6 +101,30 @@ struct sdp_attr_value_fmtp {
 	void (*param_dtor)(void *params);
 };
 
+enum sdp_attr_source_filter_mode {
+	SDP_ATTR_SRC_FLT_INCL,
+	SDP_ATTR_SRC_FLT_EXCL,
+};
+
+struct source_filter_src_addr {
+	char addr[256];
+	struct source_filter_src_addr *next;
+};
+
+struct sdp_attr_source_filter_spec {
+	enum sdp_ci_nettype nettype;
+	enum sdp_ci_addrtype addrtype;
+	char dst_addr[256];
+	struct source_filter_src_addr src_list;
+	int src_list_len;
+};
+
+/* a=source-filter:<filter-mode> <filter-spec> */
+struct sdp_attr_value_source_filter {
+	enum sdp_attr_source_filter_mode mode;
+	struct sdp_attr_source_filter_spec spec;
+};
+
 union sdp_attr_value {
 	/* Common */
 
@@ -108,6 +133,7 @@ union sdp_attr_value {
 	/* Media */
 	struct sdp_attr_value_rtpmap rtpmap;
 	struct sdp_attr_value_fmtp fmtp;
+	struct sdp_attr_value_source_filter source_filter;
 
 	/* Specific */
 	void *specific;

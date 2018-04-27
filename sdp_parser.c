@@ -295,6 +295,89 @@ static enum sdp_parse_err parse_attr_common(struct sdp_attr *a, char *attr,
 	return SDP_PARSE_NOT_SUPPORTED;
 }
 
+static enum sdp_parse_err sdp_parse_attr_source_filter(
+		struct sdp_attr_value_source_filter *source_filter,
+		char *value, char *params)
+{
+	char *nettype;
+	char *addrtype;
+	char *dst_addr;
+	char *src_addr;
+	char *tmp;
+	struct source_filter_src_addr src_list;
+	int src_list_len;
+
+	/* filter-mode */
+	if (!strncmp(value, "incl", strlen("incl"))) {
+		source_filter->mode = SDP_ATTR_SRC_FLT_INCL;
+	} else if (!strncmp(value, "excl", strlen("excl"))) {
+		source_filter->mode = SDP_ATTR_SRC_FLT_EXCL;
+	} else {
+		sdperr("bad source-filter mode type");
+		return SDP_PARSE_ERROR;
+	}
+
+	/* filter-spec */
+	nettype = strtok_r(params, " ", &tmp);
+	if (!nettype) {
+		sdperr("bad source-filter nettype");
+		return SDP_PARSE_ERROR;
+	}
+
+	addrtype = strtok_r(NULL, " ", &tmp);
+	if (!addrtype) {
+		sdperr("bad source-filter addrtype");
+		return SDP_PARSE_ERROR;
+	}
+
+	dst_addr = strtok_r(NULL, " ", &tmp);
+	if (!dst_addr) {
+		sdperr("bad source-filter dst-addr");
+		return SDP_PARSE_ERROR;
+	}
+
+	src_addr = strtok_r(NULL, " \n", &tmp);
+	if (!src_addr) {
+		sdperr("bad source-filter src-addr");
+		return SDP_PARSE_ERROR;
+	}
+	memset(&src_list, 0, sizeof(struct source_filter_src_addr));
+	strncpy(src_list.addr, src_addr, sizeof(src_list.addr));
+	src_list.next = NULL;
+	src_list_len = 1;
+
+	while (*tmp) {
+		/* limitation:
+		 * rfc4570 defines a list of source addresses.
+		 * The current implementation supports only a single source
+		 * address */
+		sdpwarn("source filter attribute currently supports a "
+			"single source address");
+		*tmp = 0;
+	}
+
+	if (!strncmp(nettype, "IN", strlen("IN")))
+		source_filter->spec.nettype = SDP_CI_NETTYPE_IN;
+	else
+		source_filter->spec.nettype = SDP_CI_NETTYPE_NOT_SUPPORTED;
+
+	if (!strncmp(addrtype, "IP4", strlen("IP4")))
+		source_filter->spec.addrtype = SDP_CI_ADDRTYPE_IPV4;
+	else if (!strncmp(nettype, "IP6", strlen("IP6")))
+		source_filter->spec.addrtype = SDP_CI_ADDRTYPE_IPV6;
+	else
+		source_filter->spec.addrtype = SDP_CI_ADDRTYPE_NOT_SUPPORTED;
+
+	strncpy(source_filter->spec.dst_addr, dst_addr,
+		sizeof(source_filter->spec.dst_addr));
+
+	memcpy(&source_filter->spec.src_list, &src_list,
+		sizeof(struct source_filter_src_addr));
+
+	source_filter->spec.src_list_len = src_list_len;
+	return SDP_PARSE_OK;
+}
+
 static enum sdp_parse_err parse_attr_media(struct sdp_attr *a, char *attr,
 		char *value, char *params,
 		parse_attr_specific_t parse_attr_specific)
@@ -343,6 +426,17 @@ static enum sdp_parse_err parse_attr_media(struct sdp_attr *a, char *attr,
 		if (*params && (!parse_attr_specific ||
 				parse_attr_specific(a, attr, value, params) ==
 				SDP_PARSE_ERROR)) {
+			return SDP_PARSE_ERROR;
+		}
+	} else if (!strncmp(attr, "source-filter", strlen("source-filter"))) {
+		struct sdp_attr_value_source_filter *source_filter;
+
+		source_filter = &a->value.source_filter;
+		a->type = SDP_ATTR_SOURCE_FILTER;
+
+		if (sdp_parse_attr_source_filter(source_filter, value,
+				params)) {
+			sdperr("attribute bad format - %s", attr);
 			return SDP_PARSE_ERROR;
 		}
 	} else {
@@ -449,6 +543,7 @@ static enum sdp_parse_err sdp_parse_media_level_attr(sdp_stream_t sdp,
 		"framerate",
 		"quality",
 		"fmtp",
+		"source-filter",
 	};
 
 	return sdp_parse_attr(sdp, line, len, media,
@@ -482,6 +577,9 @@ static void sdp_attr_free(struct sdp_attr *attr)
 				tmp->value.fmtp.param_dtor(
 					tmp->value.fmtp.params);
 			}
+			break;
+		case SDP_ATTR_SOURCE_FILTER:
+			free(tmp->value.source_filter.spec.src_list.next);
 			break;
 		case SDP_ATTR_SPECIFIC:
 			free(tmp->value.specific);

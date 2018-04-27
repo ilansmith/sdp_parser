@@ -18,7 +18,7 @@ a=recvonly
 a=group:DUP primary secondary
 <b>m=video 50000 RTP/AVP 112</b>
 <b>c=IN IP4 239.100.9.10/32</b>
-a=source-filter:incl IN IP4 239.100.9.10 192.168.100.2
+<b>a=source-filter:incl IN IP4 239.100.9.10 192.168.100.2</b>
 <b>a=rtpmap:112 raw/90000</b>
 <b>a=fmtp:112 sampling=YCbCr-4:2:2; width=1280; height=720; exactframerate=60000/1001; depth=10; TCS=SDR; colorimetry=BT709; PM=2110GPM; TP=2110TPN; SSN=ST2110-20:2017;</b>
 a=ts-refclk:ptp=IEEE1588-2008:39-A7-94-FF-FE-07-CB-D0:37
@@ -26,7 +26,7 @@ a=mediaclk:direct=0
 a=mid:primary
 <b>m=video 50020 RTP/AVP 112</b>
 <b>c=IN IP4 239.101.9.10/32</b>
-a=source-filter:incl IN IP4 239.101.9.10 192.168.101.2
+<b>a=source-filter:incl IN IP4 239.101.9.10 192.168.101.2</b>
 <b>a=rtpmap:112 raw/90000</b>
 <b>a=fmtp:112 sampling=YCbCr-4:2:2; width=1280; height=720; exactframerate=60000/1001; depth=10; TCS=SDR; colorimetry=BT709; PM=2110GPM; TP=2110TPN; SSN=ST2110-20:2017;</b>
 a=ts-refclk:ptp=IEEE1588-2008:39-A7-94-FF-FE-07-CB-D0:37
