@@ -206,15 +206,21 @@ static enum sdp_parse_err sdp_attr_param_parse_exactframerate(char *str,
 		struct attr_params *params, uint32_t *err)
 {
 	int ret;
-	int rate;
+	int nominator;
+	int denominator;
 
-	ret = sscanf(str, "exactframerate=%i/1001", &rate);
-	if (ret == 1) {
+	ret = sscanf(str, "exactframerate=%i/%i", &nominator, &denominator);
+	if (ret == 2) {
+		if (denominator != 1001) {
+			sdperr("bad format param value: %s", str);
+			return SDP_PARSE_ERROR;
+		}
+
 		params->exactframerate.is_integer = 0;
 		goto exit;
 	}
 
-	ret = sscanf(str, "exactframerate=%i", &rate);
+	ret = sscanf(str, "exactframerate=%i", &nominator);
 	if (ret == 1) {
 		params->exactframerate.is_integer = 1;
 		goto exit;
@@ -224,7 +230,7 @@ static enum sdp_parse_err sdp_attr_param_parse_exactframerate(char *str,
 	return SDP_PARSE_ERROR;
 
 exit:
-	params->exactframerate.nominator = rate;
+	params->exactframerate.nominator = nominator;
 	*err |= SMPTE_ERR_EXACTFRAMERATE;
 	return SDP_PARSE_OK;
 }
@@ -300,10 +306,10 @@ static enum sdp_parse_err sdp_attr_param_parse_tp(char *str,
 		return SDP_PARSE_ERROR;
 	}
 
-	if (!strncmp(tp, "2110TPN", strlen("2110TPN")))
-		params->tp = TP_2110TPN;
-	else if (!strncmp(tp, "2110TPNL", strlen("2110TPNL")))
+	if (!strncmp(tp, "2110TPNL", strlen("2110TPNL")))
 		params->tp = TP_2110TPNL;
+	else if (!strncmp(tp, "2110TPN", strlen("2110TPN")))
+		params->tp = TP_2110TPN;
 	else if (!strncmp(tp, "2110TPW", strlen("2110TPW")))
 		params->tp = TP_2110TPW;
 	else
@@ -622,6 +628,7 @@ static enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(
 	smpte2110_fmtp->params.exactframerate = p.exactframerate;
 	smpte2110_fmtp->params.colorimetry = p.colorimetry;
 	smpte2110_fmtp->params.pm = p.pm;
+	smpte2110_fmtp->params.tp = p.tp;
 	smpte2110_fmtp->params.signal = p.is_interlace ?
 		p.is_segmented ? SIGNAL_PSF : SIGNAL_INTERLACE :
 			SIGNAL_PROGRESSIVE;
