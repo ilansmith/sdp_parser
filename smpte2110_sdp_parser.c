@@ -475,7 +475,7 @@ static enum sdp_parse_err sdp_attr_param_parse_cmax(char *str,
 	return SDP_PARSE_OK;
 }
 
-enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
+static enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
 		char *attr, char *value, char *params)
 {
 	struct {
@@ -506,19 +506,12 @@ enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
 	char *token;
 	struct smpte2110_media_attr_fmtp *smpte2110_fmtp;
 
-	if (strncmp(attr, "fmtp", strlen("fmtp")))
-		return SDP_PARSE_ERROR;
-
 	smpte2110_fmtp = (struct smpte2110_media_attr_fmtp *)calloc(1,
 		sizeof(struct smpte2110_media_attr_fmtp));
 	if (!smpte2110_fmtp) {
 		sdperr("Memory allocation");
-		return SDP_PARSE_ERROR;
+		goto fail;
 	}
-
-	a->type = SDP_ATTR_FMTP;
-	a->value.fmtp.params = smpte2110_fmtp;
-	a->value.fmtp.param_dtor = free;
 
 	attribute_params_set_defaults(&p);
 
@@ -540,20 +533,20 @@ enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
 		/* verify attribute is found in list */
 		if (i == ARRAY_SIZE(attribute_param_list)) {
 			sdperr("unknown attribute: %s", token);
-			return SDP_PARSE_ERROR;
+			goto fail;
 		}
 
 		/* verify no multiple attribute signalling */
 		if (attribute_param_list[i].is_parsed) {
 			sdperr("multiple attribute signalling: %s",
 				attribute_param_list[i].param);
-			return SDP_PARSE_ERROR;
+			goto fail;
 		}
 
 		/* parse attribute */
 		if (attribute_param_list[i].parser(token, &p,
 				&smpte2110_fmtp->err) == SDP_PARSE_ERROR) {
-			return SDP_PARSE_ERROR;
+			goto fail;
 		}
 
 		/* mark attriute as parsed */
@@ -563,12 +556,12 @@ enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
 
 	/* assert all required attriute parameters have been provided */
 	if (!SMPTE_2110_ATTR_PARAM_REQUIRED(smpte2110_fmtp->err))
-		return SDP_PARSE_ERROR;
+		goto fail;
 
 	/* assert segmented parameter is not provided without interlace */
 	if (p.is_segmented && ! p.is_interlace) {
 		sdperr("cannot signal 'segmented' without 'interlace'");
-		return SDP_PARSE_ERROR;
+		goto fail;
 	}
 
 	/* update output paprameters */
@@ -587,6 +580,82 @@ enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
 	smpte2110_fmtp->params.maxudp = p.maxudp;
 	smpte2110_fmtp->params.par = p.par;
 
+	a->type = SDP_ATTR_FMTP;
+	a->value.fmtp.params = smpte2110_fmtp;
+	a->value.fmtp.param_dtor = free;
+
 	return SDP_PARSE_OK;
+
+fail:
+	free(smpte2110_fmtp);
+	return SDP_PARSE_ERROR;
+}
+
+static enum sdp_parse_err smpte2110_sdp_parse_group(struct sdp_attr *a,
+		char *attr, char *value, char *params)
+{
+	char *id[2] = {0};
+	char *tmp;
+	struct group_identification_tag **tag;
+	struct sdp_attr_value_group *group = &a->value.group;
+	int i;
+
+	if (strncmp(value, "DUP", strlen("DUP"))) {
+		sdperr("unsupported group semantic for media: %s", value);
+		return SDP_PARSE_ERROR;
+	}
+
+	for (i = 0; i < 2; i++) {
+		id[i] = strtok_r(params, " \n", &tmp);
+		if (!id[i] || (i ? *tmp : !*tmp)) {
+			sdperr("group DUP attribute bad format - %s", attr);
+			return SDP_PARSE_ERROR;
+		}
+
+		params = NULL;
+	}
+
+	for (tag = &group->tag, i = 0; i < 2; i++) {
+		*tag = calloc(1, sizeof(struct group_identification_tag));
+		if (!*tag || !((*tag)->identification_tag = strdup(id[i]))) {
+			sdperr("memory allocation");
+			goto fail;
+		}
+
+		group->num_tags++;
+		tag = &(*tag)->next;
+	}
+
+	if (!(group->semantic = strdup(value))) {
+		sdperr("memory allocation");
+		goto fail;
+	}
+
+	a->type = SDP_ATTR_GROUP;
+	return SDP_PARSE_OK;
+
+fail:
+	tag = &group->tag;
+	while (*tag) {
+		struct group_identification_tag *tmp = *tag;
+
+		tag = &(*tag)->next;
+		free(tmp->identification_tag);
+		free(tmp);
+	}
+
+	return SDP_PARSE_ERROR;
+}
+
+enum sdp_parse_err smpte2110_sdp_parse_specific(struct sdp_attr *a, char *attr,
+		char *value, char *params)
+{
+	if (!strncmp(attr, "fmtp", strlen("fmtp")))
+		return smpte2110_sdp_parse_fmtp_params(a, attr, value, params);
+
+	if (!strncmp(attr, "group", strlen("group")))
+		return smpte2110_sdp_parse_group(a, attr, value, params);
+
+	return SDP_PARSE_ERROR;
 }
 
