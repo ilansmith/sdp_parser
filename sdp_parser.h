@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <stdarg.h>
 
+#include "sdp_stream.h"
+
 #define IS_WHITESPACE(_char_) ((_char_) == ' ' || (_char_) == '\t')
 
 enum sdp_parse_err {
@@ -142,7 +144,7 @@ struct sdp_media {
 };
 
 struct sdp_session {
-	FILE *sdp;
+	sdp_stream_t sdp;
 
 	struct sdp_session_v v; /* v= */
 
@@ -182,7 +184,7 @@ struct sdp_session {
 typedef enum sdp_parse_err (*parse_attr_specific_t)(struct sdp_attr *a,
 	char *attr, char *value, char *params);
 
-struct sdp_session *sdp_parser_init(char *path);
+struct sdp_session *sdp_parser_init(enum sdp_stream_type type, void *ctx);
 void sdp_parser_uninit(struct sdp_session *session);
 
 enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
