@@ -2,6 +2,9 @@
 #define _SDP_PARSER_
 
 #include <stdio.h>
+#include <stdarg.h>
+
+#define IS_WHITESPACE(_char_) ((_char_) == ' ' || (_char_) == '\t')
 
 enum sdp_parse_err {
 	SDP_PARSE_OK,
@@ -18,11 +21,13 @@ struct sdp_session_v {
 /* sdp connection information description */
 
 enum sdp_ci_nettype {
+	SDP_CI_NETTYPE_NONE,
 	SDP_CI_NETTYPE_IN,
 	SDP_CI_NETTYPE_NOT_SUPPORTED,
 };
 
 enum sdp_ci_addrtype {
+	SDP_CI_ADDRTYPE_NONE,
 	SDP_CI_ADDRTYPE_IPV4,
 	SDP_CI_ADDRTYPE_IPV6,
 	SDP_CI_ADDRTYPE_NOT_SUPPORTED,
@@ -40,6 +45,7 @@ struct sdp_connection_information {
 /* media description */
 
 enum sdp_media_type {
+	SDP_MEDIA_TYPE_NONE,
 	SDP_MEDIA_TYPE_AUDIO,
 	SDP_MEDIA_TYPE_VIDEO,
 	SDP_MEDIA_TYPE_TEXT,
@@ -49,6 +55,7 @@ enum sdp_media_type {
 };
 
 enum sdp_media_proto {
+	SDP_MEDIA_PROTO_RTP_NONE,
 	SDP_MEDIA_PROTO_RTP_AVP,
 	SDP_MEDIA_PROTO_RTP_SAVP,
 	SDP_MEDIA_PROTO_NOT_SUPPORTED,
@@ -70,6 +77,7 @@ struct sdp_media_m {
 
 /* a=<attribute> / a=<attribute>:<value> */
 enum sdp_attr_type {
+      SDP_ATTR_NONE,
       SDP_ATTR_RTPMAP,
       SDP_ATTR_FMTP,
       SDP_ATTR_SPECIFIC,
@@ -105,7 +113,6 @@ union sdp_attr_value {
 
 struct sdp_attr {
 	enum sdp_attr_type type;
-	int sdp_attr_type_specific;
 	union sdp_attr_value value;
 	struct sdp_attr *next;
 };
@@ -172,14 +179,15 @@ struct sdp_session {
 	struct sdp_media *media; /* media-level descriptor(s) */
 };
 
-typedef int (*parse_specific_attr_func)(struct sdp_attr *a, char *attr,
-	char *value, char *params);
+typedef enum sdp_parse_err (*parse_attr_specific_t)(struct sdp_attr *a,
+	char *attr, char *value, char *params);
 
 struct sdp_session *sdp_parser_init(char *path);
 void sdp_parser_uninit(struct sdp_session *session);
 
 enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
-		parse_specific_attr_func func);
+		parse_attr_specific_t parse_attr_specific);
 
+void sdperr(char *fmt, ...);
 #endif
 
