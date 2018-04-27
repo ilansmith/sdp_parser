@@ -296,6 +296,8 @@ static enum sdp_parse_err parse_attr_media(struct sdp_attr *a, char *attr,
 		struct sdp_attr_value_rtpmap *rtpmap = &a->value.rtpmap;
 		char *media_subtype, *clock_rate;
 
+		a->type = SDP_ATTR_RTPMAP;
+
 		media_subtype = strtok_r(params, "/", &clock_rate);
 
 		if (!media_subtype || !clock_rate) {
@@ -317,11 +319,11 @@ static enum sdp_parse_err parse_attr_media(struct sdp_attr *a, char *attr,
 			sdperr("attribute bad format - %s", attr);
 			return SDP_PARSE_ERROR;
 		}
-
-		a->type = SDP_ATTR_RTPMAP;
 	} else if (!strncmp(attr, "fmtp", strlen("fmtp"))) {
 		struct sdp_attr_value_fmtp *fmtp = &a->value.fmtp;
 		char *endptr;
+
+		a->type = SDP_ATTR_FMTP;
 
 		fmtp->fmt = strtol(value, &endptr, 10);
 		if (*endptr && *endptr != '\n') {
@@ -334,8 +336,6 @@ static enum sdp_parse_err parse_attr_media(struct sdp_attr *a, char *attr,
 				SDP_PARSE_ERROR)) {
 			return SDP_PARSE_ERROR;
 		}
-
-		a->type = SDP_ATTR_FMTP;
 	} else {
 		a->type = SDP_ATTR_NOT_SUPPORTED;
 		return SDP_PARSE_NOT_SUPPORTED;
@@ -400,7 +400,6 @@ static enum sdp_parse_err sdp_parse_attr(FILE *sdp, char **line, size_t *len,
 				if ((err = parse_level(*a, attr, value,
 						params, parse_attr_specific)) !=
 						SDP_PARSE_OK) {
-					free(*a);
 					return err;
 				}
 
@@ -581,8 +580,12 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 		if (sdp_parse_descriptor_type(line) != 'm')
 			goto exit;
 
-		if (!(media= calloc(1, sizeof(struct sdp_media))))
+		/* add media to session */
+		for (next = &session->media; *next; next = &(*next)->next);
+		if (!(*next= calloc(1, sizeof(struct sdp_media))))
 			goto exit;
+
+		media = *next;
 
 		/* parse m= */
 		if (sdp_parse_media(sdp, &line, &len, &media->m) ==
@@ -621,10 +624,6 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 				parse_attr_specific) == SDP_PARSE_ERROR) {
 			goto exit;
 		}
-
-		/* add media to session */
-		for (next = &session->media; *next; next = &(*next)->next);
-		*next = media;
 	} while (line && *line != '\n');
 
 	err = SDP_PARSE_OK;
