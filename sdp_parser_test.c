@@ -1,0 +1,376 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <errno.h>
+
+#include "sdp_parser.h"
+#include "smpte2110_sdp_parser.h"
+#include "unit_test.h"
+
+static void tmpfile_close(int fd, char *path)
+{
+	close(fd);
+	unlink(path);
+}
+
+static int tmpfile_open(char *content, char **ptr)
+{
+	static char name[11];
+	int fd;
+	int len;
+	int ret;
+
+	snprintf(name, ARRAY_SZ(name), "sdp_XXXXXX");
+	fd = mkstemp(name);
+	if (fd == -1) {
+		char *err;
+
+		switch (errno) {
+		case EEXIST:
+			err = "Could not create a unique temporary filename.";
+			break;
+		case EINVAL:
+			err = "The last six characters of template were not "
+				"XXXXXX;";
+			break;
+		default:
+			err = "Unknown error.";
+			break;
+		}
+
+		fprintf(stderr, "%s(): %s\n", __FUNCTION__, err);
+		return -1;
+	}
+
+	len = strlen(content);
+	ret = write(fd, content, len);
+	if (ret != len) {
+		printf("%s(): Error  writing content to temp file.\n",
+			__FUNCTION__);
+		tmpfile_close(fd, name);
+	}
+
+	*ptr = name;
+	return fd;
+}
+
+static int test_generic(char *content, enum sdp_parse_err expected)
+{
+	int ret = -1;
+	int sdp;
+	char *path;
+	enum sdp_parse_err err;
+	struct sdp_session *session;
+
+	sdp = tmpfile_open(content, &path);
+	if (sdp == -1)
+		goto exit;
+
+	session = sdp_parser_init(SDP_STREAM_TYPE_FILE, path);
+	if (!session) {
+		printf("failed to parse sdp session\n");
+		goto exit;
+	}
+
+	err = sdp_session_parse(session, smpte2110_sdp_parse_specific);
+	if (err == expected)
+		ret = 0;
+
+	sdp_parser_uninit(session);
+
+exit:
+	if (sdp != -1)
+		tmpfile_close(sdp, path);
+
+	return ret;
+
+}
+
+static int missing_required_fmtp_param(enum smpte_2110_attr_param_err missing)
+{
+	struct {
+		enum smpte_2110_attr_param_err param;
+		char *entry;
+	} required_params[] = {
+		{ SMPTE_ERR_SAMPLING, "sampling=YCbCr-4:2:2" },
+		{ SMPTE_ERR_DEPTH, "depth=10" },
+		{ SMPTE_ERR_WIDTH, "width=1280" },
+		{ SMPTE_ERR_HEIGHT, "height=720" },
+		{ SMPTE_ERR_EXACTFRAMERATE, "exactframerate=60000/1001" },
+		{ SMPTE_ERR_COLORIMETRY, "colorimetry=BT709" },
+		{ SMPTE_ERR_PM, "PM=2110GPM" },
+		{ SMPTE_ERR_TP, "TP=2110TPN" },
+		{ SMPTE_ERR_SSN, "SSN=ST2110-20:2017" },
+	};
+	char content[300] =
+		"v=0\n"
+		"s=Example of a SMPTE ST2110-20 signal\n"
+		"m=video 50000 RTP/AVP 112\n"
+		"a=rtpmap:112 raw/90000\n"
+		"a=fmtp:112 ";
+	int i;
+
+	for (i = 0; i < ARRAY_SZ(required_params); i++) {
+		if (required_params[i].param == missing)
+			continue;
+
+		strcat(content, required_params[i].entry);
+		strcat(content, "; "); /* delimiter */
+	}
+	strcat(content, "\n"); /* end of line */
+
+	return test_generic(content, SDP_PARSE_ERROR);
+}
+
+static int test001(void)
+{
+	char *content  =
+		"v=0\n"
+		"o=- 123456 11 IN IP4 192.168.100.2\n"
+		"s=Example of a SMPTE ST2110-20 signal\n"
+		"i=this example is for 720p video at 59.94\n"
+		"t=0 0\n"
+		"a=recvonly\n"
+		"a=group:DUP primary secondary\n"
+		"m=video 50000 RTP/AVP 112\n"
+		"c=IN IP4 239.100.9.10/32\n"
+		"a=source-filter:incl IN IP4 239.100.9.10 192.168.100.2\n"
+		"a=rtpmap:112 raw/90000\n"
+		"a=fmtp:112 sampling=YCbCr-4:2:2; width=1280; height=720; "
+			"exactframerate=60000/1001; depth=10; TCS=SDR; "
+			"colorimetry=BT709; PM=2110GPM; TP=2110TPN; "
+			"SSN=ST2110-20:2017; \n"
+		"a=ts-refclk:ptp=IEEE1588-2008:39-A7-94-FF-FE-07-CB-D0:37\n"
+		"a=mediaclk:direct=0\n"
+		"a=mid:primary\n"
+		"m=video 50020 RTP/AVP 112\n"
+		"c=IN IP4 239.101.9.10/32\n"
+		"a=source-filter:incl IN IP4 239.101.9.10 192.168.101.2\n"
+		"a=rtpmap:112 raw/90000\n"
+		"a=fmtp:112 sampling=YCbCr-4:2:2; width=1280; height=720; "
+			"exactframerate=60000/1001; depth=10; TCS=SDR; "
+			"colorimetry=BT709; PM=2110GPM; TP=2110TPN; "
+			"SSN=ST2110-20:2017; \n"
+		"a=ts-refclk:ptp=IEEE1588-2008:39-A7-94-FF-FE-07-CB-D0:37\n"
+		"a=mediaclk:direct=0\n"
+		"a=mid:secondary\n";
+
+	return test_generic(content, SDP_PARSE_OK);
+}
+
+static int test002(void)
+{
+	char *content  =
+		"v=0\n"
+		"s=Example of a SMPTE ST2110-20 signal\n"
+		"m=video 50000 RTP/AVP 112\n"
+		"c=IN IP4 239.100.9.10/32\n"
+		"a=rtpmap:112 raw/90000\n"
+		"a=fmtp:112 sampling=YCbCr-4:2:2; width=1280; height=720; "
+			"exactframerate=60000/1001; depth=10; TCS=SDR; "
+			"colorimetry=BT709; PM=2110GPM; TP=2110TPN; "
+			"SSN=ST2110-20:2017; \n"
+		"m=video 50020 RTP/AVP 112\n"
+		"c=IN IP4 239.101.9.10/32\n"
+		"a=rtpmap:112 raw/90000\n"
+		"a=fmtp:112 sampling=YCbCr-4:2:2; width=1280; height=720; "
+			"exactframerate=60000/1001; depth=10; TCS=SDR; "
+			"colorimetry=BT709; PM=2110GPM; TP=2110TPN; "
+			"SSN=ST2110-20:2017; \n";
+
+	return test_generic(content, SDP_PARSE_OK);
+}
+
+static int test003(void)
+{
+	char *content  =
+		"m=video 50000 RTP/AVP 112\n"
+		"c=IN IP4 239.100.9.10/32\n"
+		"a=rtpmap:112 raw/90000\n"
+		"a=fmtp:112 sampling=YCbCr-4:2:2; width=1280; height=720; "
+			"exactframerate=60000/1001; depth=10; TCS=SDR; "
+			"colorimetry=BT709; PM=2110GPM; TP=2110TPN; "
+			"SSN=ST2110-20:2017; \n"
+		"m=video 50020 RTP/AVP 112\n"
+		"c=IN IP4 239.101.9.10/32\n"
+		"a=rtpmap:112 raw/90000\n"
+		"a=fmtp:112 sampling=YCbCr-4:2:2; width=1280; height=720; "
+			"exactframerate=60000/1001; depth=10; TCS=SDR; "
+			"colorimetry=BT709; PM=2110GPM; TP=2110TPN; "
+			"SSN=ST2110-20:2017; \n";
+
+	return test_generic(content, SDP_PARSE_ERROR);
+}
+
+static int test004(void)
+{
+	char *content =
+		"v=0\n";
+
+	return test_generic(content, SDP_PARSE_ERROR);
+}
+
+static int test005(void)
+{
+	char *content  =
+		"v=0\n"
+		"o=- 123456 11 IN IP4 192.168.100.2\n"
+		"s=Example of a SMPTE ST2110-20 signal\n"
+		"i=this example is for 720p video at 59.94\n"
+		"t=0 0\n"
+		"a=recvonly\n"
+		"a=group:DUP primary secondary\n";
+
+	return test_generic(content, SDP_PARSE_OK);
+}
+
+static int test006(void)
+{
+	char *content  =
+		"v=0\n"
+		"s=Example of a SMPTE ST2110-20 signal\n"
+		"m=video 50000 RTP/AVP 112\n"
+		"a=rtpmap:112 raw/90000\n"
+		"a=fmtp:112 sampling=YCbCr-4:2:2; width=1280; height=720; "
+			"exactframerate=60000/1001; depth=10; TCS=SDR; "
+			"colorimetry=BT709; PM=2110GPM; TP=2110TPN; "
+			"SSN=ST2110-20:2017;\n";
+
+	return test_generic(content, SDP_PARSE_OK);
+}
+
+static int test007(void)
+{
+	char *content  =
+		"v=0\n"
+		"s=Example of a SMPTE ST2110-20 signal\n"
+		"m=video 50000 RTP/AVP 112\n"
+		"a=rtpmap:112 raw/90000\n"
+		"a=fmtp:112 sampling=YCbCr-4:2:2; width=1280; height=720; "
+			"exactframerate=60000/1001; depth=10; "
+			"colorimetry=BT709; PM=2110GPM; TP=2110TPN; "
+			"SSN=ST2110-20:2017; \n";
+
+	return test_generic(content, SDP_PARSE_OK);
+}
+
+static int test008(void)
+{
+	return missing_required_fmtp_param(SMPTE_ERR_SAMPLING);
+}
+
+static int test009(void)
+{
+	return missing_required_fmtp_param(SMPTE_ERR_DEPTH);
+}
+
+static int test010(void)
+{
+	return missing_required_fmtp_param(SMPTE_ERR_WIDTH);
+}
+
+static int test011(void)
+{
+	return missing_required_fmtp_param(SMPTE_ERR_HEIGHT);
+}
+
+static int test012(void)
+{
+	return missing_required_fmtp_param(SMPTE_ERR_EXACTFRAMERATE);
+}
+
+static int test013(void)
+{
+	return missing_required_fmtp_param(SMPTE_ERR_COLORIMETRY);
+}
+
+static int test014(void)
+{
+	return missing_required_fmtp_param(SMPTE_ERR_PM);
+}
+
+static int test015(void)
+{
+	return missing_required_fmtp_param(SMPTE_ERR_TP);
+}
+
+static int test016(void)
+{
+	return missing_required_fmtp_param(SMPTE_ERR_SSN);
+}
+
+static struct single_test sdp_tests[] = {
+	{
+		description: "SMPTE2110-10 annex B example SDP",
+		func: test001,
+	},
+	{
+		description: "Minimum supported set",
+		func: test002,
+	},
+	{
+		description: "Fail on missing required v=",
+		func: test003,
+	},
+	{
+		description: "Fail on nothing beyond v=",
+		func: test004,
+	},
+	{
+		description: "Allow no m=",
+		func: test005,
+	},
+	{
+		description: "Parse v=, m= and a=fmtp:<fmt> only",
+		func: test006,
+	},
+	{
+		description: "a=fmtp: pass on missing default parameters",
+		func: test007,
+	},
+	{
+		description: "a=fmtp: fail on missing required sampling=",
+		func: test008,
+	},
+	{
+		description: "a=fmtp: fail on missing required depth=",
+		func: test009,
+	},
+	{
+		description: "a=fmtp: fail on missing required width=",
+		func: test010,
+	},
+	{
+		description: "a=fmtp: fail on missing required height=",
+		func: test011,
+	},
+	{
+		description: "a=fmtp: fail on missing required exactframerate=",
+		func: test012,
+	},
+	{
+		description: "a=fmtp: fail on missing required colorimetry=",
+		func: test013,
+	},
+	{
+		description: "a=fmtp: fail on missing required PM=",
+		func: test014,
+	},
+	{
+		description: "a=fmtp: fail on missing required TP=",
+		func: test015,
+	},
+	{
+		description: "a=fmtp: fail on missing required SSN=",
+		func: test016,
+	},
+};
+
+struct unit_test ut_sdp = {
+	.module = "sdp",
+	.description = "SMPTE ST-2110 Session Description Protocol",
+	.tests = sdp_tests,
+	.count = ARRAY_SZ(sdp_tests),
+};
+
