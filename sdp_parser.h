@@ -6,6 +6,10 @@
 
 #include "sdp_stream.h"
 
+#ifdef _WIN32
+#include "sdp_compat.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
