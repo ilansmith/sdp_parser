@@ -130,7 +130,7 @@ struct smpte2110_media_attr_fmtp {
 	uint32_t err;
 };
 
-enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(struct sdp_attr *a,
-		char *attr, char *value, char *params);
+enum sdp_parse_err smpte2110_sdp_parse_specific(struct sdp_attr *a, char *attr,
+		char *value, char *params);
 #endif
 
