@@ -4,6 +4,10 @@
 #include <stdint.h>
 #include "sdp_parser.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* media-level attributes */
 
 enum smpte_2110_attr_param_err {
@@ -130,5 +134,10 @@ struct smpte2110_media_attr_fmtp {
 
 enum sdp_parse_err smpte2110_sdp_parse_specific(struct sdp_attr *a, char *attr,
 		char *value, char *params);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif
 
