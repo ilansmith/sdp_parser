@@ -202,7 +202,12 @@ struct sdp_session {
 	   One or more time descriptions ("t=" and "r=" lines; see below)
 	   z=* (time zone adjustments)
 	   k=* (encryption key)
-	   a=* (zero or more session attribute lines)
+	*/
+
+	   struct sdp_attr *a;
+
+	/* not supported
+	   =============
 
 	   Time description
 	   ----------------
@@ -235,6 +240,9 @@ struct sdp_media *sdp_media_get_next(struct sdp_media *media);
 struct sdp_attr *sdp_media_attr_get(struct sdp_media *media,
 		enum sdp_attr_type type);
 
-struct sdp_attr *sdp_media_attr_get_next(struct sdp_attr *attr);
+struct sdp_attr *sdp_session_attr_get(struct sdp_session *session,
+		enum sdp_attr_type type);
+
+struct sdp_attr *sdp_attr_get_next(struct sdp_attr *attr);
 #endif
 
