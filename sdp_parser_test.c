@@ -727,6 +727,27 @@ static int test020(void)
 	return test_generic(content, SDP_PARSE_OK, assert_no_group);
 }
 
+static int test021(void)
+{
+	char *content  =
+		"v=0\n"
+		"o=- 1443716955 1443716955 IN IP4 192.168.1.230\n"
+		"s=st2110 stream\n"
+		"t=0 0\n"
+		"m=video 20000 RTP/AVP 96\n"
+		"c=IN IP4 239.0.1.2/64\n"
+		"a=source-filter:incl IN IP4 239.0.1.2 192.168.0.1\n"
+		"a=rtpmap:96 raw/90000\n"
+		"a=fmtp:96 sampling=YCbCr-4:2:2; width=720; height=486; "
+			"exactframerate=30000/1001; depth=10; TCS=SDR; "
+			"colorimetry=BT601; PM=2110GPM; "
+			"SSN=\"ST2110-20:2017\"; TP=2110TPN; interlace=1\n"
+		"a=mediaclk:direct=0\n"
+		"a=ts-refclk:localmac=40-a3-6b-a0-2b-d2\n";
+
+	return test_generic_get_error(content, SDP_PARSE_OK);
+}
+
 static struct single_test sdp_tests[] = {
 	{
 		description: "SMPTE2110-10 annex B example SDP",
@@ -807,6 +828,10 @@ static struct single_test sdp_tests[] = {
 	{
 		description: "Identify no a=group attribute",
 		func: test020,
+	},
+	{
+		description: "SSN quoted value",
+		func: test021,
 	},
 };
 
