@@ -17,8 +17,6 @@
 		.is_parsed = 0 \
 	}
 
-#define SDP_A_FMTP_VALUE "a=fmtp:112"
-
 #define SMPTE_2110_ATTR_PARAM_ERR_REQUIRED (SMPTE_ERR_SAMPLING | \
 		SMPTE_ERR_DEPTH | SMPTE_ERR_WIDTH | SMPTE_ERR_HEIGHT | \
 		SMPTE_ERR_EXACTFRAMERATE | SMPTE_ERR_COLORIMETRY | \
@@ -439,14 +437,9 @@ static enum sdp_parse_err sdp_attr_param_parse_par(char *str,
 	return SDP_PARSE_OK;
 }
 
-enum sdp_parse_err sdp_parse_attr_params(char *line, uint32_t *err,
-	enum smpte_2110_sampling *sampling, enum smpte_2110_depth *depth,
-	uint16_t *width, uint16_t *height,
-	struct smpte_2110_fps *exactframerate,
-	enum smpte_2110_colorimetry *colorimetry, enum smpte_2110_pm *pm,
-	enum smpte_2110_signal *signal, enum smpte_2110_tcs *tcs,
-	enum smpte_2110_range *range, uint16_t *maxudp,
-	struct smpte_2110_par *par)
+
+static enum sdp_parse_err sdp_parse_media_attr_params(char *line,
+		struct media_attr_fmtp *fmtp)
 {
 	struct {
 		char *param;
@@ -470,28 +463,12 @@ enum sdp_parse_err sdp_parse_attr_params(char *line, uint32_t *err,
 		SDP_ATTR_PARAM_PARSE(par),
 	};
 	struct attr_params params;
-	char *line_params;
-	char *ptr;
 	char *token;
-	enum sdp_parse_err ret = SDP_PARSE_ERROR;
-
-	*err = 0; /* no attribute params have been parsed */
-
-	if (strncmp(line, SDP_A_FMTP_VALUE, strlen(SDP_A_FMTP_VALUE)))
-		return SDP_PARSE_ERROR;
-
-	line += strlen(SDP_A_FMTP_VALUE); /* skip "a=fmtp:112" */
-
-	line_params = calloc(strlen(line) + 1, sizeof(char));
-	if (!line_params)
-		return SDP_PARSE_ERROR;
-
-	strcpy(line_params, line);
-	ptr = line_params;
 
 	attribute_params_set_defaults(&params);
 
-	while ((token = strtok(ptr, ";"))) {
+	fmtp->err = 0; /* no attribute params have been parsed */
+	while ((token = strtok(line, ";"))) {
 		int i;
 
 		/* skip the white space(s) peceding the current token */
@@ -505,77 +482,69 @@ enum sdp_parse_err sdp_parse_attr_params(char *line, uint32_t *err,
 		/* verify attribute is found in list */
 		if (i == ARRAY_SIZE(attribute_param_list)) {
 			sdperr("unknown attribute: %s", token);
-			goto exit;
+			return SDP_PARSE_ERROR;
 		}
 
 		/* verify no multiple attribute signalling */
 		if (attribute_param_list[i].is_parsed) {
 			sdperr("multiple attribute signalling: %s",
 				attribute_param_list[i].param);
-			goto exit;
+			return SDP_PARSE_ERROR;
 		}
 
 		/* parse attribute */
-		if (attribute_param_list[i].parser(token, &params, err) ==
-				SDP_PARSE_ERROR) {
-			goto exit;
+		if (attribute_param_list[i].parser(token, &params,
+				&fmtp->err) == SDP_PARSE_ERROR) {
+			return SDP_PARSE_ERROR;
 		}
 
 		/* mark attriute as parsed */
 		attribute_param_list[i].is_parsed = 1;
-		ptr = NULL;
 	}
 
 	/* waver unsupported params */
-	*err |= (SMPTE_ERR_COLORIMETRY | SMPTE_ERR_SSN);
+	fmtp->err |= (SMPTE_ERR_COLORIMETRY | SMPTE_ERR_SSN);
 
 	/* assert all required attriute parameters have been provided */
-	if (!SMPTE_2110_ATTR_PARAM_REQUIRED(*err))
-		goto exit;
+	if (!SMPTE_2110_ATTR_PARAM_REQUIRED(fmtp->err))
+		return SDP_PARSE_ERROR;
 
 	/* assert segmented parameter is not provided without interlace */
 	if (params.is_segmented && ! params.is_interlace) {
 		sdperr("cannot signal 'segmented' without 'interlace'");
-		goto exit;
-	}
-
-	/* update output paprameters */
-	*sampling = params.sampling;
-	*depth = params.depth;
-	*width = params.width;
-	*height = params.height;
-	*exactframerate = params.exactframerate;
-	*colorimetry = params.colorimetry;
-	*pm = params.pm;
-	*signal = params.is_interlace ?
-		params.is_segmented ? SIGNAL_PSF : SIGNAL_INTERLACE :
-		SIGNAL_PROGRESSIVE;
-	*tcs = params.tcs;
-	*range = params.range;
-	*maxudp = params.maxudp;
-	*par = params.par;
-
-	ret = SDP_PARSE_OK;
-
-exit:
-	free(line_params);
-	return ret; 
-}
-
-enum sdp_parse_err sdp_parse_clause_type(char *line, char *sdp_description_type)
-{
-	enum sdp_parse_err err;
-
-	if (line[1] != '=') {
-		sdperr("'x=' format not found");
 		return SDP_PARSE_ERROR;
 	}
 
+	/* update output paprameters */
+	fmtp->params.sampling = params.sampling;
+	fmtp->params.depth = params.depth;
+	fmtp->params.width = params.width;
+	fmtp->params.height = params.height;
+	fmtp->params.exactframerate = params.exactframerate;
+	fmtp->params.colorimetry = params.colorimetry;
+	fmtp->params.pm = params.pm;
+	fmtp->params.signal = params.is_interlace ?
+		params.is_segmented ? SIGNAL_PSF : SIGNAL_INTERLACE :
+		SIGNAL_PROGRESSIVE;
+	fmtp->params.tcs = params.tcs;
+	fmtp->params.range = params.range;
+	fmtp->params.maxudp = params.maxudp;
+	fmtp->params.par = params.par;
+
+	return SDP_PARSE_OK;
+}
+
+static char sdp_parse_descriptor_type(char *line)
+{
+	char descriptor;
+
+	if (line[1] != '=') {
+		sdperr("'x=' format not found");
+		return 'x';
+	}
+
 	switch (*line) {
-	case 'a': /* Attributes */
-		*sdp_description_type = *line;
-		err = SDP_PARSE_OK;
-		break;
+	/* session description */
 	case 'v': /* Protocol Version */
 	case 'o': /* Origin */
 	case 's': /* Session Name */
@@ -589,15 +558,335 @@ enum sdp_parse_err sdp_parse_clause_type(char *line, char *sdp_description_type)
 	case 'r': /* Repeat Times */
 	case 'z': /* Time Zones */
 	case 'k': /* Encryption Keys */
+	/* media description */
 	case 'm': /* Media Descriptions */
-		err = SDP_PARSE_NOT_SUPPORTED;
+	case 'a': /* Attributes */
+		descriptor = *line;
 		break;
 	default:
+		descriptor = 'x';
 		sdperr("unsupported session descriptor: '%c='", *line);
-		err = SDP_PARSE_ERROR;
 		break;
 	}
 
+	return descriptor;
+}
+
+static enum sdp_parse_err sdp_parse_non_supported(char *line, char *descriptor)
+{
+	if (strncmp(line, descriptor, strlen(descriptor)))
+		return SDP_PARSE_ERROR;
+
+	return SDP_PARSE_NOT_SUPPORTED;
+}
+
+static enum sdp_parse_err sdp_parse_version(char *line)
+{
+	if (strncmp(line, "v=0", strlen("v=0")))
+		return SDP_PARSE_ERROR;
+
+	return SDP_PARSE_OK;
+}
+
+static enum sdp_parse_err sdp_parse_originator(char *line)
+{
+	return sdp_parse_non_supported(line, "o=");
+}
+
+static enum sdp_parse_err sdp_parse_session_name(char *line)
+{
+	return sdp_parse_non_supported(line, "s=");
+}
+
+static enum sdp_parse_err sdp_parse_time_active(char *line)
+{
+	return sdp_parse_non_supported(line, "t=");
+}
+
+static enum sdp_parse_err sdp_parse_connection_information(char *line,
+		struct sdp_connection_information *ci)
+{
+	char nettype[20];
+	char addrtype[20];
+	char addr[256];
+	int ttl = 1;
+	int ret;
+
+	ret = sscanf(line, "c=%s %s %s/%d", nettype, addrtype, addr, &ttl);
+	if (ret != 4) {
+		ret = sscanf(line, "c=%s %s %s", nettype, addrtype, addr);
+		if (ret != 3) {
+			sdperr("c= bad format, %s", line);
+			return SDP_PARSE_ERROR;
+		}
+
+		ttl = 1;
+	}
+
+	if (!strncmp(nettype, "IN", strlen("IN")))
+		ci->nettype = SDP_CI_NETTYPE_IN;
+	else
+		ci->nettype = SDP_CI_NETTYPE_NOT_SUPPORTED;
+
+	if (!strncmp(nettype, "IP4", strlen("IP4")))
+		ci->addrtype = SDP_CI_ADDRTYPE_IPV4;
+	else if (!strncmp(nettype, "IP6", strlen("IP6")))
+		ci->addrtype = SDP_CI_ADDRTYPE_IPV6;
+	else
+		ci->addrtype = SDP_CI_ADDRTYPE_NOT_SUPPORTED;
+
+	ci->sdp_ci_ttl = ttl;
+	ci->is_used = 1;
+
+	return SDP_PARSE_OK;
+}
+
+static enum sdp_parse_err sdp_parse_media(char *line, struct sdp_media *media)
+{
+	int port;
+	int num_ports;
+	int fmt;
+
+	if (sscanf(line, "video %d/%d RTP/AVP %d", &port, &num_ports, &fmt) !=
+			3) {
+		if (sscanf(line, "video %d RTP/AVP %d", &port, &fmt) != 2)
+			return SDP_PARSE_ERROR;
+
+		num_ports = 1;
+	}
+
+	media->type = SDP_MEDIA_TYPE_VIDEO;
+	media->port = port;
+	media->num_ports = num_ports;
+	media->proto = SDP_MEDIA_PROTO_RTP_AVP;
+	media->fmt = fmt;
+
+	return SDP_PARSE_OK;
+}
+
+static enum sdp_parse_err sdp_parse_media_level_attr(char *line,
+		struct sdp_media_description *media_descriptor)
+{
+	int fmt;
+
+	if (!strncmp(line, "a=rtpmap:", strlen("a=rtpmap:"))) {
+		if (sscanf(line, "a=rtpmap:%d raw/90000", &fmt) != 1 ||
+				fmt != media_descriptor->media.fmt) {
+			sdperr("a=rtpmap:%d - wrong format", fmt);
+			return SDP_PARSE_ERROR;
+		}
+	} else if (!strncmp(line, "a=fmtp:", strlen("a=fmtp:"))) {
+		char *token;
+		
+		token = strtok(line, " ");
+		if (!token) {
+			sdperr("could not tokenize a=fmtp:<val>");
+			return SDP_PARSE_ERROR;
+		}
+
+	 	if (sscanf(token, "a=fmtp:%d", &fmt) != 1) {
+			sdperr("a=fmtp:<val> - could not extract <val> from"
+				"%s", token);
+			return SDP_PARSE_ERROR;
+		}
+
+		if (fmt != media_descriptor->media.fmt) {
+			sdperr("a=fmtp:%d - wrong format", fmt);
+			return SDP_PARSE_ERROR;
+		}
+
+		/* parse parameters */
+		line = NULL;
+		if (sdp_parse_media_attr_params(line,
+				&media_descriptor->fmtp) == SDP_PARSE_ERROR) {
+			return SDP_PARSE_ERROR;
+		}
+	} else {
+		return SDP_PARSE_NOT_SUPPORTED;
+	}
+
+	return SDP_PARSE_OK;
+}
+
+enum sdp_parse_err smpte_2110_sdp_session_parse(FILE *sdp,
+	struct sdp_session_description *session)
+{
+	enum sdp_parse_err err = SDP_PARSE_ERROR;
+	char *line = NULL;
+	size_t len = 0;
+
+	/* parse v= */
+	if (!getline(&line, &len, sdp) ||
+			sdp_parse_version(line) == SDP_PARSE_ERROR) {
+		goto fail;
+	}
+
+	/* parse o= (not supported) */
+	if (!getline(&line, &len, sdp) ||
+			sdp_parse_originator(line) == SDP_PARSE_ERROR) {
+		goto fail;
+	}
+
+	/* parse s= (not supported) */
+	if (!getline(&line, &len, sdp) ||
+			sdp_parse_session_name(line) == SDP_PARSE_ERROR) {
+		goto fail;
+	}
+
+	if (!getline(&line, &len, sdp))
+		goto fail;
+
+	/* parse i=* (not supported) */
+	if (sdp_parse_descriptor_type(line) == 'i') {
+		if (!getline(&line, &len, sdp))
+			goto fail;
+	}
+
+	/* parse u=* (not supported) */
+	if (sdp_parse_descriptor_type(line) == 'u') {
+		if (!getline(&line, &len, sdp))
+			goto fail;
+	}
+
+	/* parse e=* (not supported) */
+	if (sdp_parse_descriptor_type(line) == 'e') {
+		if (!getline(&line, &len, sdp))
+			goto fail;
+	}
+
+	/* parse p=* (not supported) */
+	if (sdp_parse_descriptor_type(line) == 'p') {
+		if (!getline(&line, &len, sdp))
+			goto fail;
+	}
+
+	/* parse c=* */
+	if (sdp_parse_descriptor_type(line) == 'c') {
+		if (sdp_parse_connection_information(line, &session->ci) ==
+				SDP_PARSE_ERROR) {
+			goto fail;
+		}
+
+		if (!getline(&line, &len, sdp))
+			goto fail;
+	}
+
+	/* parse b=* (not supported) */
+	if (sdp_parse_descriptor_type(line) == 'b') {
+		if (!getline(&line, &len, sdp))
+			goto fail;
+	}
+
+	/* parse t= (not supported) */
+	if (sdp_parse_time_active(line) == SDP_PARSE_ERROR)
+		goto fail;
+
+	if (!getline(&line, &len, sdp))
+		goto fail;
+
+	/* parse v=* (not supported) */
+	if (sdp_parse_descriptor_type(line) == 'v') {
+		if (!getline(&line, &len, sdp))
+			goto fail;
+	}
+
+	/* parse z=* (not supported) */
+	if (sdp_parse_descriptor_type(line) == 'z') {
+		if (!getline(&line, &len, sdp))
+			goto fail;
+	}
+
+	/* parse k=* (not supported) */
+	if (sdp_parse_descriptor_type(line) == 'k') {
+		if (!getline(&line, &len, sdp))
+			goto fail;
+	}
+
+	/* parse session-level a=* (not supported) */
+	while (sdp_parse_descriptor_type(line) == 'a') {
+		if (!getline(&line, &len, sdp))
+			goto fail;
+	}
+
+	/* parse media-level description */
+	do {
+		struct sdp_media_description *media_descriptor;
+
+		if (sdp_parse_descriptor_type(line) != 'm')
+			goto fail;
+
+		if (!(media_descriptor = calloc(1,
+				sizeof(struct sdp_media_description)))) {
+			goto fail;
+		}
+
+		/* parse m= */
+		if (sdp_parse_media(line, &media_descriptor->media) ==
+				SDP_PARSE_ERROR) {
+			goto fail;
+		}
+
+		if (!getline(&line, &len, sdp))
+			goto fail;
+
+		/* parse i=* (not supported) */
+		if (sdp_parse_descriptor_type(line) != 'i') {
+			if (!getline(&line, &len, sdp))
+				goto fail;
+		}
+
+		/* parse c=* */
+		if (sdp_parse_descriptor_type(line) != 'c') {
+			if (sdp_parse_connection_information(line,
+				&media_descriptor->ci) == SDP_PARSE_ERROR) {
+				goto fail;
+			}
+
+			if (!getline(&line, &len, sdp))
+				goto fail;
+		}
+
+		/* parse b=* (not supported) */
+		if (sdp_parse_descriptor_type(line) != 'b') {
+			if (!getline(&line, &len, sdp))
+				goto fail;
+		}
+
+		/* parse k=* (not supported) */
+		if (sdp_parse_descriptor_type(line) != 'k') {
+			if (!getline(&line, &len, sdp))
+				goto fail;
+		}
+
+		/* parse media-level a=* */
+		while (line && sdp_parse_descriptor_type(line) != 'a') {
+			if (sdp_parse_media_level_attr(line,
+					media_descriptor) == SDP_PARSE_ERROR) {
+				goto fail;
+			}
+
+			getline(&line, &len, sdp);
+		}
+
+		/* add media_descriptor to session */
+		media_descriptor->next = session->media;
+		session->media = media_descriptor;
+	} while (getline(&line, &len, sdp));
+
+	err = SDP_PARSE_OK;
+	goto exit;
+
+fail:
+	while (session->media) {
+		struct sdp_media_description *media_descriptor;
+		
+		media_descriptor = session->media;
+		session->media = session->media->next;
+		free(media_descriptor);
+	}
+
+exit:
+	free(line);
 	return err;
 }
 

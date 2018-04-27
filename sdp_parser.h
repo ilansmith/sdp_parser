@@ -1,6 +1,8 @@
 #ifndef _SDP_PARSER_
 #define _SDP_PARSER_
 
+#include <stdio.h>
+
 #define SMPTE_2110_SSN "ST2110-20:2017"
 
 enum sdp_parse_err {
@@ -8,6 +10,51 @@ enum sdp_parse_err {
 	SDP_PARSE_NOT_SUPPORTED,
 	SDP_PARSE_ERROR,
 };
+
+/* connection information description */
+
+enum sdp_ci_nettype {
+	SDP_CI_NETTYPE_IN,
+	SDP_CI_NETTYPE_NOT_SUPPORTED,
+};
+
+enum sdp_ci_addrtype {
+	SDP_CI_ADDRTYPE_IPV4,
+	SDP_CI_ADDRTYPE_IPV6,
+	SDP_CI_ADDRTYPE_NOT_SUPPORTED,
+};
+
+ /* c=<nettype> <addrtype> <connection-address> */
+struct sdp_connection_information {
+	enum sdp_ci_nettype nettype;
+	enum sdp_ci_addrtype addrtype;
+	char *sdp_ci_addr;
+	int sdp_ci_ttl;
+	int is_used;
+};
+
+/* media description */
+
+enum sdp_media_type {
+	SDP_MEDIA_TYPE_VIDEO,
+	SDP_MEDIA_TYPE_NOT_SUPPORTED,
+};
+
+enum sdp_media_proto {
+	SDP_MEDIA_PROTO_RTP_AVP,
+	SDP_MEDIA_PROTO_NOT_SUPPORTED,
+};
+
+/* m= <media> <port> <proto> <fmt> ... */
+struct sdp_media {
+	enum sdp_media_type type;
+	int port;
+	int num_ports;
+	enum sdp_media_proto proto;
+	int fmt; /* currently supporting a single format per media-level */
+};
+
+/* media-level attributes */
 
 enum smpte_2110_attr_param_err {
 	/* required parameters */
@@ -96,23 +143,92 @@ struct smpte_2110_par {
 	uint32_t height;
 };
 
-enum sdp_parse_err sdp_parse_clause_type(char *line,
-		char *sdp_description_type);
+struct media_attr_fmtp_params {
+	enum smpte_2110_sampling sampling;
+	enum smpte_2110_depth depth;
+	uint16_t width;
+	uint16_t height;
+	struct smpte_2110_fps exactframerate;
+	struct smpte_2110_fps fps;
+	enum smpte_2110_colorimetry colorimetry;
+	enum smpte_2110_pm pm;
+	enum smpte_2110_signal signal;
+	enum smpte_2110_tcs tcs;
+	enum smpte_2110_range range;
+	uint16_t maxudp;
+	struct smpte_2110_par par;
+};
 
-enum sdp_parse_err sdp_parse_attr_params(char *line, uint32_t *err,
-	/* required media type parameters */
-	enum smpte_2110_sampling *sampling,
-	enum smpte_2110_depth *depth,
-	uint16_t *width, uint16_t *height,
-	struct smpte_2110_fps *exactframerate,
-	enum smpte_2110_colorimetry *colorimetry,
-	enum smpte_2110_pm *pm,
-	/* media type parameters with default values */
-	enum smpte_2110_signal *signal, /* default: SIGNAL_PROGRESSIVE */
-	enum smpte_2110_tcs *tcs,       /* default: TCS_SDR */
-	enum smpte_2110_range *range,   /* default: RANGE_NARROW */
-	uint16_t *maxudp,               /* default: standard UDP limit: 1640 */
-	struct smpte_2110_par *par      /* default: 1:1 */
-	);
+/* a=fmtp:<val> <params> */
+struct media_attr_fmtp {
+	uint32_t err;
+	struct media_attr_fmtp_params params;
+};
+
+struct sdp_media_description {
+	struct sdp_media media;
+
+	/* not supported
+	   =============
+
+	   i=* (media title)
+
+	 */
+
+	struct sdp_connection_information ci;
+
+	/* not supported
+	   =============
+
+         b=* (zero or more bandwidth information lines)
+         k=* (encryption key)
+
+	 */
+
+	int media_attr_rtpmap; /* a=rtpmatp:<val> raw/90000 */
+	struct media_attr_fmtp fmtp;
+
+	struct sdp_media_description *next;
+};
+
+struct sdp_session_description {
+	int version; /* v=0 */
+
+	/* not supported
+	   =============
+
+	   v=  (protocol version)
+	   o=  (originator and session identifier)
+	   s=  (session name)
+	   i=* (session information)
+	   u=* (URI of description)
+	   e=* (email address)
+	   p=* (phone number)
+
+	 */
+
+	struct sdp_connection_information ci;
+
+	/* not supported
+	   =============
+
+	   b=* (zero or more bandwidth information lines)
+	   One or more time descriptions ("t=" and "r=" lines; see below)
+	   z=* (time zone adjustments)
+	   k=* (encryption key)
+	   a=* (zero or more session attribute lines)
+
+	   Time description
+	   ----------------
+	   t=  (time the session is active)
+	   r=* (zero or more repeat times)
+
+	 */
+
+	struct sdp_media_description *media;
+};
+
+enum sdp_parse_err smpte_2110_sdp_session_parse(FILE *sdp,
+	struct sdp_session_description *session);
 #endif
 
