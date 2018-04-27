@@ -3,6 +3,15 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdarg.h>
+#if defined(__linux__)
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#elif defined(_WIN32)
+#include <Winsock2.h>
+#else
+#error non supported platform
+#endif
 
 #include "sdp_parser.h"
 
@@ -29,6 +38,10 @@
 
 #define IS_WHITESPACE_DELIM(_c_) ((_c_) == ' ' || (_c_) == '\t'|| \
 	(_c_) == '\r' || (_c_) == '\n')
+
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
+#endif
 
 /* returns an SDP line with no trailing whitespaces or line delimiters */
 static size_t sdp_getline(char **line, size_t *len, sdp_stream_t sdp)
@@ -181,6 +194,21 @@ static enum sdp_parse_err sdp_parse_session_name(sdp_stream_t sdp, char **line,
 	return SDP_PARSE_OK;
 }
 
+static int is_multicast_addr(enum sdp_ci_addrtype addrtype, char *addr)
+{
+	switch (addrtype) {
+	case SDP_CI_ADDRTYPE_IPV4:
+		return ((unsigned long)inet_addr(addr) & htonl(0xf0000000)) ==
+			htonl(0xe0000000); /* 224.0.0.0 - 239.255.255.255 */
+	case SDP_CI_ADDRTYPE_IPV6:
+		/* not supported */
+	default:
+		break;
+	}
+
+	return 0;
+}
+
 static enum sdp_parse_err sdp_parse_connection_information(sdp_stream_t sdp,
 		char **line, size_t *len, struct sdp_connection_information *c)
 {
@@ -189,7 +217,8 @@ static enum sdp_parse_err sdp_parse_connection_information(sdp_stream_t sdp,
 	char *addr;
 	char *ptr;
 	char *tmp;
-	int ttl = 1;
+	int ttl = 0;
+	int is_ttl_set = 0;
 
 	if (strncmp(*line, "c=", 2))
 		return SDP_PARSE_OK;
@@ -217,6 +246,9 @@ static enum sdp_parse_err sdp_parse_connection_information(sdp_stream_t sdp,
 			sdperr("bad connection information ttl");
 			return SDP_PARSE_ERROR;
 		}
+
+		if (ttl)
+			is_ttl_set = 1;
 	}
 
 	if (!strncmp(nettype, "IN", strlen("IN")))
@@ -224,12 +256,20 @@ static enum sdp_parse_err sdp_parse_connection_information(sdp_stream_t sdp,
 	else
 		c->nettype = SDP_CI_NETTYPE_NOT_SUPPORTED;
 
-	if (!strncmp(addrtype, "IP4", strlen("IP4")))
+	if (!strncmp(addrtype, "IP4", strlen("IP4"))) {
+		if (!is_ttl_set && is_multicast_addr(SDP_CI_ADDRTYPE_IPV4,
+				addr)) {
+			sdperr("connection information with an IP4 multicast "
+				"address requires a TTL value");
+			return SDP_PARSE_ERROR;
+		}
+
 		c->addrtype = SDP_CI_ADDRTYPE_IPV4;
-	else if (!strncmp(nettype, "IP6", strlen("IP6")))
+	} else if (!strncmp(nettype, "IP6", strlen("IP6"))) {
 		c->addrtype = SDP_CI_ADDRTYPE_IPV6;
-	else
+	} else {
 		c->addrtype = SDP_CI_ADDRTYPE_NOT_SUPPORTED;
+	}
 
 	strncpy(c->sdp_ci_addr, addr, sizeof(c->sdp_ci_addr));
 	c->sdp_ci_ttl = ttl;
