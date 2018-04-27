@@ -46,7 +46,7 @@ static int tmpfile_open(char *content, char **ptr)
 	len = strlen(content);
 	ret = write(fd, content, len);
 	if (ret != len) {
-		printf("%s(): Error  writing content to temp file.\n",
+		printf("%s(): Error writing content to temp file.\n",
 			__FUNCTION__);
 		tmpfile_close(fd, name);
 	}
@@ -131,7 +131,7 @@ static int missing_required_fmtp_param(enum smpte_2110_attr_param_err missing)
 
 static int test001(void)
 {
-	char *content  =
+	char *content =
 		"v=0\n"
 		"o=- 123456 11 IN IP4 192.168.100.2\n"
 		"s=Example of a SMPTE ST2110-20 signal\n"
@@ -167,7 +167,7 @@ static int test001(void)
 
 static int test002(void)
 {
-	char *content  =
+	char *content =
 		"v=0\n"
 		"s=Example of a SMPTE ST2110-20 signal\n"
 		"m=video 50000 RTP/AVP 112\n"
@@ -190,7 +190,7 @@ static int test002(void)
 
 static int test003(void)
 {
-	char *content  =
+	char *content =
 		"m=video 50000 RTP/AVP 112\n"
 		"c=IN IP4 239.100.9.10/32\n"
 		"a=rtpmap:112 raw/90000\n"
@@ -219,7 +219,7 @@ static int test004(void)
 
 static int test005(void)
 {
-	char *content  =
+	char *content =
 		"v=0\n"
 		"o=- 123456 11 IN IP4 192.168.100.2\n"
 		"s=Example of a SMPTE ST2110-20 signal\n"
@@ -233,7 +233,7 @@ static int test005(void)
 
 static int test006(void)
 {
-	char *content  =
+	char *content =
 		"v=0\n"
 		"s=Example of a SMPTE ST2110-20 signal\n"
 		"m=video 50000 RTP/AVP 112\n"
@@ -248,7 +248,7 @@ static int test006(void)
 
 static int test007(void)
 {
-	char *content  =
+	char *content =
 		"v=0\n"
 		"s=Example of a SMPTE ST2110-20 signal\n"
 		"m=video 50000 RTP/AVP 112\n"
@@ -336,7 +336,7 @@ static int assert_source_filter(struct sdp_session *session)
 					.src_addr = "192.168.100.2"
 				},
 				{
-					.dst_addr =  "239.101.9.10",
+					.dst_addr = "239.101.9.10",
 					.src_addr = "192.168.101.2"
 				}
 			};
@@ -437,7 +437,7 @@ static int assert_source_filter(struct sdp_session *session)
 
 static int test017(void)
 {
-	char *content  =
+	char *content =
 		"v=0\n"
 		"o=- 123456 11 IN IP4 192.168.100.2\n"
 		"s=Example of a SMPTE ST2110-20 signal\n"
@@ -543,7 +543,7 @@ static int assert_mid(struct sdp_session *session)
 
 static int test018(void)
 {
-	char *content  =
+	char *content =
 		"v=0\n"
 		"o=- 123456 11 IN IP4 192.168.100.2\n"
 		"s=Example of a SMPTE ST2110-20 signal\n"
@@ -669,7 +669,7 @@ static int assert_no_group(struct sdp_session *session)
 
 static int test019(void)
 {
-	char *content  =
+	char *content =
 		"v=0\n"
 		"o=- 123456 11 IN IP4 192.168.100.2\n"
 		"s=Example of a SMPTE ST2110-20 signal\n"
@@ -705,7 +705,7 @@ static int test019(void)
 
 static int test020(void)
 {
-	char *content  =
+	char *content =
 		"v=0\n"
 		"o=- 123456 11 IN IP4 192.168.100.2\n"
 		"s=Example of a SMPTE ST2110-20 signal\n"
@@ -729,7 +729,7 @@ static int test020(void)
 
 static int test021(void)
 {
-	char *content  =
+	char *content =
 		"v=0\n"
 		"o=- 1443716955 1443716955 IN IP4 192.168.1.230\n"
 		"s=st2110 stream\n"
@@ -744,6 +744,45 @@ static int test021(void)
 			"SSN=\"ST2110-20:2017\"; TP=2110TPN; interlace=1\n"
 		"a=mediaclk:direct=0\n"
 		"a=ts-refclk:localmac=40-a3-6b-a0-2b-d2\n";
+
+	return test_generic_get_error(content, SDP_PARSE_OK);
+}
+
+static int test022(void)
+{
+	char *content =
+		"v=0\n"
+		"o=- 804326665 0 IN IP4 192.168.3.77\n"
+		"s=Gefei XIO9101 2110\n"
+		"t=0 0\n"
+		"m=video 5000 RTP/AVP 96\n"
+		"c=IN IP4 239.10.10.100/96\n"
+		"a=rtpmap:96 raw/90000\n"
+		"a=fmtp:96 sampling=YCbCr-4:2:2; width=1920; height=1080; "
+			"exactframerate=30000/1001; depth=10; TCS=SDR; "
+			"colorimetry=BT709; PM=2110BPM; "
+			"SSN=\"ST2110-20:2017\"; interlace; TP=2110TPN\n"
+		"a=tsrefclk:ptp=IEEE1588-2008:08-00-11-FF-FE-22-39-E4:125\n"
+		"a=mediaclk:direct=0\n"
+		"a=mid:VID1\n"
+		"m=audio 5010 RTP/AVP 110\n"
+		"c=IN IPV4 239.10.10.110/96\n"
+		"a=rtpmap:100 L24/48000/2\n"
+		"a=fmtp:100 channel-order=SMPTE2110.(ST)\n"
+		"a=ptime:1.000\n"
+		"a=tsrefclk:ptp=IEEE1588-2008:08-00-11-FF-FE-22-39-E4:125\n"
+		"a=mediaclk:direct=0\n"
+		"a=mid:AUD\n"
+		"m=video 5050 RTP/AVP 97\n"
+		"c=IN IP4 239.10.10.97/96\n"
+		"a=rtpmap:97 raw/90000\n"
+		"a=fmtp:97 sampling=YCbCr-4:2:2; width=1920; height=1080; "
+			"exactframerate=30000/1001; depth=10; TCS=SDR; "
+			"colorimetry=BT709; PM=2110BPM; "
+			"SSN=\"ST2110-20:2017\"; interlace; TP=2110TPN\n"
+		"a=tsrefclk:ptp=IEEE1588-2008:08-00-11-FF-FE-22-39-E4:125\n"
+		"a=mediaclk:direct=0\n"
+		"a=mid:VID2\n";
 
 	return test_generic_get_error(content, SDP_PARSE_OK);
 }
@@ -832,6 +871,10 @@ static struct single_test sdp_tests[] = {
 	{
 		description: "SSN quoted value",
 		func: test021,
+	},
+	{
+		description: "a=fmtp for non raw video format",
+		func: test022,
 	},
 };
 
