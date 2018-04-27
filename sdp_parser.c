@@ -6,7 +6,9 @@
 
 #include "sdp_parser.h"
 
-#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
+#ifndef NOT_IN_USE
+#define NOT_IN_USE(a) ((void)(a))
+#endif
 
 #define SKIP_WHITESPACES(_ptr_) ({ \
 	do { \
@@ -261,7 +263,8 @@ static enum sdp_parse_err sdp_parse_media(sdp_stream_t sdp, char **line,
 	media->fmt.id = fmt;
 
 	while (tmp && *tmp) {
-		if (!(*smf = calloc(1, sizeof(struct sdp_media_fmt)))) {
+		if (!(*smf = (struct sdp_media_fmt*)calloc(1,
+                		sizeof(struct sdp_media_fmt)))) {
 			sdperr("memory acllocation");
 			return SDP_PARSE_ERROR;
 		}
@@ -284,6 +287,12 @@ static enum sdp_parse_err parse_attr_common(struct sdp_attr *a, char *attr,
 		char *value, char *params,
 		parse_attr_specific_t parse_attr_specific)
 {
+	NOT_IN_USE(a);
+	NOT_IN_USE(attr);
+	NOT_IN_USE(value);
+	NOT_IN_USE(params);
+	NOT_IN_USE(parse_attr_specific);
+
 	return SDP_PARSE_OK;
 }
 
@@ -324,7 +333,7 @@ static enum sdp_parse_err sdp_parse_attr(sdp_stream_t sdp, char **line,
 		if (*tmp)
 			params = tmp;
 
-		*a = calloc(1, sizeof(struct sdp_attr));
+		*a = (struct sdp_attr*)calloc(1, sizeof(struct sdp_attr));
 		if (!*a) {
 			sdperr("memory acllocation");
 			return SDP_PARSE_ERROR;
@@ -764,8 +773,10 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 
 		/* add media to session */
 		for (next = &session->media; *next; next = &(*next)->next);
-		if (!(*next= calloc(1, sizeof(struct sdp_media))))
+		if (!(*next= (struct sdp_media*)calloc(1,
+                		sizeof(struct sdp_media)))) {
 			goto exit;
+                }
 
 		media = *next;
 

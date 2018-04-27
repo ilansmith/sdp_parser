@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-Wall -Werror -O0 -g
+CFLAGS=-Wall -Werror -O0 -g -pedantic
 APP=test
 OBJS=sdp_stream.o sdp_parser.o smpte2110_sdp_parser.o test.o
 

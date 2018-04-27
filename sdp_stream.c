@@ -11,7 +11,7 @@ struct sdp_stream {
 
 struct buf_stream {
 	char *buf;
-	int offset;
+	size_t offset;
 };
 
 /* File stream */
@@ -64,13 +64,13 @@ static ssize_t sdp_stream_getline_char(char **lineptr, size_t *n,
 {
 	char *buf = bs->buf + bs->offset;
 	char *eol = strchr(buf, '\n');
-	ssize_t size = eol - buf + 1;
+	size_t size = eol - buf + 1;
 
 	if (!n)
 		return -1;
 
 	if (!*lineptr || *n < size) {
-		char *ptr = realloc(*lineptr, size + 1);
+		char *ptr = (char*)realloc(*lineptr, size + 1);
 
 		if (!ptr)
 			return -1;
