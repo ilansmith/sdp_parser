@@ -67,6 +67,7 @@ enum sdp_media_proto {
 
 struct sdp_media_fmt {
 	int id;
+	int specific_sub_type;
 	struct sdp_media_fmt *next;
 };
 
@@ -106,7 +107,7 @@ struct sdp_attr_value_group {
 
 /* a=rtpmap:<payload type> <encoding name>/<clock rate> [/<encoding parameters> */
 struct sdp_attr_value_rtpmap {
-	int payload_type;
+	struct sdp_media_fmt *fmt; /* payload-type */
 	interpretable encoding_name;
 	int clock_rate;
 	interpretable encoding_parameters;
@@ -119,7 +120,7 @@ struct sdp_attr_value_ptime {
 
 /* a=fmtp:<val> <params> */
 struct sdp_attr_value_fmtp {
-	int fmt;
+	struct sdp_media_fmt *fmt;
 	interpretable params;
 };
 

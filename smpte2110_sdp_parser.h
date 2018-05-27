@@ -10,6 +10,13 @@ extern "C" {
 
 /* media-level attributes */
 
+enum smpte_2110_media_sub_type {
+	SMPTE_SUB_TYPE_UNKNOWN,
+	SMPTE_SUB_TYPE_20,
+	SMPTE_SUB_TYPE_30,
+	SMPTE_SUB_TYPE_40,
+};
+
 enum smpte_2110_attr_param_err {
 	/* required parameters */
 	SMPTE_ERR_SAMPLING = 1<<0,
@@ -139,6 +146,18 @@ struct smpte2110_media_attr_fmtp_params {
 struct smpte2110_media_attr_fmtp {
 	struct smpte2110_media_attr_fmtp_params params;
 	uint32_t err;
+};
+
+struct smpte2110_40_DID_SDID {
+	uint8_t code_1;
+	uint8_t code_2;
+	struct smpte2110_40_DID_SDID *next;
+};
+
+struct smpte2110_40_fmtp_params {
+	struct smpte2110_40_DID_SDID *DIDs;
+	struct smpte2110_40_DID_SDID *last_DID;
+	uint32_t VPID_code;
 };
 
 /* 2110 specific interpreter */

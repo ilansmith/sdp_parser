@@ -2,25 +2,7 @@
 #include "sdp_parser.h"
 #include "sdp_field.h"
 
-static struct sdp_session_interpreter empty_session_interpreter = SDP_SESSION_INTERPRETER_INIT();
-static struct sdp_media_interpreter empty_media_interpreter = SDP_MEDIA_INTERPRETER_INIT();
-
-struct sdp_session_interpreter *no_specific_session_interpreter()
-{
-	return &empty_session_interpreter;
-}
-
-struct sdp_media_interpreter *no_specific_media_interpreter(struct sdp_media_m* media_m)
-{
-	(void)media_m;
-	return &empty_media_interpreter;
-}
-
-static struct sdp_specific empty_specific =
-{
-	no_specific_session_interpreter,
-	no_specific_media_interpreter
-};
+static struct sdp_specific empty_specific = SDP_SPECIFIC_INIT();
 
 struct sdp_specific *no_specific = &empty_specific;
 
@@ -37,6 +19,16 @@ enum sdp_parse_err sdp_parse_type_verify(char *endptr, const char *input,
 		return SDP_PARSE_ERROR;
 	}
 	return SDP_PARSE_OK;
+}
+
+enum sdp_parse_err sdp_parse_str(char **result, const char *input)
+{
+	if (!input)
+		return sdprerr("no value specified.");
+	*result = strdup(input);
+	return (*result) ?
+		SDP_PARSE_OK :
+		sdprerr("memory allocation failed.");
 }
 
 enum sdp_parse_err sdp_parse_int(int *result, const char *input)
@@ -84,22 +76,28 @@ enum sdp_parse_err sdp_parse_double(double *result, const char *input)
 	return sdp_parse_type_verify(endptr, input, "Number");
 }
 
-enum sdp_parse_err sdp_parse_field(interpretable *field, const char *input,
+enum sdp_parse_err sdp_parse_field_default(interpretable *field, char *input)
+{
+	if (!input) {
+ 		field->as.as_ptr = NULL;
+		return SDP_PARSE_OK;
+ 	}
+	field->dtor = free;
+	return sdp_parse_str(&field->as.as_str, input);
+}
+
+enum sdp_parse_err sdp_parse_field(struct sdp_media *media,
+		struct sdp_attr *attr, interpretable *field, char *input,
 		sdp_field_interpreter specific_field_interpreter)
 {
-	/* If a specific interpreter is used, pass the input as is. Allow specific
-	 * default value for NULL input (optional field).*/
+	/*
+	 * If a specific interpreter is used, pass the input as is.
+	 * Allow specific default value for NULL input (optional field).
+	 */
 	field->dtor = NULL;
-	if (specific_field_interpreter) {
-		return specific_field_interpreter(field, input);
-	}
-	if (input) {
-		field->as.as_str = strdup(input);
-		field->dtor = free;
-	} else {
-		field->as.as_ptr = NULL;
-	}
-	return SDP_PARSE_OK;
+	if (specific_field_interpreter)
+		return specific_field_interpreter(media, attr, field, input);
+	return sdp_parse_field_default(field, input);
 }
 
 void sdp_free_field(interpretable* field)

@@ -5,331 +5,16 @@
  *      Author: eladw
  */
 
-#include <stdlib.h>
-#include <math.h>
-#include <stdarg.h>
-#include <stdio.h>
 #include <string.h>
-#if defined(__linux__)
-#include <errno.h>
-#include <unistd.h>
-#endif
 
+#include "sdp_test_util.h"
 #include "sdp_stream.h"
 #include "sdp_parser.h"
 #include "smpte2110_sdp_parser.h"
 
-#define C_RED    "\033[00;31m"
-#define C_GREEN  "\033[00;32m"
-#define C_YELLOW "\033[00;33m"
-#define C_ITALIC "\033[00;03m"
-#define C_NORMAL "\033[00;00;00m"
-
-#ifndef ARRAY_SZ
-#define ARRAY_SZ(array) (int)(sizeof(array) / sizeof(array[0]))
-#endif
-
-typedef void (*sdp_attr_func_ptr)(void);
-typedef int (*test_func)(void);
-
-struct single_test
-{
-	const char *name;
-	const char *description;
-	test_func func;
-};
-
-#define MAX_NUM_TESTS 300
-static struct single_test tests[MAX_NUM_TESTS];
-static int num_tests = 0;
-
-void add_test(test_func func, const char *name, const char *description)
-{
-	int id = num_tests++;
-	tests[id].name = name;
-	tests[id].description = description;
-	tests[id].func = func;
-}
-
-#define REG_TEST(_name_, _summary_) \
-	static const char *_name_ ## _summary = _summary_; \
-	static int _name_(void)
-
-#define ADD_TEST(_name_) add_test(_name_, #_name_, _name_ ## _summary)
-
-static int test_log(const char *format, ...)
-{
-	va_list va;
-	va_start(va, format);
-	fprintf(stderr, "#### ");
-	vfprintf(stderr, format, va);
-	va_end(va);
-	return 0;
-}
-
-static int assert_error(const char *format, ...)
-{
-	va_list va;
-	va_start(va, format);
-	vfprintf(stderr, format, va);
-	va_end(va);
-	return 0;
-}
-
-int vprint_title(const char *format, va_list va)
-{
-   int uiIt;
-   char title[256];
-   char line_buf[256], *ptr = line_buf;
-   int uiLen = vsprintf(title, format, va);
-   //test_log("┏━");
-   ptr += sprintf(ptr, "+-");
-   for ( uiIt = 0; uiIt < uiLen; uiIt++ )
-   {
-      //test_log("━" );
-      ptr += sprintf(ptr, "-" );
-   }
-   //test_log("━┓\n" );
-   //test_log("┃ %s ┃\n", title);
-   //test_log("┗━" );
-   ptr += sprintf(ptr, "-+\n" );
-   test_log("%s", line_buf);
-
-   test_log("| %s |\n", title);
-
-   ptr = line_buf;
-   ptr += sprintf(ptr, "+-");
-   for ( uiIt = 0; uiIt < uiLen; uiIt++ )
-   {
-      //test_log("━" );
-	   ptr += sprintf(ptr, "-");
-   }
-   //test_log("━┛\n" );
-   ptr += sprintf(ptr, "-+\n" );
-   test_log("%s", line_buf);
-   return uiLen + 4;
-}
-
-int print_title(const char* format, ...)
-{
-   va_list va;
-   int ret;
-   va_start(va, format);
-   ret = vprint_title(format, va);
-   va_end(va);
-   return ret;
-}
-
-struct test_ctx {
-	enum sdp_stream_type type;
-	union {
-		struct {
-			int fd;
-			char *path;
-		} file;
-		char *buf;
-	} data;
-	struct sdp_session *session;
-};
-
-#if defined(__linux__)
-static void tmpfile_close(struct test_ctx *ctx)
-{
-	if (ctx->data.file.fd == -1)
-		return;
-
-	close(ctx->data.file.fd);
-	unlink(ctx->data.file.path);
-}
-
-static int tmpfile_open(const char *content, struct test_ctx *ctx)
-{
-	static char name[11];
-	int fd;
-	int len;
-	int ret;
-
-	snprintf(name, 11, "sdp_XXXXXX");
-	fd = mkstemp(name);
-	if (fd == -1) {
-		char *err;
-
-		switch (errno) {
-		case EEXIST:
-			err = "Could not create a unique temporary filename.";
-			break;
-		case EINVAL:
-			err = "The last six characters of template were not "
-				"XXXXXX;";
-			break;
-		default:
-			err = "Unknown error.";
-			break;
-		}
-
-		fprintf(stderr, "%s(): %s\n", __func__, err);
-		return -1;
-	}
-
-	len = strlen(content);
-	ret = write(fd, content, len);
-	if (ret != len) {
-		test_log("%s(): Error writing content to temp file.\n",
-			__func__);
-		close(fd);
-		unlink(name);
-		return -1;
-	}
-
-	ctx->data.file.fd = fd;
-	ctx->data.file.path = name;
-	return 0;
-}
-#else
-#define tmpfile_close(_ctx_)
-#define tmpfile_open(_content_, _ctx_) 1
-#endif
-
-static void tmpbuf_uninit(struct test_ctx *ctx)
-{
-	if (ctx->data.buf) {
-		memset(ctx->data.buf, 0, strlen(ctx->data.buf));
-		free(ctx->data.buf);
-	}
-}
-
-static int tmpbuf_init(const char *content, struct test_ctx *ctx)
-{
-	int len = strlen(content);
-	char *tmp;
-
-	tmp = (char*)calloc(len + 1, 1);
-	if (!tmp)
-		return -1;
-
-	strncpy(tmp, content, len);
-
-	ctx->data.buf = tmp;
-	return 0;
-}
-
-static void generic_context_uninit(struct test_ctx *ctx)
-{
-	if (ctx->session)
-		sdp_parser_uninit(ctx->session);
-
-	switch (ctx->type) {
-	case SDP_STREAM_TYPE_FILE:
-		tmpfile_close(ctx);
-		break;
-	case SDP_STREAM_TYPE_CHAR:
-		tmpbuf_uninit(ctx);
-		break;
-	default:
-		break;
-	}
-
-	free(ctx);
-}
-
-static struct test_ctx *generic_context_init(enum sdp_stream_type type,
-		const char *content)
-{
-	struct test_ctx *ctx;
-	int ret = -1;
-
-	ctx = calloc(1, sizeof(struct test_ctx));
-	if (!ctx)
-		return NULL;
-
-	switch (type) {
-	case SDP_STREAM_TYPE_FILE:
-		if (tmpfile_open(content, ctx))
-			goto exit;
-
-		ctx->session = sdp_parser_init(SDP_STREAM_TYPE_FILE,
-			ctx->data.file.path);
-		if (!ctx->session) {
-			test_log("failed to init sdp session from file\n");
-			goto exit;
-		}
-
-		ctx->type = SDP_STREAM_TYPE_FILE;
-		break;
-	case SDP_STREAM_TYPE_CHAR:
-		if (tmpbuf_init(content, ctx))
-			goto exit;
-
-		ctx->session = sdp_parser_init(SDP_STREAM_TYPE_CHAR,
-			ctx->data.buf);
-		if (!ctx->session) {
-			test_log("failed to init sdp session from buffer\n");
-			goto exit;
-		}
-
-		ctx->type = SDP_STREAM_TYPE_CHAR;
-		break;
-	default:
-		break;
-	}
-
-	ret = 0;
-
-exit:
-	if (ret) {
-		generic_context_uninit(ctx);
-		ctx = NULL;
-	}
-
-	return ctx;
-}
-
-static int run_test_generic(const char *content, enum sdp_parse_err expected,
-		int (*verifier)(struct sdp_session *session),
-		enum sdp_stream_type stream_type, parse_attr_specific_t specific)
-{
-	int ret = -1;
-	struct test_ctx *ctx;
-	enum sdp_parse_err err;
-
-	ctx = generic_context_init(stream_type, content);
-	if (!ctx)
-		return -1;
-
-	err = sdp_session_parse(ctx->session, specific);
-	if (err == expected)
-		ret = (!verifier || !verifier(ctx->session)) ? 0 : -1;
-
-	generic_context_uninit(ctx);
-	return ret;
-
-}
-
-static int test_generic(const char *content, enum sdp_parse_err expected,
-		int (*verifier)(struct sdp_session *session),
-		parse_attr_specific_t specific)
-{
-	int i;
-	int ret;
-	struct {
-		enum sdp_stream_type type;
-		char *name;
-	} stream_types[] = {
-#if defined(__linux__)
-		{ SDP_STREAM_TYPE_FILE, "file" },
-#endif
-		{ SDP_STREAM_TYPE_CHAR, "memory" },
-	};
-
-	for (ret = 0, i = 0; !ret && i < ARRAY_SZ(stream_types); i++) {
-		test_log("%s  running %s stream based test%s\n", C_ITALIC,
-			stream_types[i].name, C_NORMAL);
-		ret = run_test_generic(content, expected, verifier,
-			stream_types[i].type, specific);
-	}
-
-	return ret;
-}
+#define SET_ATTR_VINFO(m_id, a_id, func, ...) \
+	set_attr_vinfo(m_id, a_id, (sdp_attr_func_ptr)func, \
+		num_args((sdp_attr_func_ptr )func), __VA_ARGS__)
 
 static int test_generic_smpte2110_get_error(const char *content, enum sdp_parse_err expected)
 {
@@ -373,59 +58,13 @@ static int missing_required_fmtp_param(enum smpte_2110_attr_param_err missing)
 }
 
 /******************************************************************************
-                              Common Validators
-******************************************************************************/
-static int assert_str(const char *left_name, const char *left,
-		const char *right_name, const char *right)
-{
-	if ((!left) && (!right))
-		return 1;
-	if (!left)
-		return assert_error("Assertion failed: %s is NULL.\n", left_name);
-	if (!right)
-		return assert_error("Assertion failed: %s is NULL.\n", right_name);
-	if (strcmp(left, right) != 0)
-		return assert_error("Assertion failed: %s ('%s') != %s ('%s').\n", left_name, left, right_name, right);
-	return 1;
-}
-
-static int assert_int(const char *left_name, long long left,
-		const char *right_name, long long right)
-{
-	if (left != right)
-		return assert_error("Assertion failed: %s ('%lld') != %s ('%lld').\n", left_name, left, right_name, right);
-	return 1;
-}
-
-static inline int assert_flt(const char *left_name, double left,
-		const char *right_name, double right)
-{
-	static const double epsilon = 0.00001;
-	if (fabs(left - right) > epsilon)
-		return assert_error("Assertion failed: %s ('%lf') != %s ('%lf').\n", left_name, left, right_name, right);
-	return 1;
-}
-
-static int assert_res(int res, const char *name, const char* file, int line)
-{
-	if (!res)
-		return assert_error("    In: %s:%u: %s\n", file, line, name);
-	return 1;
-}
-
-#define ASSERT_RES(_res_)           assert_res(_res_, #_res_, __FILE__, __LINE__)
-#define ASSERT_STR(_left_, _right_) assert_res(assert_str(#_left_, _left_, #_right_, _right_), "ASSERT_STR(" #_left_ ", " #_right_ ")", __FILE__, __LINE__)
-#define ASSERT_INT(_left_, _right_) assert_res(assert_int(#_left_, _left_, #_right_, _right_), "ASSERT_INT(" #_left_ ", " #_right_ ")", __FILE__, __LINE__)
-#define ASSERT_FLT(_left_, _right_) assert_res(assert_flt(#_left_, _left_, #_right_, _right_), "ASSERT_FLT(" #_left_ ", " #_right_ ")", __FILE__, __LINE__)
-
-/******************************************************************************
                               Validator Functions
 ******************************************************************************/
 static int no_specific_fmtp(const struct sdp_attr *attr,
 		long long fmt, const char *params)
 {
 	return ASSERT_INT(attr->type, SDP_ATTR_FMTP) &&
-	       ASSERT_INT(attr->value.fmtp.fmt, fmt) &&
+	       ASSERT_INT(attr->value.fmtp.fmt->id, fmt) &&
 	       ASSERT_STR(attr->value.fmtp.params.as.as_str, params);
 }
 
@@ -434,7 +73,7 @@ static int no_specific_rtpmap(const struct sdp_attr *attr,
 		long long clock_rate, const char *encoding_parameters)
 {
 	return ASSERT_INT(attr->type, SDP_ATTR_RTPMAP) &&
-	       ASSERT_INT(attr->value.rtpmap.payload_type, payload_type) &&
+	       ASSERT_INT(attr->value.rtpmap.fmt->id, payload_type) &&
 	       ASSERT_STR(attr->value.rtpmap.encoding_name.as.as_str, encoding_name) &&
 	       ASSERT_INT(attr->value.rtpmap.clock_rate, clock_rate) &&
 	       ASSERT_STR(attr->value.rtpmap.encoding_parameters.as.as_str, encoding_parameters);
@@ -452,54 +91,10 @@ static inline int smpte2110_rtpmap(const struct sdp_attr *attr,
 		long long num_channels)
 {
 	return ASSERT_INT(attr->type, SDP_ATTR_RTPMAP) &&
-	       ASSERT_INT(attr->value.rtpmap.payload_type, payload_type) &&
+	       ASSERT_INT(attr->value.rtpmap.fmt->id, payload_type) &&
 	       ASSERT_INT(attr->value.rtpmap.encoding_name.as.as_ll, bit_width) &&
 	       ASSERT_INT(attr->value.rtpmap.clock_rate, clock_rate) &&
 	       ASSERT_INT(attr->value.rtpmap.encoding_parameters.as.as_ll, num_channels);
-}
-
-/******************************************************************************
-                                Validator Info
-******************************************************************************/
-#define IGNORE_VALUE -1
-#define MAX_NUM_MEDIA 10
-#define MAX_NUM_SESSION_ATTRIBUTES 20
-#define MAX_NUM_MEDIA_ATTRIBUTES 20
-#define MAX_NUM_ATTRIBUTE_FIELDS 10
-
-struct attr_validator_info
-{
-	sdp_attr_func_ptr func; /* Indicates validator type */
-	interpretable args[MAX_NUM_ATTRIBUTE_FIELDS];
-};
-
-struct media_validator_info
-{
-	int attr_count;
-	struct attr_validator_info attributes[MAX_NUM_MEDIA_ATTRIBUTES];
-};
-
-struct session_validator_info
-{
-	int media_count;
-	int session_attr_count;
-	struct attr_validator_info attributes[MAX_NUM_SESSION_ATTRIBUTES];
-	struct media_validator_info medias[MAX_NUM_MEDIA_ATTRIBUTES];
-};
-
-static struct session_validator_info validator_info;
-
-void init_session_validator(void)
-{
-	struct media_validator_info *mv;
-	int m_id;
-	memset(&validator_info, 0, sizeof(validator_info));
-	validator_info.media_count = -1;
-	for (m_id = 0; m_id < MAX_NUM_MEDIA_ATTRIBUTES; ++m_id)
-	{
-		mv = &validator_info.medias[m_id];
-		mv->attr_count = -1;
-	}
 }
 
 int num_args(sdp_attr_func_ptr func) {
@@ -541,10 +136,7 @@ void set_attr_vinfo(int m_id, int a_id, sdp_attr_func_ptr func, int num_args, ..
 	va_end(vl);
 }
 
-#define SET_ATTR_VINFO(m_id, a_id, func, ...) \
-	set_attr_vinfo(m_id, a_id, (sdp_attr_func_ptr)func, num_args((sdp_attr_func_ptr)func), __VA_ARGS__)
-
-static int assert_attr(struct sdp_attr* attr, struct attr_validator_info *av)
+int assert_attr(struct sdp_attr* attr, struct attr_validator_info *av)
 {
 	int res = 0;
 	if (av->func ==  NULL) {
@@ -561,32 +153,6 @@ static int assert_attr(struct sdp_attr* attr, struct attr_validator_info *av)
 		res = assert_error("Unsupported assertion function %p.\n", av->func);
 	}
 	return res;
-}
-
-static int assert_session_x(struct sdp_session *session)
-{
-	struct sdp_media *media;
-	struct sdp_attr *attr;
-	struct media_validator_info *mv;
-	struct attr_validator_info *av;
-	int m_cnt = 0, a_cnt = 0;
-	int res = 1;
-
-	for (media = session->media; media; media = media->next) {
-		mv = &validator_info.medias[m_cnt];
-		a_cnt = 0;
-		for (attr = media->a; attr; attr = attr->next) {
-			av = &mv->attributes[a_cnt];
-			res &= ASSERT_RES(assert_attr(attr, av));
-			++a_cnt;
-		}
-		if (mv->attr_count != IGNORE_VALUE)
-			res &= ASSERT_INT(mv->attr_count, a_cnt);
-		++m_cnt;
-	}
-	if (validator_info.media_count != IGNORE_VALUE)
-		res &= ASSERT_INT(validator_info.media_count, m_cnt);
-	return res ? 0 : -1;
 }
 
 /******************************************************************************
@@ -700,6 +266,7 @@ REG_TEST(test006, "Parse v=, m= and a=fmtp:<fmt> only")
 		"v=0\n"
 		"s=Example of a SMPTE ST2110-20 signal\n"
 		"m=video 50000 RTP/AVP 112\n"
+		"a=rtpmap:112 raw/90000\n"
 		"a=fmtp:112 sampling=YCbCr-4:2:2; width=1280; height=720; "
 			"exactframerate=60000/1001; depth=10; TCS=SDR; "
 			"colorimetry=BT709; PM=2110GPM; TP=2110TPN; "
@@ -714,6 +281,7 @@ REG_TEST(test007, "a=fmtp: pass on missing default parameters")
 		"v=0\n"
 		"s=Example of a SMPTE ST2110-20 signal\n"
 		"m=video 50000 RTP/AVP 112\n"
+		"a=rtpmap:112 raw/90000\n"
 		"a=fmtp:112 sampling=YCbCr-4:2:2; width=1280; height=720; "
 			"exactframerate=60000/1001; depth=10; "
 			"colorimetry=BT709; PM=2110GPM; TP=2110TPN; "
@@ -1215,7 +783,7 @@ REG_TEST(test022, "a=fmtp for non raw video format")
 		"o=- 804326665 0 IN IP4 192.168.3.77\n"
 		"s=Gefei XIO9101 2110\n"
 		"t=0 0\n"
-		"m=video 5000 RTP/AVP 100\n"
+		"m=video 5000 RTP/AVP 96\n"
 		"c=IN IP4 239.10.10.100/96\n"
 		"a=rtpmap:96 raw/90000\n"
 		"a=fmtp:96 sampling=YCbCr-4:2:2; width=1920; height=1080; "
@@ -1258,15 +826,14 @@ REG_TEST(test023, "no ttl for c=<ipv4-addr>")
 	return test_generic_smpte2110_get_error(content, SDP_PARSE_ERROR);
 }
 
-REG_TEST(test024,
-		"sampling parameters")
+REG_TEST(test024, "sampling parameters")
 {
 	char *sdp_prefix =
 		"v=0\n"
 		"o=- 804326665 0 IN IP4 192.168.3.77\n"
 		"s=Gefei XIO9101 2110\n"
 		"t=0 0\n"
-		"m=video 5000 RTP/AVP 100\n"
+		"m=video 5000 RTP/AVP 96\n"
 		"c=IN IP4 239.10.10.100/96\n"
 		"a=rtpmap:96 raw/90000\n"
 		"a=fmtp:96";
@@ -1313,12 +880,12 @@ static const char* no_specific_content =
 		"v=0\n"
 		"s=SDP test\n"
 		"t=0 0\n"
-		"m=video 50000 RTP/AVP 1234\n"
+		"m=video 50000 RTP/AVP 100 101 102 103\n"
 		"a=rtpmap:100 something/10000\n"
 		"a=rtpmap:101 something/20000/params\n"
 		"a=fmtp:102 something else\n"
 		"a=fmtp:103 something else\n"
-		"m=audio 60000 RTP/AVP 5678\n"
+		"m=audio 60000 RTP/AVP 200 201 202 203\n"
 		"a=rtpmap:200 something/10000\n"
 		"a=rtpmap:201 something/20000/params\n"
 		"a=fmtp:202 something else\n"
@@ -1342,103 +909,192 @@ REG_TEST(test025, "PASS - SDP with no specific interpretation/restrictions")
 			no_specific);
 }
 
-REG_TEST(test026, "FAIL - SDP with smpte2110 interpretation/restrictions")
+/******************************************************************************
+                                SMPTE Type
+******************************************************************************/
+REG_TEST(smpte2110_sub_types_1,
+		"FAIL - smpte2110 unknown media sub type audio 1")
 {
-	return test_generic_smpte2110_get_error(no_specific_content, SDP_PARSE_ERROR);
+	char* content =
+		"v=0\n"
+		"s=SDP test: sub types 1\n"
+		"t=0 0\n"
+		"m=audio 50000 RTP/AVP 100\n"
+		"a=rtpmap:100 raw/10000\n";
+	return test_generic(content, SDP_PARSE_NOT_SUPPORTED, NULL, smpte2110);
+}
+
+REG_TEST(smpte2110_sub_types_2,
+		"FAIL - smpte2110 unknown media sub type audio 2")
+{
+	char* content =
+		"v=0\n"
+		"s=SDP test: sub types 2\n"
+		"t=0 0\n"
+		"m=audio 50000 RTP/AVP 100\n"
+		"a=rtpmap:100 smpte291/10000\n";
+	return test_generic(content, SDP_PARSE_NOT_SUPPORTED, NULL, smpte2110);
+}
+
+REG_TEST(smpte2110_sub_types_3,
+		"FAIL - smpte2110 unknown media sub type video 1")
+{
+	char* content =
+		"v=0\n"
+		"s=SDP test: sub types 3\n"
+		"t=0 0\n"
+		"m=video 50000 RTP/AVP 100\n"
+		"a=rtpmap:100 L24/10000\n";
+	return test_generic(content, SDP_PARSE_NOT_SUPPORTED, NULL, smpte2110);
+}
+
+REG_TEST(smpte2110_sub_types_4,
+		"FAIL - smpte2110 multiple formats")
+{
+	char* content =
+		"v=0\n"
+		"s=SDP test: sub types 4\n"
+		"t=0 0\n"
+		"m=video 50000 RTP/AVP 100 101\n"
+		"a=rtpmap:100 raw/90000\n"
+		"a=rtpmap:101 smpte291/10000\n"
+		"m=audio 50000 RTP/AVP 100 101 102\n"
+		"a=rtpmap:100 L16/90000\n"
+		"a=rtpmap:101 L24/90000\n";
+	return test_generic(content, SDP_PARSE_ERROR, NULL, smpte2110);
+}
+
+REG_TEST(smpte2110_sub_types_5,
+		"PASS - smpte2110 multiple formats")
+{
+	char* content =
+		"v=0\n"
+		"s=SDP test: sub types 5\n"
+		"m=video 50000 RTP/AVP 100 101\n"
+		"a=rtpmap:100 raw/90000\n"
+		"a=rtpmap:101 smpte291/10000\n"
+		"a=fmtp:100 sampling=YCbCr-4:2:2; width=1280; height=720; "
+			"exactframerate=60000/1001; depth=10; TCS=SDR; "
+			"colorimetry=BT709; PM=2110GPM; TP=2110TPN; "
+			"SSN=ST2110-20:2017; \n"
+		"m=audio 50000 RTP/AVP 100 101\n"
+		"a=rtpmap:100 L16/90000\n"
+		"a=rtpmap:101 L24/90000\n";
+	return test_generic(content, SDP_PARSE_OK, NULL, smpte2110);
 }
 
 /******************************************************************************
                                  Payload Type
 ******************************************************************************/
-REG_TEST(test_rtpmap_payload_type_1, "FAIL - smpte2110 rtpmap payload type is not an int")
+REG_TEST(test_rtpmap_payload_type_1,
+		"FAIL - payload type is not an int")
 {
 	char* content =
 		"v=0\n"
+		"s=SDP test: payload types 1\n"
 		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 100\n"
-		"a=rtpmap:xxx L8/10000\n";
-	return test_generic_smpte2110_get_error(content, SDP_PARSE_ERROR);
+		"a=rtpmap:xxx L24/10000\n";
+	return test_generic(content, SDP_PARSE_ERROR, NULL, no_specific);
 }
 
-REG_TEST(test_rtpmap_payload_type_2, "FAIL - smpte2110 rtpmap payload type - not found")
+REG_TEST(test_rtpmap_payload_type_2,
+		"FAIL - payload type - not found (rtpmap)")
 {
 	char* content =
 		"v=0\n"
+		"s=SDP test: payload types 2\n"
 		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 101 102 104\n"
-		"a=rtpmap:101 L8/10000\n"
-		"a=rtpmap:102 L8/10000\n"
-		"a=rtpmap:103 L8/10000\n";
-	return test_generic_smpte2110_get_error(content, SDP_PARSE_ERROR);
+		"a=rtpmap:101 L24/10000\n"
+		"a=rtpmap:102 L24/10000\n"
+		"a=rtpmap:103 L24/10000\n";
+	return test_generic(content, SDP_PARSE_ERROR, NULL, no_specific);
 }
 
-REG_TEST(test_rtpmap_payload_type_3, "PASS - smpte2110 rtpmap payload type - match eventually")
+REG_TEST(test_rtpmap_payload_type_3,
+		"FAIL - payload type - not found (fmtp)")
+{
+	char* content =
+		"v=0\nt=0 0\n"
+		"s=SDP test: payload types 3\n"
+		"m=audio 50000 RTP/AVP 101 102 104\n"
+		"a=fmtp:101 something\n"
+		"a=fmtp:102 something\n"
+		"a=fmtp:103 something\n";
+	return test_generic(content, SDP_PARSE_ERROR, NULL, no_specific);
+}
+
+REG_TEST(test_rtpmap_payload_type_4,
+		"PASS - payload type - match eventually")
 {
 	char* content =
 		"v=0\n"
-		"s=Testing rtpmap payload type 3\n"
+		"s=SDP test: payload types 4\n"
 		"t=0 0\n"
-		"m=audio 50000 RTP/AVP 101 105 104 102\n"
-		"a=rtpmap:101 L8/10000\n"
-		"a=rtpmap:102 L8/10000\n"
-		"a=rtpmap:103 L8/10000\n"
-		"a=rtpmap:104 L8/10000\n"
-		"a=rtpmap:105 L8/10000\n"
-		"a=rtpmap:106 L8/10000\n";
-	return test_generic_smpte2110_get_error(content, SDP_PARSE_OK);
+		"m=audio 50000 RTP/AVP 101 105 104 102 106 103\n"
+		"a=fmtp:101 something\n"
+		"a=fmtp:102 something\n"
+		"a=fmtp:103 something\n"
+		"a=fmtp:104 something\n"
+		"a=fmtp:105 something\n"
+		"a=fmtp:106 something\n";
+	return test_generic(content, SDP_PARSE_OK, NULL, no_specific);
 }
 
-REG_TEST(test_rtpmap_payload_type_4, "PASS - smpte2110 rtpmap payload type - 0")
+REG_TEST(test_rtpmap_payload_type_5,
+		"PASS - payload type - formats with no attributes")
 {
 	char* content =
 		"v=0\n"
-		"s=Testing rtpmap payload type 4\n"
+		"s=SDP test: payload types 5\n"
 		"t=0 0\n"
-		"m=audio 50000 RTP/AVP 0\n";
-	return test_generic_smpte2110_get_error(content, SDP_PARSE_OK);
+		"m=audio 50000 RTP/AVP 0 1 2 3 100 200\n";
+	return test_generic(content, SDP_PARSE_OK, NULL, no_specific);
 }
 
 /******************************************************************************
-                                 Bit Depth
+                                Encoding Name
 ******************************************************************************/
-REG_TEST(test_rtpmap_bit_depth_1, "FAIL - smpte2110 rtpmap bit-depth not specified")
+REG_TEST(test_rtpmap_encoding_name_1,
+		"FAIL - rtpmap encoding name not specified")
 {
 	char* content =
 		"v=0\n"
+		"s=SDP test: rtp encoding name 1\n"
 		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 100\n"
 		"a=rtpmap:100 \n";
 	return test_generic(content, SDP_PARSE_ERROR, NULL, no_specific);
 }
 
-REG_TEST(test_rtpmap_bit_depth_2, "FAIL - smpte2110 rtpmap bit-depth not starting with 'L'")
+/******************************************************************************
+                                  Bit Depth
+******************************************************************************/
+REG_TEST(test_rtpmap_bit_depth_1, "PASS - smpte2110 rtpmap bit-depth 16")
 {
 	char* content =
 		"v=0\n"
+		"s=SDP test: rtp bit depth 1\n"
 		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 100\n"
-		"a=rtpmap:100 abc/10000\n";
-	return test_generic(content, SDP_PARSE_ERROR, NULL, smpte2110);
+		"a=rtpmap:100 L16/10000\n";
+	init_session_validator();
+	SET_ATTR_VINFO(0, 0, smpte2110_rtpmap, 100, 16, 10000, 1);
+	return test_generic(content, SDP_PARSE_OK, NULL, smpte2110);
 }
 
-REG_TEST(test_rtpmap_bit_depth_3, "FAIL - smpte2110 rtpmap bit-depth not int")
+REG_TEST(test_rtpmap_bit_depth_2, "PASS - smpte2110 rtpmap bit-depth 24")
 {
 	char* content =
 		"v=0\n"
+		"s=SDP test: rtp bit depth 2\n"
 		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 100\n"
-		"a=rtpmap:100 Lbc/10000\n";
-	return test_generic(content, SDP_PARSE_ERROR, NULL, smpte2110);
-}
-
-REG_TEST(test_rtpmap_bit_depth_4, "FAIL - smpte2110 rtpmap bit-depth 0")
-{
-	char* content =
-		"v=0\n"
-		"t=0 0\n"
-		"m=audio 50000 RTP/AVP 100\n"
-		"a=rtpmap:100 L0/10000\n";
-	return test_generic(content, SDP_PARSE_ERROR, NULL, smpte2110);
+		"a=rtpmap:100 L24/10000\n";
+	init_session_validator();
+	SET_ATTR_VINFO(0, 0, smpte2110_rtpmap, 100, 25, 10000, 1);
+	return test_generic(content, SDP_PARSE_OK, NULL, smpte2110);
 }
 
 /******************************************************************************
@@ -1448,6 +1104,7 @@ REG_TEST(test_rtpmap_clock_rate_1, "FAIL - rtpmap clock-rate not specified")
 {
 	char* content =
 		"v=0\n"
+		"s=SDP test: clock rate 1\n"
 		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 100\n"
 		"a=rtpmap:100 L24/\n";
@@ -1458,6 +1115,7 @@ REG_TEST(test_rtpmap_clock_rate_2, "FAIL - rtpmap clock-rate not int")
 {
 	char* content =
 		"v=0\n"
+		"s=SDP test: clock rate 2\n"
 		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 100\n"
 		"a=rtpmap:100 L24/abc\n";
@@ -1468,6 +1126,7 @@ REG_TEST(test_rtpmap_clock_rate_3, "FAIL - rtpmap clock-rate 0")
 {
 	char* content =
 		"v=0\n"
+		"s=SDP test: clock rate 3\n"
 		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 100\n"
 		"a=rtpmap:100 L24/0\n";
@@ -1477,10 +1136,12 @@ REG_TEST(test_rtpmap_clock_rate_3, "FAIL - rtpmap clock-rate 0")
 /******************************************************************************
                                  Num Channels
 ******************************************************************************/
-REG_TEST(test_rtpmap_num_channels_1, "FAIL - smpte2110 rtpmap num channels not int")
+REG_TEST(test_rtpmap_num_channels_1,
+		"FAIL - smpte2110 rtpmap num channels not int")
 {
 	char* content =
 		"v=0\n"
+		"s=SDP test: num channels 1\n"
 		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 100\n"
 		"a=rtpmap:100 L24/10000/abc\n";
@@ -1491,13 +1152,15 @@ REG_TEST(test_rtpmap_num_channels_2, "FAIL - smpte2110 rtpmap num channels 0")
 {
 	char* content =
 		"v=0\n"
+		"s=SDP test: num channels 2\n"
 		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 100\n"
 		"a=rtpmap:100 L24/10000/0\n";
 	return test_generic_smpte2110_get_error(content, SDP_PARSE_ERROR);
 }
 
-REG_TEST(test_rtpmap_num_channels_3, "PASS - smpte2110 rtpmap num channels empty string")
+REG_TEST(test_rtpmap_num_channels_3,
+		"PASS - smpte2110 rtpmap num channels empty string")
 {
 	char* content =
 		"v=0\n"
@@ -1511,7 +1174,8 @@ REG_TEST(test_rtpmap_num_channels_3, "PASS - smpte2110 rtpmap num channels empty
 	return test_generic(content, SDP_PARSE_OK, assert_session_x, smpte2110);
 }
 
-REG_TEST(test_rtpmap_num_channels_4, "PASS - smpte2110 rtpmap num channels default (NULL)")
+REG_TEST(test_rtpmap_num_channels_4,
+		"PASS - smpte2110 rtpmap num channels default (NULL)")
 {
 	char* content =
 		"v=0\n"
@@ -1525,7 +1189,8 @@ REG_TEST(test_rtpmap_num_channels_4, "PASS - smpte2110 rtpmap num channels defau
 	return test_generic_smpte2110_get_error(content, SDP_PARSE_OK);
 }
 
-REG_TEST(test_rtpmap_num_channels_5, "PASS - smpte2110 rtpmap num channels specified.")
+REG_TEST(test_rtpmap_num_channels_5,
+		"PASS - smpte2110 rtpmap num channels specified.")
 {
 	char* content =
 		"v=0\n"
@@ -1546,6 +1211,7 @@ REG_TEST(test_ptime_1, "FAIL - smpte2110 ptime not specified.")
 {
 	char* content =
 		"v=0\n"
+		"s=SDP test: ptime 1\n"
 		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 100\n"
 		"a=ptime:\n";
@@ -1556,6 +1222,7 @@ REG_TEST(test_ptime_2, "FAIL - smpte2110 ptime not int.")
 {
 	char* content =
 		"v=0\n"
+		"s=SDP test: ptime 2\n"
 		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 100\n"
 		"a=ptime:xxx\n";
@@ -1566,6 +1233,7 @@ REG_TEST(test_ptime_3, "FAIL - smpte2110 ptime 0.")
 {
 	char* content =
 		"v=0\n"
+		"s=SDP test: ptime 3\n"
 		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 100\n"
 		"a=ptime:0\n";
@@ -1576,7 +1244,7 @@ REG_TEST(test_ptime_4, "PASS - smpte2110 ptime int.")
 {
 	char* content =
 		"v=0\n"
-		"s=Testing ptime 4\n"
+		"s=SDP test: ptime 4\n"
 		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 100\n"
 		"a=ptime:100\n";
@@ -1589,7 +1257,7 @@ REG_TEST(test_ptime_5, "PASS - smpte2110 ptime double.")
 {
 	char* content =
 		"v=0\n"
-		"s=Testing ptime 5\n"
+		"s=SDP test: ptime 5\n"
 		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 100\n"
 		"a=ptime:99.5123\n";
@@ -1599,9 +1267,186 @@ REG_TEST(test_ptime_5, "PASS - smpte2110 ptime double.")
 }
 
 /******************************************************************************
+                                Smpte2110-40
+******************************************************************************/
+REG_TEST(test_smpte_40_1, "PASS - smpte2110 no fmtp.")
+{
+	char* content =
+		"v=0\n"
+		"s=SDP test: smpte 40 1\n"
+		"t=0 0\n"
+		"m=video 50000 RTP/AVP 100\n"
+		"a=rtpmap:100 smpte291/90000\n";
+	return test_generic(content, SDP_PARSE_OK, NULL, smpte2110);
+}
+
+REG_TEST(test_smpte_40_2, "PASS - smpte2110 empty fmtp.")
+{
+	char* content =
+		"v=0\n"
+		"s=SDP test: smpte 40 2\n"
+		"t=0 0\n"
+		"m=video 50000 RTP/AVP 100\n"
+		"a=rtpmap:100 smpte291/90000\n"
+		"a=fmtp:100\n";
+	return test_generic(content, SDP_PARSE_OK, NULL, smpte2110);
+}
+
+REG_TEST(test_smpte_40_3, "PASS - smpte2110-40 unknown fmtp params.")
+{
+	char* content =
+		"v=0\n"
+		"s=SDP test: smpte 40 3\n"
+		"t=0 0\n"
+		"m=video 50000 RTP/AVP 100\n"
+		"a=rtpmap:100 smpte291/90000\n"
+		"a=fmtp:100 "
+			"DID_SDID={0x00,0x00};"
+			"DID_SDID={0x00,0x00};"
+			"ssn=1;"
+			"DID_SDID={0x00,0x00};\n";
+	return test_generic(content, SDP_PARSE_ERROR, NULL, smpte2110);
+}
+
+REG_TEST(test_smpte_40_4, "FAIL - smpte2110-40 one DID_SDID bad format 1.")
+{
+	char* content =
+		"v=0\n"
+		"s=SDP test: smpte 40 4\n"
+		"t=0 0\n"
+		"m=video 50000 RTP/AVP 100\n"
+		"a=rtpmap:100 smpte291/90000\n"
+		"a=fmtp:100 DID_SDID\n";
+	return test_generic(content, SDP_PARSE_ERROR, NULL, smpte2110);
+}
+
+REG_TEST(test_smpte_40_5, "FAIL - smpte2110-40 one DID_SDID bad format 2.")
+{
+	char* content =
+		"v=0\n"
+		"s=SDP test: smpte 40 5\n"
+		"t=0 0\n"
+		"m=video 50000 RTP/AVP 100\n"
+		"a=rtpmap:100 smpte291/90000\n"
+		"a=fmtp:100 DID_SDID=\n";
+	return test_generic(content, SDP_PARSE_ERROR, NULL, smpte2110);
+}
+
+REG_TEST(test_smpte_40_6, "FAIL - smpte2110-40 one DID_SDID bad format 3.")
+{
+	char* content =
+		"v=0\n"
+		"s=SDP test: smpte 40 6\n"
+		"t=0 0\n"
+		"m=video 50000 RTP/AVP 100\n"
+		"a=rtpmap:100 smpte291/90000\n"
+		"a=fmtp:100 DID_SDID={0x12,0xXY}\n";
+	return test_generic(content, SDP_PARSE_ERROR, NULL, smpte2110);
+}
+
+REG_TEST(test_smpte_40_7, "PASS - smpte2110-40 one DID_SDID valid.")
+{
+	char* content =
+		"v=0\n"
+		"s=SDP test: smpte 40 7\n"
+		"t=0 0\n"
+		"m=video 50000 RTP/AVP 100\n"
+		"a=rtpmap:100 smpte291/90000\n"
+		"a=fmtp:100 DID_SDID={0x12,0xfF}\n";
+	/* TODO: (eladw) Validate DID_SDID */
+	return test_generic(content, SDP_PARSE_OK, NULL, smpte2110);
+}
+REG_TEST(test_smpte_40_8, "PASS - smpte2110 multiple DID_SDID, mixed spaces.")
+{
+	char* content =
+		"v=0\n"
+		"s=SDP test: smpte 40 8\n"
+		"t=0 0\n"
+		"m=video 50000 RTP/AVP 100\n"
+		"a=rtpmap:100 smpte291/90000\n"
+		"a=fmtp:100 "
+			"DID_SDID={0xaa,0xAA};   "
+			"DID_SDID={0xbb,0xBB};"
+			"DID_SDID={0xcc,0xCC}   ;"
+			"DID_SDID={0xdd,0xDD}  ;  "
+			"DID_SDID={0xee,0xEE};; ;\n";
+	/* TODO: (eladw) Validate DID_SDID */
+	return test_generic(content, SDP_PARSE_OK, NULL, smpte2110);
+}
+
+REG_TEST(test_smpte_40_9, "FAIL - smpte2110 one VPID_code bad format 1.")
+{
+	char* content =
+		"v=0\n"
+		"s=SDP test: smpte 40 9\n"
+		"t=0 0\n"
+		"m=video 50000 RTP/AVP 100\n"
+		"a=rtpmap:100 smpte291/90000\n"
+		"a=fmtp:100 VPID_code\n";
+	return test_generic(content, SDP_PARSE_ERROR, NULL, smpte2110);
+}
+
+REG_TEST(test_smpte_40_10, "FAIL - smpte2110 one VPID_code bad format 2.")
+{
+	char* content =
+		"v=0\n"
+		"s=SDP test: smpte 40 10\n"
+		"t=0 0\n"
+		"m=video 50000 RTP/AVP 100\n"
+		"a=rtpmap:100 smpte291/90000\n"
+		"a=fmtp:100 VPID_code=\n";
+	return test_generic(content, SDP_PARSE_ERROR, NULL, smpte2110);
+}
+
+
+REG_TEST(test_smpte_40_11, "FAIL - smpte2110 one VPID_code bad format 3.")
+{
+	char* content =
+		"v=0\n"
+		"s=SDP test: smpte 40 11\n"
+		"t=0 0\n"
+		"m=video 50000 RTP/AVP 100\n"
+		"a=rtpmap:100 smpte291/90000\n"
+		"a=fmtp:100 VPID_code=xxx\n";
+	return test_generic(content, SDP_PARSE_ERROR, NULL, smpte2110);
+}
+
+REG_TEST(test_smpte_40_12, "PASS - smpte2110 one VPID_code valid.")
+{
+	char* content =
+		"v=0\n"
+		"s=SDP test: smpte 40 12\n"
+		"t=0 0\n"
+		"m=video 50000 RTP/AVP 100\n"
+		"a=rtpmap:100 smpte291/90000\n"
+		"a=fmtp:100 "
+			"DID_SDID={0xaa,0xAA};"
+			"VPID_code=123;"
+			"DID_SDID={0xaa,0xAA};\n";
+	/* TODO: (eladw) Validate DID_SDID, VPID_code */
+	return test_generic(content, SDP_PARSE_OK, NULL, smpte2110);
+}
+
+REG_TEST(test_smpte_40_13, "FAIL - smpte2110 multiple VPID_codes.")
+{
+	char* content =
+		"v=0\n"
+		"s=SDP test: smpte 40 13\n"
+		"t=0 0\n"
+		"m=video 50000 RTP/AVP 100\n"
+		"a=rtpmap:100 smpte291/90000\n"
+		"a=fmtp:100 "
+			"DID_SDID={0xaa,0xAA};"
+			"VPID_code=123;"
+			"DID_SDID={0xaa,0xAA};"
+			"VPID_code=456\n";
+	return test_generic(content, SDP_PARSE_ERROR, NULL, smpte2110);
+}
+
+/******************************************************************************
                                  Test Table
 ******************************************************************************/
-static void init_tests()
+void init_tests()
 {
 	ADD_TEST(test001);
 	ADD_TEST(test002);
@@ -1628,15 +1473,19 @@ static void init_tests()
 	ADD_TEST(test023);
 	ADD_TEST(test024);
 	ADD_TEST(test025);
-	ADD_TEST(test026);
+	ADD_TEST(smpte2110_sub_types_1);
+	ADD_TEST(smpte2110_sub_types_2);
+	ADD_TEST(smpte2110_sub_types_3);
+	ADD_TEST(smpte2110_sub_types_4);
+	ADD_TEST(smpte2110_sub_types_5);
 	ADD_TEST(test_rtpmap_payload_type_1);
 	ADD_TEST(test_rtpmap_payload_type_2);
 	ADD_TEST(test_rtpmap_payload_type_3);
 	ADD_TEST(test_rtpmap_payload_type_4);
+	ADD_TEST(test_rtpmap_payload_type_5);
+	ADD_TEST(test_rtpmap_encoding_name_1);
 	ADD_TEST(test_rtpmap_bit_depth_1);
 	ADD_TEST(test_rtpmap_bit_depth_2);
-	ADD_TEST(test_rtpmap_bit_depth_3);
-	ADD_TEST(test_rtpmap_bit_depth_4);
 	ADD_TEST(test_rtpmap_clock_rate_1);
 	ADD_TEST(test_rtpmap_clock_rate_2);
 	ADD_TEST(test_rtpmap_clock_rate_3);
@@ -1650,30 +1499,18 @@ static void init_tests()
 	ADD_TEST(test_ptime_3);
 	ADD_TEST(test_ptime_4);
 	ADD_TEST(test_ptime_5);
-	/* TODO: (eladw) Test memory deallocation. */
+	ADD_TEST(test_smpte_40_1);
+	ADD_TEST(test_smpte_40_2);
+	ADD_TEST(test_smpte_40_3);
+	ADD_TEST(test_smpte_40_4);
+	ADD_TEST(test_smpte_40_5);
+	ADD_TEST(test_smpte_40_6);
+	ADD_TEST(test_smpte_40_7);
+	ADD_TEST(test_smpte_40_8);
+	ADD_TEST(test_smpte_40_9);
+	ADD_TEST(test_smpte_40_10);
+	ADD_TEST(test_smpte_40_11);
+	ADD_TEST(test_smpte_40_12);
+	ADD_TEST(test_smpte_40_13);
 }
 
-/******************************************************************************
-                                    Main
-******************************************************************************/
-int main()
-{
-	init_tests();
-	for (int i = 0; i < num_tests; ++i)
-	{
-		struct single_test* test = &tests[i];
-		print_title("Running test #%u: %s - %s",
-			i + 1, test->name, test->description);
-		int res = test->func();
-		if (res == 0)
-		{
-			test_log(C_GREEN "Success" C_NORMAL "\n");
-		}
-		else
-		{
-			test_log(C_RED "Failure" C_NORMAL "\n");
-			return 1;
-		}
-	}
-	return 0;
-}

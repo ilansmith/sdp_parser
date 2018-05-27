@@ -522,7 +522,7 @@ static enum sdp_parse_err parse_attr_session(struct sdp_media *media,
 	if (!strncmp(attr, "group", strlen("group"))) {
 		/* currently not supporting the general case */
 		sdp_attribute_interpreter interpreter =
-			parse_attr_specific->get_session_interpreter()->group;
+			parse_attr_specific->group;
 		if (!interpreter)
 			return SDP_PARSE_NOT_SUPPORTED;
 
@@ -548,10 +548,31 @@ static enum sdp_parse_err sdp_parse_session_level_attr(sdp_stream_t sdp,
 		parse_attr_session, parse_attr_specific);
 }
 
-static enum sdp_parse_err sdp_parse_attr_source_filter(
-		struct sdp_attr_value_source_filter *source_filter,
-		char *value, char *params)
+static int sdp_parse_fmt(struct sdp_media *media,
+		struct sdp_media_fmt **field, char *value)
 {
+	int fmt_id;
+	struct sdp_media_fmt *fmt;
+
+	if (sdp_parse_int(&fmt_id, value) != SDP_PARSE_OK)
+		return 0;
+
+	for (fmt = &media->m.fmt; fmt; fmt = fmt->next) {
+		if (fmt->id == fmt_id) {
+			*field = fmt;
+			return 1;
+		}
+	}
+	sdperr("Media format not found: %u", *field);
+	return 0;
+}
+
+static enum sdp_parse_err sdp_parse_attr_source_filter(struct sdp_media *media,
+		struct sdp_attr *attr, char *value, char *params,
+		struct sdp_specific *specific)
+{
+	struct sdp_attr_value_source_filter *source_filter =
+			&attr->value.source_filter;
 	char *nettype;
 	char *addrtype;
 	char *dst_addr;
@@ -559,6 +580,9 @@ static enum sdp_parse_err sdp_parse_attr_source_filter(
 	char *tmp;
 	struct source_filter_src_addr src_list;
 	int src_list_len;
+
+	NOT_IN_USE(media);
+	NOT_IN_USE(specific);
 
 	/* filter-mode */
 	if (!strncmp(value, "incl", strlen("incl"))) {
@@ -631,10 +655,11 @@ static enum sdp_parse_err sdp_parse_attr_source_filter(
 	return SDP_PARSE_OK;
 }
 
-static enum sdp_parse_err parse_attr_rtpmap(
-		struct sdp_attr_value_rtpmap *rtpmap, char *value, char *params,
-		struct sdp_media_interpreter *interpreter)
+static enum sdp_parse_err parse_attr_rtpmap(struct sdp_media *media,
+		struct sdp_attr *attr, char *value, char *params,
+		struct sdp_specific *specific)
 {
+	struct sdp_attr_value_rtpmap *rtpmap = &attr->value.rtpmap;
 	char *encoding_name, *clock_rate, *encoding_parameters;
 	char *tmp = NULL;
 
@@ -649,24 +674,31 @@ static enum sdp_parse_err parse_attr_rtpmap(
 	encoding_parameters = strtok_r(NULL, "/", &tmp);
 
 	/* parse fields */
-	if ((sdp_parse_int  (&rtpmap->payload_type, value) != SDP_PARSE_OK) ||
-	    (sdp_parse_field(&rtpmap->encoding_name, encoding_name, interpreter->rtpmap_encoding_name) != SDP_PARSE_OK) ||
-	    (sdp_parse_int  (&rtpmap->clock_rate, clock_rate) != SDP_PARSE_OK) ||
-	    (sdp_parse_field(&rtpmap->encoding_parameters, encoding_parameters, interpreter->rtpmap_encoding_parameters) != SDP_PARSE_OK))
-	{
-		return SDP_PARSE_ERROR;
-	}
+	if (!sdp_parse_fmt(media, &rtpmap->fmt, value))
+		return sdprerr("parsing field: payload_type.");
 
-	if (rtpmap->clock_rate == 0) {
+	if (sdp_parse_field(media, attr, &rtpmap->encoding_name, encoding_name,
+			specific->rtpmap_encoding_name) != SDP_PARSE_OK)
+		return sdprerr("parsing field: encoding_name.");
+	if (sdp_parse_int(&rtpmap->clock_rate, clock_rate) != SDP_PARSE_OK)
+		return sdprerr("parsing field: clock_rate.");
+	if (sdp_parse_field(media, attr, &rtpmap->encoding_parameters,
+			encoding_parameters, specific->rtpmap_encoding_parameters)
+			!= SDP_PARSE_OK)
+		return sdprerr("parsing field: encoding_parameters.");
+	if (rtpmap->clock_rate == 0)
 		return sdprerr("Invalid clock-rate: %s", clock_rate);
-	}
 	return SDP_PARSE_OK;
 }
 
-static enum sdp_parse_err sdp_parse_attr_ptime(
-		struct sdp_attr_value_ptime *ptime, char *value, char *params)
+static enum sdp_parse_err sdp_parse_attr_ptime(struct sdp_media *media,
+		struct sdp_attr *attr, char *value, char *params,
+		struct sdp_specific *specific)
 {
+	struct sdp_attr_value_ptime *ptime = &attr->value.ptime;
+	NOT_IN_USE(media);
 	NOT_IN_USE(params);
+	NOT_IN_USE(specific);
 	if (sdp_parse_float(&ptime->packet_time, value) != SDP_PARSE_OK) {
 		return SDP_PARSE_ERROR;
 	}
@@ -677,31 +709,32 @@ static enum sdp_parse_err sdp_parse_attr_ptime(
 }
 
 static enum sdp_parse_err sdp_parse_attr_fmtp(struct sdp_media *media,
-		struct sdp_attr* a, char *value, char *params,
-		struct sdp_media_interpreter *interpreter)
+		struct sdp_attr *attr, char *value, char *params,
+		struct sdp_specific *specific)
 {
-	if (interpreter->fmtp) {
-		return interpreter->fmtp(media, a, value, params);
-	}
+	struct sdp_attr_value_fmtp *fmtp = &attr->value.fmtp;
+	if (!sdp_parse_fmt(media, &fmtp->fmt, value))
+		return sdprerr("parsing field: format.");
 
-	struct sdp_attr_value_fmtp *fmtp = &a->value.fmtp;
-	if ((sdp_parse_int  (&fmtp->fmt, value) != SDP_PARSE_OK) ||
-	    (sdp_parse_field(&fmtp->params, params, interpreter->fmtp_params) != SDP_PARSE_OK)) {
-		return SDP_PARSE_ERROR;
-	}
-	return SDP_PARSE_OK;
+	return sdp_parse_field(media, attr, &fmtp->params, params,
+			specific->fmtp_params);
 }
 
-static enum sdp_parse_err sdp_parse_attr_mid(
-		struct sdp_attr_value_mid *mid, char *value, char *params)
+static enum sdp_parse_err sdp_parse_attr_mid(struct sdp_media *media,
+		struct sdp_attr *attr, char *value, char *params,
+		struct sdp_specific *specific)
 {
+	struct sdp_attr_value_mid *mid = &attr->value.mid;
 	char *identification_tag;
+	NOT_IN_USE(params);
+	NOT_IN_USE(media);
+	NOT_IN_USE(specific);
+
 	identification_tag = value;
 	if (!identification_tag) {
 		return SDP_PARSE_ERROR;
 	}
 
-	NOT_IN_USE(params);
 	mid->identification_tag = strdup(value);
 	if (!mid->identification_tag) {
 		return sdprerr("failed to allocate memory for "
@@ -712,26 +745,25 @@ static enum sdp_parse_err sdp_parse_attr_mid(
 
 static enum sdp_parse_err parse_attr_media(struct sdp_media *media,
 		struct sdp_attr *a, char *attr, char *value, char *params,
-		parse_attr_specific_t parse_attr_specific)
+		struct sdp_specific *specific)
 {
-	struct sdp_media_interpreter *interpreter = parse_attr_specific->get_media_interpreter(&media->m);
 	enum sdp_parse_err err;
 
 	if (!strncmp(attr, "rtpmap", strlen("rtpmap"))) {
 		a->type = SDP_ATTR_RTPMAP;
-		err = parse_attr_rtpmap(&a->value.rtpmap, value, params, interpreter);
+		err = parse_attr_rtpmap(media, a, value, params, specific);
 	} else if (!strncmp(attr, "ptime", strlen("ptime"))) {
 		a->type = SDP_ATTR_PTIME;
-		err = sdp_parse_attr_ptime(&a->value.ptime, value, params);
+		err = sdp_parse_attr_ptime(media, a, value, params, specific);
 	} else if (!strncmp(attr, "fmtp", strlen("fmtp"))) {
 		a->type = SDP_ATTR_FMTP;
-		err = sdp_parse_attr_fmtp(media, a, value, params, interpreter);
+		err = sdp_parse_attr_fmtp(media, a, value, params, specific);
 	} else if (!strncmp(attr, "source-filter", strlen("source-filter"))) {
 		a->type = SDP_ATTR_SOURCE_FILTER;
-		err = sdp_parse_attr_source_filter(&a->value.source_filter, value, params);
+		err = sdp_parse_attr_source_filter(media, a, value, params, specific);
 	} else if (!strncmp(attr, "mid", strlen("mid"))) {
 		a->type = SDP_ATTR_MID;
-		err = sdp_parse_attr_mid(&a->value.mid, value, params);
+		err = sdp_parse_attr_mid(media, a, value, params, specific);
 	} else {
 		a->type = SDP_ATTR_NOT_SUPPORTED;
 		err = SDP_PARSE_NOT_SUPPORTED;
@@ -1008,10 +1040,8 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 	if (parse_attr_specific != no_specific) {
 		struct sdp_media *media;
 		for (media = session->media; media; media = media->next) {
-			struct sdp_media_interpreter *interpreter =
-				parse_attr_specific->get_media_interpreter(&media->m);
-			if (interpreter->validator) {
-				err = interpreter->validator(media);
+			if (parse_attr_specific->validator) {
+				err = parse_attr_specific->validator(media);
 				if (err != SDP_PARSE_OK) {
 					sdperr("Media validation failed.");
 					goto exit;
