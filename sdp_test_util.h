@@ -60,6 +60,20 @@ void init_tests();
 #define MAX_NUM_MEDIA_ATTRIBUTES 20
 #define MAX_NUM_ATTRIBUTE_FIELDS 10
 #define MAX_NUM_MEDIA_FORMATS 10
+#define MAX_NUM_GROUP_TAGS 10
+
+struct tag_validator_info
+{
+	const char *name;
+	int media_id;
+};
+
+struct group_validator_info
+{
+	const char *semantic;
+	int tag_count;
+	struct tag_validator_info tags[MAX_NUM_GROUP_TAGS];
+};
 
 typedef void (*sdp_attr_func_ptr)(void);
 
@@ -125,7 +139,8 @@ int assert_res(int res, const char *name, const char *file, int line);
 	assert_res(assert_ptr(#_left_,_left_, #_right_, _right_), \
 			"ASSERT_PTR(" #_left_ ", " #_right_ ")", __FILE__, __LINE__)
 
-int assert_attr(struct sdp_attr *attr, struct attr_validator_info *av);
+int assert_attr(struct sdp_session*, struct sdp_attr *attr,
+		struct attr_validator_info *av);
 int assert_session_x(struct sdp_session *session);
 int test_generic(const char *content, enum sdp_parse_err expected,
 		int (*verifier)(struct sdp_session *session),

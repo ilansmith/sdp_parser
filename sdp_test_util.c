@@ -376,6 +376,14 @@ int assert_session_x(struct sdp_session *session)
 	int m_cnt = 0, a_cnt = 0, f_cnt = 0;
 	int res = 1;
 
+	/* Session attributes: */
+	for (attr = session->a; attr; attr = attr->next) {
+		av = &validator_info.attributes[a_cnt];
+		res &= ASSERT_RES(assert_attr(session, attr, av));
+		++a_cnt;
+	}
+
+	/* Media attributes: */
 	for (media = session->media; media; media = media->next) {
 		mv = &validator_info.medias[m_cnt];
 		for (f_cnt = 0, fmt = &media->m.fmt; fmt; fmt = fmt->next) {
@@ -387,7 +395,7 @@ int assert_session_x(struct sdp_session *session)
 		}
 		for (a_cnt = 0, attr = media->a; attr; attr = attr->next) {
 			av = &mv->attributes[a_cnt++];
-			res &= ASSERT_RES(assert_attr(attr, av));
+			res &= ASSERT_RES(assert_attr(session, attr, av));
 		}
 		if (mv->fmt_count != IGNORE_VALUE)
 			res &= ASSERT_INT(mv->fmt_count, f_cnt);
