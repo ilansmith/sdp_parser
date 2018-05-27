@@ -690,6 +690,14 @@ static enum sdp_parse_err sdp_parse_attr_mid(struct sdp_media *media,
 
 	if (sdp_parse_str(&mid->identification_tag, value) != SDP_PARSE_OK)
 		return sdprerr("parsing field: identification_tag");
+
+	if (media->mid) {
+		return sdprerr("media cannot have more than one mid field. "
+			"Previous was: '%s'. Current: '%s'",
+			media->mid->identification_tag, value);
+	}
+	media->mid = mid;
+
 	return SDP_PARSE_OK;
 }
 
@@ -863,6 +871,26 @@ void sdp_parser_uninit(struct sdp_session *session)
 	free(session);
 }
 
+enum sdp_parse_err validate_media_blocks(struct sdp_session *session,
+		struct sdp_specific *specific)
+{
+	struct sdp_media *media;
+	enum sdp_parse_err err;
+
+	for (media = session->media; media; media = media->next) {
+		if (!specific->validator)
+			continue;
+
+		err = specific->validator(media);
+		if (err != SDP_PARSE_OK) {
+			sdperr("media validation failed for %s",
+					specific->name);
+			return err;
+		}
+	}
+	return SDP_PARSE_OK;
+}
+
 enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 		struct sdp_specific *specific)
 {
@@ -1002,22 +1030,10 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 		}
 	} while (line);
 
-	/* Validate: */
-	if (specific != no_specific) {
-		struct sdp_media *media;
 
-		for (media = session->media; media; media = media->next) {
-			if (specific->validator) {
-				err = specific->validator(media);
-				if (err != SDP_PARSE_OK) {
-					sdperr("media validation failed for %s",
-							specific->name);
-					goto exit;
-				}
-			}
-		}
-	}
 
+	if ((err = validate_media_blocks(session, specific)) != SDP_PARSE_OK)
+		goto exit;
 	err = SDP_PARSE_OK;
 	goto exit;
 
