@@ -1375,7 +1375,7 @@ REG_TEST(test_smpte_40_8, "PASS - smpte2110 multiple DID_SDID, mixed spaces.")
 	return test_generic(content, SDP_PARSE_OK, NULL, smpte2110);
 }
 
-REG_TEST(test_smpte_40_9, "FAIL - smpte2110 one VPID_code bad format 1.")
+REG_TEST(test_smpte_40_9, "FAIL - smpte2110 one VPID_Code bad format 1.")
 {
 	char *content =
 		"v=0\n"
@@ -1383,11 +1383,11 @@ REG_TEST(test_smpte_40_9, "FAIL - smpte2110 one VPID_code bad format 1.")
 		"t=0 0\n"
 		"m=video 50000 RTP/AVP 100\n"
 		"a=rtpmap:100 smpte291/90000\n"
-		"a=fmtp:100 VPID_code\n";
+		"a=fmtp:100 VPID_Code\n";
 	return test_generic(content, SDP_PARSE_ERROR, NULL, smpte2110);
 }
 
-REG_TEST(test_smpte_40_10, "FAIL - smpte2110 one VPID_code bad format 2.")
+REG_TEST(test_smpte_40_10, "FAIL - smpte2110 one VPID_Code bad format 2.")
 {
 	char *content =
 		"v=0\n"
@@ -1395,12 +1395,12 @@ REG_TEST(test_smpte_40_10, "FAIL - smpte2110 one VPID_code bad format 2.")
 		"t=0 0\n"
 		"m=video 50000 RTP/AVP 100\n"
 		"a=rtpmap:100 smpte291/90000\n"
-		"a=fmtp:100 VPID_code=\n";
+		"a=fmtp:100 VPID_Code=\n";
 	return test_generic(content, SDP_PARSE_ERROR, NULL, smpte2110);
 }
 
 
-REG_TEST(test_smpte_40_11, "FAIL - smpte2110 one VPID_code bad format 3.")
+REG_TEST(test_smpte_40_11, "FAIL - smpte2110 one VPID_Code bad format 3.")
 {
 	char *content =
 		"v=0\n"
@@ -1408,11 +1408,11 @@ REG_TEST(test_smpte_40_11, "FAIL - smpte2110 one VPID_code bad format 3.")
 		"t=0 0\n"
 		"m=video 50000 RTP/AVP 100\n"
 		"a=rtpmap:100 smpte291/90000\n"
-		"a=fmtp:100 VPID_code=xxx\n";
+		"a=fmtp:100 VPID_Code=xxx\n";
 	return test_generic(content, SDP_PARSE_ERROR, NULL, smpte2110);
 }
 
-REG_TEST(test_smpte_40_12, "PASS - smpte2110 one VPID_code valid.")
+REG_TEST(test_smpte_40_12, "PASS - smpte2110 one VPID_Code valid.")
 {
 	char *content =
 		"v=0\n"
@@ -1422,13 +1422,13 @@ REG_TEST(test_smpte_40_12, "PASS - smpte2110 one VPID_code valid.")
 		"a=rtpmap:100 smpte291/90000\n"
 		"a=fmtp:100 "
 			"DID_SDID={0xaa,0xAA};"
-			"VPID_code=123;"
+			"VPID_Code=123;"
 			"DID_SDID={0xaa,0xAA};\n";
-	/* TODO: (eladw) Validate DID_SDID, VPID_code */
+	/* TODO: (eladw) Validate DID_SDID, VPID_Code */
 	return test_generic(content, SDP_PARSE_OK, NULL, smpte2110);
 }
 
-REG_TEST(test_smpte_40_13, "FAIL - smpte2110 multiple VPID_codes.")
+REG_TEST(test_smpte_40_13, "FAIL - smpte2110 multiple VPID_Codes.")
 {
 	char *content =
 		"v=0\n"
@@ -1438,9 +1438,9 @@ REG_TEST(test_smpte_40_13, "FAIL - smpte2110 multiple VPID_codes.")
 		"a=rtpmap:100 smpte291/90000\n"
 		"a=fmtp:100 "
 			"DID_SDID={0xaa,0xAA};"
-			"VPID_code=123;"
+			"VPID_Code=123;"
 			"DID_SDID={0xaa,0xAA};"
-			"VPID_code=456\n";
+			"VPID_Code=456\n";
 	return test_generic(content, SDP_PARSE_ERROR, NULL, smpte2110);
 }
 

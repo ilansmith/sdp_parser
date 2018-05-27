@@ -680,14 +680,14 @@ static enum sdp_parse_err sdp_attr_param_parse_DID_SDID(char *str,
        return SDP_PARSE_OK;
 }
 
-static enum sdp_parse_err sdp_attr_param_parse_VPID_code(char *str,
+static enum sdp_parse_err sdp_attr_param_parse_VPID_Code(char *str,
 		void *res, uint32_t *err)
 {
 	struct smpte2110_40_fmtp_params *params =
 			(struct smpte2110_40_fmtp_params*)res;
 
 	NOT_IN_USE(err);
-	if (sscanf(str, "VPID_code=%u", &params->VPID_code) != 1)
+	if (sscanf(str, "VPID_Code=%u", &params->VPID_code) != 1)
 		return sdprerr("parameter format: '%s'", str);
 	return SDP_PARSE_OK;
 }
@@ -714,7 +714,7 @@ static enum sdp_parse_err smpte2110_40_parse_fmtp_params(
 	SMPTE_2110_FMTP_TABLE_START(attribute_param_list,
 	                            SMPTE2110_40_FMTP_PARAMS_NUM)
 		SMPTE_2110_FMTP_MULTI_ENTRY(DID_SDID, UNLIMITED);
-		SMPTE_2110_FMTP_NUM_ENTRY(VPID_code);
+		SMPTE_2110_FMTP_NUM_ENTRY(VPID_Code);
 	SMPTE_2110_FMTP_TABLE_END
 
 	params = (struct smpte2110_40_fmtp_params *)calloc(1,
