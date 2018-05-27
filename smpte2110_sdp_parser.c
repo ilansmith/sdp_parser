@@ -819,7 +819,7 @@ enum sdp_parse_err smpte2110_30_parse_channel_order(
 	return SDP_PARSE_OK;
 }
 
-static int get_required_attr_mask(enum smpte_2110_media_sub_type sub_type)
+static int get_required_attr_mask(int sub_type)
 {
 	switch (sub_type) {
 	case SMPTE_2110_SUB_TYPE_20:
@@ -831,53 +831,6 @@ static int get_required_attr_mask(enum smpte_2110_media_sub_type sub_type)
 	default:
 		return 0;
 	}
-}
-
-static int attr_is_of_format(struct sdp_attr *attr, int fmt_id)
-{
-	if (attr->type == SDP_ATTR_FMTP)
-		return attr->value.fmtp.fmt->id == fmt_id;
-	if (attr->type == SDP_ATTR_RTPMAP)
-		return attr->value.rtpmap.fmt->id == fmt_id;
-	return 1;
-}
-
-static const char *get_attr_type_name(enum sdp_attr_type type)
-{
-	switch (type) {
-	case SDP_ATTR_RTPMAP: return "rtpmap";
-	case SDP_ATTR_FMTP: return "fmtp";
-	default: return "unknown";
-	}
-}
-
-static enum sdp_parse_err smpte2110_validate_required_attributes(
-		struct sdp_media *media)
-{
-	struct sdp_media_fmt *fmt;
-	struct sdp_attr *attr;
-	int required_attr_mask = 0;
-
-	for (fmt = &media->m.fmt; fmt; fmt = fmt->next) {
-		required_attr_mask = get_required_attr_mask(fmt->sub_type);
-		for (attr = media->a; attr; attr = attr->next) {
-			if (attr_is_of_format(attr, fmt->id))
-				required_attr_mask &= ~(1 << attr->type);
-		}
-
-		if (required_attr_mask != 0) {
-			enum sdp_attr_type attr = 0;
-			sdperr("media format %u is missing required attributes:", fmt->id);
-			while (required_attr_mask > 0) {
-				if (required_attr_mask & 0x1)
-					sdperr("   (%02u) %s", attr, get_attr_type_name(attr));
-				required_attr_mask >>= 1;
-				attr += 1;
-			}
-			return SDP_PARSE_ERROR;
-		}
-	}
-	return SDP_PARSE_OK;
 }
 
 static enum sdp_parse_err smpte2110_parse_rtpmap_encoding_name(
@@ -929,17 +882,17 @@ static enum sdp_parse_err smpte2110_parse_fmtp_params(
 
 static enum sdp_parse_err smpte2110_validate_media(struct sdp_media *media)
 {
-	struct sdp_media_fmt *fmt;
-
-	for (fmt = &media->m.fmt; fmt; fmt = fmt->next) {
-		if (fmt->sub_type == SMPTE_2110_SUB_TYPE_UNKNOWN) {
-			sdperr("no valid smpte2110 sub type was recognized for format %u",
-					fmt->id);
-			return SDP_PARSE_NOT_SUPPORTED;
-		}
+	if (!sdp_validate_sub_types(media)) {
+		sdperr("no valid smpte 2110 sub type");
+		return SDP_PARSE_NOT_SUPPORTED;
 	}
 
-	return smpte2110_validate_required_attributes(media);
+	if (!sdp_validate_required_attributes(media,
+			get_required_attr_mask)) {
+		sdperr("smpte 2110 format is missing required attribute(s)");
+		return SDP_PARSE_ERROR;
+	}
+	return SDP_PARSE_OK;
 }
 
 static struct sdp_specific smpte2110_specific =

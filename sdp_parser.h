@@ -63,6 +63,11 @@ enum sdp_media_type {
 	SDP_MEDIA_TYPE_NOT_SUPPORTED,
 };
 
+/* sub type should be determined by the specific interpreter*/
+enum sdp_media_sub_type {
+	SDP_SUB_TYPE_UNKNOWN = 0
+};
+
 enum sdp_media_proto {
 	SDP_MEDIA_PROTO_RTP_NONE,
 	SDP_MEDIA_PROTO_RTP_AVP,

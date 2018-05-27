@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-Wall -Werror -O0 -g -pedantic -std=gnu99 -DSDP_EXTRACTOR_VERSION=\""$(SDP_EXTRACTOR_VERSION)"\"
 EXTRACTOR=sdp_extractor
-LIB_OBJS=sdp_field.o sdp_stream.o sdp_parser.o smpte2110_sdp_parser.o
+LIB_OBJS=sdp_field.o sdp_stream.o sdp_parser.o smpte2110_sdp_parser.o smpte2022_sdp_parser.o
 APP_GENERIC_OBJS=util.o
 EXTRACTOR_OBJS=$(APP_GENERIC_OBJS) sdp_extractor.o sdp_extractor_app.o
 TESTS_OBJS=$(APP_GENERIC_OBJS) sdp_test_util.o sdp_tests.o

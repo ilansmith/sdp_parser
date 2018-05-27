@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "sdp_stream.h"
+#include "smpte2022_sdp_parser.h"
 
 typedef void *sdp_extractor_t;
 

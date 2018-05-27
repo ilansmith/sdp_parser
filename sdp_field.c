@@ -76,6 +76,85 @@ enum sdp_parse_err sdp_parse_double(double *result, const char *input)
 	return sdp_parse_type_verify(endptr, input, "Number");
 }
 
+
+static int attr_is_of_format(struct sdp_attr *attr, int fmt_id)
+{
+	if (attr->type == SDP_ATTR_FMTP)
+		return attr->value.fmtp.fmt->id == fmt_id;
+	if (attr->type == SDP_ATTR_RTPMAP)
+		return attr->value.rtpmap.fmt->id == fmt_id;
+	return 1;
+}
+
+const char *get_attr_type_name(enum sdp_attr_type type)
+{
+	switch (type) {
+	case SDP_ATTR_NONE: return "none";
+	case SDP_ATTR_GROUP: return "group";
+	case SDP_ATTR_RTPMAP: return "rtpmap";
+	case SDP_ATTR_PTIME: return "ptime";
+	case SDP_ATTR_FMTP: return "fmtp";
+	case SDP_ATTR_SOURCE_FILTER: return "source-filter";
+	case SDP_ATTR_MID: return "mid";
+	case SDP_ATTR_FRAMERATE: return "framerate";
+	case SDP_ATTR_SPECIFIC: return "specific";
+	case SDP_ATTR_NOT_SUPPORTED: return "NOT-SUPPORTED";
+	default: return "unknown";
+	}
+}
+
+static int validate_fmt_required_attributes(struct sdp_media* media,
+		struct sdp_media_fmt *fmt, int required_attr_mask)
+{
+	struct sdp_attr *attr;
+
+	for (attr = media->a; attr; attr = attr->next) {
+		if (attr_is_of_format(attr, fmt->id))
+			required_attr_mask &= ~(1 << attr->type);
+	}
+
+	if (required_attr_mask != 0) {
+		enum sdp_attr_type attr = 0;
+		sdperr("media format %u is missing required attributes:", fmt->id);
+		while (required_attr_mask > 0) {
+			if (required_attr_mask & 0x1)
+				sdperr("   (%02u) %s", attr, get_attr_type_name(attr));
+			required_attr_mask >>= 1;
+			attr += 1;
+		}
+		return 0;
+	}
+	return 1;
+}
+
+int sdp_validate_required_attributes(struct sdp_media *media,
+		int (*get_required_attr_mask)(int sub_type))
+{
+	struct sdp_media_fmt *fmt;
+	int attr_mask = 0;
+
+	for (fmt = &media->m.fmt; fmt; fmt = fmt->next) {
+		attr_mask = get_required_attr_mask(fmt->sub_type);
+		if (!validate_fmt_required_attributes(media, fmt, attr_mask))
+			return 0;
+	}
+	return 1;
+}
+
+int sdp_validate_sub_types(struct sdp_media *media)
+{
+	struct sdp_media_fmt *fmt;
+
+	for (fmt = &media->m.fmt; fmt; fmt = fmt->next) {
+		if (fmt->sub_type == SDP_SUB_TYPE_UNKNOWN) {
+			sdperr("no valid sub type recognized for format %u",
+					fmt->id);
+			return 0;
+		}
+	}
+	return 1;
+}
+
 enum sdp_parse_err sdp_parse_field_default(struct interpretable *field,
 		char *input)
 {
