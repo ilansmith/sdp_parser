@@ -94,6 +94,7 @@ enum sdp_attr_type {
       SDP_ATTR_FMTP,
       SDP_ATTR_SOURCE_FILTER,
       SDP_ATTR_MID,
+      SDP_ATTR_FRAMERATE,
       SDP_ATTR_SPECIFIC,
       SDP_ATTR_NOT_SUPPORTED,
 };
@@ -139,6 +140,11 @@ struct sdp_attr_value_fmtp {
 	struct interpretable params;
 };
 
+/* a=framerate:<val> */
+struct sdp_attr_value_framerate {
+	double frame_rate;
+};
+
 enum sdp_attr_source_filter_mode {
 	SDP_ATTR_SRC_FLT_INCL,
 	SDP_ATTR_SRC_FLT_EXCL,
@@ -178,6 +184,7 @@ union sdp_attr_value {
 	struct sdp_attr_value_rtpmap rtpmap;
 	struct sdp_attr_value_ptime ptime;
 	struct sdp_attr_value_fmtp fmtp;
+	struct sdp_attr_value_framerate framerate;
 	struct sdp_attr_value_source_filter source_filter;
 	struct sdp_attr_value_mid mid;
 

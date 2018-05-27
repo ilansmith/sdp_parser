@@ -703,6 +703,22 @@ static enum sdp_parse_err sdp_parse_attr_mid(struct sdp_media *media,
 	return SDP_PARSE_OK;
 }
 
+static enum sdp_parse_err sdp_parse_attr_framerate(struct sdp_media *media,
+		struct sdp_attr *attr, char *value, char *params,
+		struct sdp_specific *specific)
+{
+	struct sdp_attr_value_framerate *framerate = &attr->value.framerate;
+	NOT_IN_USE(media);
+	NOT_IN_USE(params);
+	NOT_IN_USE(specific);
+
+	if (sdp_parse_double(&framerate->frame_rate, value) != SDP_PARSE_OK)
+		return sdprerr("parsing field: frame_rate");
+	if (framerate->frame_rate == 0.0)
+		return sdprerr("invalid frame_rate: %s", value);
+	return SDP_PARSE_OK;
+}
+
 static enum sdp_parse_err parse_attr_media(struct sdp_media *media,
 		struct sdp_attr *a, char *attr, char *value, char *params,
 		struct sdp_specific *specific)
@@ -724,6 +740,9 @@ static enum sdp_parse_err parse_attr_media(struct sdp_media *media,
 	} else if (!strncmp(attr, "mid", strlen("mid"))) {
 		a->type = SDP_ATTR_MID;
 		err = sdp_parse_attr_mid(media, a, value, params, specific);
+	} else if (!strncmp(attr, "framerate", strlen("framerate"))) {
+		a->type = SDP_ATTR_FRAMERATE;
+		err = sdp_parse_attr_framerate(media, a, value, params, specific);
 	} else {
 		a->type = SDP_ATTR_NOT_SUPPORTED;
 		err = SDP_PARSE_NOT_SUPPORTED;
@@ -739,9 +758,9 @@ static enum sdp_parse_err sdp_parse_media_level_attr(sdp_stream_t sdp,
 #if 0
 		"maxptime",
 		"orient",
-		"framerate",
 		"quality",
 #endif
+		"framerate",
 		"ptime",
 		"rtpmap",
 		"fmtp",
