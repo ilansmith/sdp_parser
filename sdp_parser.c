@@ -622,14 +622,14 @@ static enum sdp_parse_err parse_attr_rtpmap(struct sdp_media *media,
 	char *tmp = NULL;
 
 	encoding_name = params ? strtok_r(params, "/", &tmp) : NULL;
-	if (!encoding_name || !tmp)
+	if (!encoding_name)
 		return sdprerr("missing required field - encoding-name");
 
 	clock_rate = strtok_r(NULL, "/", &tmp);
-	if (!clock_rate || !tmp)
+	if (!clock_rate)
 		return sdprerr("missing required field - clock-rate");
 
-	encoding_parameters = strtok_r(NULL, "/", &tmp);
+	encoding_parameters = strtok_r(NULL, "", &tmp);
 
 	/* parse fields */
 	if (!sdp_parse_fmt(media, &rtpmap->fmt, value))
@@ -991,9 +991,7 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 		}
 	} while (line);
 
-	/*************/
 	/* Validate: */
-	/*************/
 	if (specific != no_specific) {
 		struct sdp_media *media;
 
