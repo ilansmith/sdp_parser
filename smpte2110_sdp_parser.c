@@ -651,11 +651,12 @@ static void smpte2110_40_free_fmtp_param(void *ptr)
 {
 	struct smpte2110_40_fmtp_params *params =
 			(struct smpte2110_40_fmtp_params*)ptr;
-	struct smpte2110_40_did_sdid *did = params->dids, *tmp;
+	struct smpte2110_40_did_sdid *did, *tmp;
 
 	if (!params)
 		return;
 
+	did = params->dids;
 	while (did) {
 		tmp = did->next;
 		free(did);
