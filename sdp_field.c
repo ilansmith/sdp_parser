@@ -83,23 +83,6 @@ static int attr_is_of_format(struct sdp_attr *attr, int fmt_id)
 	return 1;
 }
 
-const char *get_attr_type_name(enum sdp_attr_type type)
-{
-	switch (type) {
-	case SDP_ATTR_NONE: return "none";
-	case SDP_ATTR_GROUP: return "group";
-	case SDP_ATTR_RTPMAP: return "rtpmap";
-	case SDP_ATTR_PTIME: return "ptime";
-	case SDP_ATTR_FMTP: return "fmtp";
-	case SDP_ATTR_SOURCE_FILTER: return "source-filter";
-	case SDP_ATTR_MID: return "mid";
-	case SDP_ATTR_FRAMERATE: return "framerate";
-	case SDP_ATTR_SPECIFIC: return "specific";
-	case SDP_ATTR_NOT_SUPPORTED: return "NOT-SUPPORTED";
-	default: return "unknown";
-	}
-}
-
 static int validate_fmt_required_attributes(struct sdp_media* media,
 		struct sdp_media_fmt *fmt, int required_attr_mask)
 {
@@ -112,12 +95,13 @@ static int validate_fmt_required_attributes(struct sdp_media* media,
 
 	if (required_attr_mask != 0) {
 		enum sdp_attr_type attr = 0;
+
 		sdperr("media format %u is missing required attributes:",
 				fmt->id);
 		while (required_attr_mask > 0) {
 			if (required_attr_mask & 0x1)
 				sdperr("   (%02u) %s", attr,
-						get_attr_type_name(attr));
+						sdp_get_attr_type_name(attr));
 			required_attr_mask >>= 1;
 			attr += 1;
 		}

@@ -17,7 +17,6 @@ enum sdp_parse_err sdp_parse_long_long(long long *result, const char *input);
 enum sdp_parse_err sdp_parse_float(float *result, const char *input);
 enum sdp_parse_err sdp_parse_double(double *result, const char *input);
 
-const char *get_attr_type_name(enum sdp_attr_type type);
 int sdp_validate_sub_types(struct sdp_media *media);
 int sdp_validate_required_attributes(struct sdp_media* media,
 		int (*get_required_attr_mask)(int sub_type));

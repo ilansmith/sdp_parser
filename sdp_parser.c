@@ -1211,6 +1211,23 @@ struct sdp_attr *sdp_attr_get_next(struct sdp_attr *attr)
 	return sdp_attr_locate(attr->next, attr->type);
 }
 
+const char *sdp_get_attr_type_name(enum sdp_attr_type type)
+{
+	switch (type) {
+	case SDP_ATTR_NONE: return "none";
+	case SDP_ATTR_GROUP: return "group";
+	case SDP_ATTR_RTPMAP: return "rtpmap";
+	case SDP_ATTR_PTIME: return "ptime";
+	case SDP_ATTR_FMTP: return "fmtp";
+	case SDP_ATTR_SOURCE_FILTER: return "source-filter";
+	case SDP_ATTR_MID: return "mid";
+	case SDP_ATTR_FRAMERATE: return "framerate";
+	case SDP_ATTR_SPECIFIC: return "specific";
+	case SDP_ATTR_NOT_SUPPORTED: return "NOT-SUPPORTED";
+	default: return "unknown";
+	}
+}
+
 static struct sdp_specific empty_specific = {
 	"no specific",
 	NULL,

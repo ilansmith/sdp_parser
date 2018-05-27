@@ -328,6 +328,8 @@ struct sdp_attr *sdp_session_attr_get(struct sdp_session *session,
 
 struct sdp_attr *sdp_attr_get_next(struct sdp_attr *attr);
 
+const char *sdp_get_attr_type_name(enum sdp_attr_type type);
+
 #ifdef __cplusplus
 }
 #endif
