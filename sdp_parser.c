@@ -160,24 +160,18 @@ static enum sdp_parse_err sdp_parse_version(sdp_stream_t sdp, char **line,
 	char *endptr;
 
 	if (!sdp_getline(line, len, sdp)||
-			sdp_parse_descriptor_type(*line) != 'v') {
-		sdperr("missing required sdp version");
-		return SDP_PARSE_ERROR;
-	}
+			sdp_parse_descriptor_type(*line) != 'v')
+		return sdprerr("missing required sdp version");
 
 	ptr = *line + 2;
 	version = strtol(ptr, &endptr, 10);
-	if (*endptr) {
-		sdperr("bad version - %s", *line);
-		return SDP_PARSE_ERROR;
-	}
+	if (*endptr)
+		return sdprerr("bad version - %s", *line);
 
 	v->version = version;
 
-	if (!sdp_getline(line, len, sdp)) {
-		sdperr("no more sdp fields after version");
-		return SDP_PARSE_ERROR;
-	}
+	if (!sdp_getline(line, len, sdp))
+		return sdprerr("no more sdp fields after version");
 
 	return SDP_PARSE_OK;
 }
@@ -246,15 +240,12 @@ static enum sdp_parse_err sdp_parse_connection_information(sdp_stream_t sdp,
 
 	ptr = *line + 2;
 	nettype = strtok_r(ptr, " ", &tmp);
-	if (!nettype) {
-		sdperr("bad connection information nettype");
-		return SDP_PARSE_ERROR;
-	}
+	if (!nettype)
+		return sdprerr("bad connection information nettype");
+
 	addrtype = strtok_r(NULL, " ", &tmp);
-	if (!addrtype) {
-		sdperr("bad connection information addrtype");
-		return SDP_PARSE_ERROR;
-	}
+	if (!addrtype)
+		return sdprerr("bad connection information addrtype");
 
 	addr = strtok_r(NULL, "/", &tmp);
 	if (!addr) {
@@ -263,10 +254,8 @@ static enum sdp_parse_err sdp_parse_connection_information(sdp_stream_t sdp,
 		char *endptr;
 
 		ttl = strtol(tmp, &endptr, 10);
-		if (*endptr) {
-			sdperr("bad connection information ttl");
-			return SDP_PARSE_ERROR;
-		}
+		if (*endptr)
+			return sdprerr("bad connection information ttl");
 
 		if (ttl)
 			is_ttl_set = 1;
@@ -278,12 +267,9 @@ static enum sdp_parse_err sdp_parse_connection_information(sdp_stream_t sdp,
 		c->nettype = SDP_CI_NETTYPE_NOT_SUPPORTED;
 
 	if (!strncmp(addrtype, "IP4", strlen("IP4"))) {
-		if (!is_ttl_set && is_multicast_addr(SDP_CI_ADDRTYPE_IPV4,
-				addr)) {
-			sdperr("connection information with an IP4 multicast "
+		if (!is_ttl_set && is_multicast_addr(SDP_CI_ADDRTYPE_IPV4, addr))
+			return sdprerr("connection information with an IP4 multicast "
 				"address requires a TTL value");
-			return SDP_PARSE_ERROR;
-		}
 
 		c->addrtype = SDP_CI_ADDRTYPE_IPV4;
 	} else if (!strncmp(nettype, "IP6", strlen("IP6"))) {
@@ -313,27 +299,21 @@ static enum sdp_parse_err sdp_parse_media_properties(struct sdp_media_m *m,
 
 	slash = strchr(*tmp, '/');
 	port = strtol(strtok_r(NULL, " /", tmp), &endptr, 10);
-	if (*endptr) {
-		sdperr("bad media descriptor - port");
-		return SDP_PARSE_ERROR;
-	}
+	if (*endptr)
+		return sdprerr("bad media descriptor - port");
 
 	if (slash + 1 == *tmp) {
 		num_ports = strtol(strtok_r(NULL, " ", tmp), &endptr, 10);
-		if (*endptr) {
-			sdperr("bad media descriptor - num_ports");
-			return SDP_PARSE_ERROR;
-		}
+		if (*endptr)
+			return sdprerr("bad media descriptor - num_ports");
 	} else {
 		num_ports = 1;
 	}
 
 	proto = strtok_r(NULL, " ", tmp);
 	fmt = strtol(strtok_r(NULL, " ", tmp), &endptr, 10);
-	if (*endptr) {
-		sdperr("bad media descriptor - fmt");
-		return SDP_PARSE_ERROR;
-	}
+	if (*endptr)
+		return sdprerr("bad media descriptor - fmt");
 
 	if (!strncmp(proto, "RTP/AVP", strlen("RTP/AVP"))) {
 		m->proto = SDP_MEDIA_PROTO_RTP_AVP;
@@ -350,16 +330,12 @@ static enum sdp_parse_err sdp_parse_media_properties(struct sdp_media_m *m,
 	smf = &m->fmt.next;
 	while (*tmp && **tmp) {
 		if (!(*smf = (struct sdp_media_fmt*)calloc(1,
-                		sizeof(struct sdp_media_fmt)))) {
-			sdperr("memory acllocation");
-			return SDP_PARSE_ERROR;
-		}
+				sizeof(struct sdp_media_fmt))))
+			return sdprerr("memory acllocation");
 
 		fmt = strtol(strtok_r(NULL, " ", tmp), &endptr, 10);
-		if (*endptr) {
-			sdperr("bad media descriptor - fmt");
-			return SDP_PARSE_ERROR;
-		}
+		if (*endptr)
+			return sdprerr("bad media descriptor - fmt");
 		(*smf)->id = fmt;
 		smf = &(*smf)->next;
 	}
@@ -375,17 +351,13 @@ static enum sdp_parse_err sdp_parse_media(sdp_stream_t sdp, char **line,
 	char *tmp;
 	enum sdp_parse_err err;
 
-	if (strncmp(*line, "m=", 2)) {
-		sdperr("bad media descriptor - m=");
-		return SDP_PARSE_ERROR;
-	}
+	if (strncmp(*line, "m=", 2))
+		return sdprerr("bad media descriptor - m=");
 
 	ptr = *line + 2;
 	type = strtok_r(ptr, " ", &tmp);
-	if (!type) {
-		sdperr("bad media descriptor");
-		return SDP_PARSE_ERROR;
-	}
+	if (!type)
+		return sdprerr("bad media descriptor");
 
 	/* Parse media type: */
 	if (!strncmp(type, "video", strlen("video"))) {
@@ -408,14 +380,13 @@ static enum sdp_parse_err sdp_parse_media(sdp_stream_t sdp, char **line,
 }
 
 static enum sdp_parse_err parse_attr_common(struct sdp_attr *a, char *attr,
-		char *value, char *params,
-		parse_attr_specific_t parse_attr_specific)
+		char *value, char *params, struct sdp_specific *specific)
 {
 	NOT_IN_USE(a);
 	NOT_IN_USE(attr);
 	NOT_IN_USE(value);
 	NOT_IN_USE(params);
-	NOT_IN_USE(parse_attr_specific);
+	NOT_IN_USE(specific);
 
 	return SDP_PARSE_OK;
 }
@@ -425,9 +396,8 @@ static enum sdp_parse_err sdp_parse_attr(sdp_stream_t sdp, char **line,
 		char **attr_level,
 		enum sdp_parse_err (*parse_level)(struct sdp_media *media,
 			struct sdp_attr *a, char *attr, char *value,
-			char *params,
-			parse_attr_specific_t parse_attr_specific),
-		parse_attr_specific_t parse_attr_specific)
+			char *params, struct sdp_specific *specific),
+		struct sdp_specific *specific)
 {
 	char **supported_attr;
 	char *attr;
@@ -461,23 +431,20 @@ static enum sdp_parse_err sdp_parse_attr(sdp_stream_t sdp, char **line,
 			params = tmp;
 
 		*a = (struct sdp_attr*)calloc(1, sizeof(struct sdp_attr));
-		if (!*a) {
-			sdperr("memory acllocation");
-			return SDP_PARSE_ERROR;
-		}
+		if (!*a)
+			return sdprerr("memory acllocation");
 
 		/* try to find a supported attribute in the session/media
 		 * common list */
 		for (supported_attr = common_level_attr; *supported_attr &&
 			strcmp(*supported_attr, attr); supported_attr++);
 		if (*supported_attr) {
-			err = parse_attr_common(*a, *supported_attr, value,
-				params, parse_attr_specific);
+			err = parse_attr_common(*a, *supported_attr, value, params,
+					specific);
 			if (err == SDP_PARSE_ERROR) {
 				free(*a);
 				*a = NULL;
-				sdperr("parsing attribute: %s", attr);
-				return SDP_PARSE_ERROR;
+				return sdprerr("parsing attribute: %s", attr);
 			}
 
 			a = &(*a)->next;
@@ -490,13 +457,12 @@ static enum sdp_parse_err sdp_parse_attr(sdp_stream_t sdp, char **line,
 		for (supported_attr = attr_level; *supported_attr &&
 			strcmp(*supported_attr, attr); supported_attr++);
 		if (*supported_attr) {
-			err = parse_level(media, *a, *supported_attr,
-					value, params, parse_attr_specific);
+			err = parse_level(media, *a, *supported_attr, value, params,
+					specific);
 			if (err == SDP_PARSE_ERROR) {
 				free(*a);
 				*a = NULL;
-				sdperr("parsing attribute: %s", attr);
-				return SDP_PARSE_ERROR;
+				return sdprerr("parsing attribute: %s", attr);
 			}
 
 			a = &(*a)->next;
@@ -517,12 +483,13 @@ static enum sdp_parse_err sdp_parse_attr(sdp_stream_t sdp, char **line,
 
 static enum sdp_parse_err parse_attr_session(struct sdp_media *media,
 		struct sdp_attr *a, char *attr, char *value, char *params,
-		parse_attr_specific_t parse_attr_specific)
+		struct sdp_specific *specific)
 {
 	if (!strncmp(attr, "group", strlen("group"))) {
 		/* currently not supporting the general case */
 		sdp_attribute_interpreter interpreter =
-			parse_attr_specific->group;
+			specific->group;
+
 		if (!interpreter)
 			return SDP_PARSE_NOT_SUPPORTED;
 
@@ -537,7 +504,7 @@ static enum sdp_parse_err parse_attr_session(struct sdp_media *media,
 
 static enum sdp_parse_err sdp_parse_session_level_attr(sdp_stream_t sdp,
 		char **line, size_t *len, struct sdp_attr **a,
-		parse_attr_specific_t parse_attr_specific)
+		struct sdp_specific *specific)
 {
 	static char *session_level_attr[] = {
 		"group",
@@ -545,7 +512,7 @@ static enum sdp_parse_err sdp_parse_session_level_attr(sdp_stream_t sdp,
 	};
 
 	return sdp_parse_attr(sdp, line, len, NULL, a, session_level_attr,
-		parse_attr_session, parse_attr_specific);
+		parse_attr_session, specific);
 }
 
 static int sdp_parse_fmt(struct sdp_media *media,
@@ -563,7 +530,7 @@ static int sdp_parse_fmt(struct sdp_media *media,
 			return 1;
 		}
 	}
-	sdperr("Media format not found: %u", *field);
+	sdperr("media format not found: %u", *field);
 	return 0;
 }
 
@@ -585,39 +552,30 @@ static enum sdp_parse_err sdp_parse_attr_source_filter(struct sdp_media *media,
 	NOT_IN_USE(specific);
 
 	/* filter-mode */
-	if (!strncmp(value, "incl", strlen("incl"))) {
+	if (!strncmp(value, "incl", strlen("incl")))
 		source_filter->mode = SDP_ATTR_SRC_FLT_INCL;
-	} else if (!strncmp(value, "excl", strlen("excl"))) {
+	else if (!strncmp(value, "excl", strlen("excl")))
 		source_filter->mode = SDP_ATTR_SRC_FLT_EXCL;
-	} else {
-		sdperr("bad source-filter mode type");
-		return SDP_PARSE_ERROR;
-	}
+	else
+		return sdprerr("bad source-filter mode type");
 
 	/* filter-spec */
 	nettype = strtok_r(params, " ", &tmp);
-	if (!nettype) {
-		sdperr("bad source-filter nettype");
-		return SDP_PARSE_ERROR;
-	}
+	if (!nettype)
+		return sdprerr("bad source-filter nettype");
 
 	addrtype = strtok_r(NULL, " ", &tmp);
-	if (!addrtype) {
-		sdperr("bad source-filter addrtype");
-		return SDP_PARSE_ERROR;
-	}
+	if (!addrtype)
+		return sdprerr("bad source-filter addrtype");
 
 	dst_addr = strtok_r(NULL, " ", &tmp);
-	if (!dst_addr) {
-		sdperr("bad source-filter dst-addr");
-		return SDP_PARSE_ERROR;
-	}
+	if (!dst_addr)
+		return sdprerr("bad source-filter dst-addr");
 
 	src_addr = strtok_r(NULL, " ", &tmp);
-	if (!src_addr) {
-		sdperr("bad source-filter src-addr");
-		return SDP_PARSE_ERROR;
-	}
+	if (!src_addr)
+		return sdprerr("bad source-filter src-addr");
+
 	memset(&src_list, 0, sizeof(struct source_filter_src_addr));
 	strncpy(src_list.addr, src_addr, sizeof(src_list.addr));
 	src_list.next = NULL;
@@ -665,29 +623,29 @@ static enum sdp_parse_err parse_attr_rtpmap(struct sdp_media *media,
 
 	encoding_name = params ? strtok_r(params, "/", &tmp) : NULL;
 	if (!encoding_name || !tmp)
-		return sdprerr("missing required field - encoding-name.");
+		return sdprerr("missing required field - encoding-name");
 
 	clock_rate = strtok_r(NULL, "/", &tmp);
 	if (!clock_rate || !tmp)
-		return sdprerr("missing required field - clock-rate.");
+		return sdprerr("missing required field - clock-rate");
 
 	encoding_parameters = strtok_r(NULL, "/", &tmp);
 
 	/* parse fields */
 	if (!sdp_parse_fmt(media, &rtpmap->fmt, value))
-		return sdprerr("parsing field: payload_type.");
+		return sdprerr("parsing field: payload_type");
 
 	if (sdp_parse_field(media, attr, &rtpmap->encoding_name, encoding_name,
 			specific->rtpmap_encoding_name) != SDP_PARSE_OK)
-		return sdprerr("parsing field: encoding_name.");
+		return sdprerr("parsing field: encoding_name");
 	if (sdp_parse_int(&rtpmap->clock_rate, clock_rate) != SDP_PARSE_OK)
-		return sdprerr("parsing field: clock_rate.");
+		return sdprerr("parsing field: clock_rate");
 	if (sdp_parse_field(media, attr, &rtpmap->encoding_parameters,
 			encoding_parameters, specific->rtpmap_encoding_parameters)
 			!= SDP_PARSE_OK)
-		return sdprerr("parsing field: encoding_parameters.");
+		return sdprerr("parsing field: encoding_parameters");
 	if (rtpmap->clock_rate == 0)
-		return sdprerr("Invalid clock-rate: %s", clock_rate);
+		return sdprerr("invalid clock-rate: %s", clock_rate);
 	return SDP_PARSE_OK;
 }
 
@@ -703,7 +661,7 @@ static enum sdp_parse_err sdp_parse_attr_ptime(struct sdp_media *media,
 		return SDP_PARSE_ERROR;
 	}
 	if (ptime->packet_time == 0.0) {
-		return sdprerr("Invalid packet-time: %s", value);
+		return sdprerr("invalid packet-time: %s", value);
 	}
 	return SDP_PARSE_OK;
 }
@@ -714,7 +672,7 @@ static enum sdp_parse_err sdp_parse_attr_fmtp(struct sdp_media *media,
 {
 	struct sdp_attr_value_fmtp *fmtp = &attr->value.fmtp;
 	if (!sdp_parse_fmt(media, &fmtp->fmt, value))
-		return sdprerr("parsing field: format.");
+		return sdprerr("parsing field: format");
 
 	return sdp_parse_field(media, attr, &fmtp->params, params,
 			specific->fmtp_params);
@@ -773,7 +731,7 @@ static enum sdp_parse_err parse_attr_media(struct sdp_media *media,
 
 static enum sdp_parse_err sdp_parse_media_level_attr(sdp_stream_t sdp,
 		char **line, size_t *len, struct sdp_media *media,
-		struct sdp_attr **a, parse_attr_specific_t parse_attr_specific)
+		struct sdp_attr **a, struct sdp_specific *specific)
 {
 	static char *media_level_attr[] = {
 #if 0
@@ -791,7 +749,7 @@ static enum sdp_parse_err sdp_parse_media_level_attr(sdp_stream_t sdp,
 	};
 
 	return sdp_parse_attr(sdp, line, len, media, a, media_level_attr,
-		parse_attr_media, parse_attr_specific);
+		parse_attr_media, specific);
 }
 
 static void media_fmt_free(struct sdp_media_fmt *fmt)
@@ -895,7 +853,7 @@ void sdp_parser_uninit(struct sdp_session *session)
 }
 
 enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
-		parse_attr_specific_t parse_attr_specific)
+		struct sdp_specific *specific)
 {
 	enum sdp_parse_err err = SDP_PARSE_ERROR;
 	char *line = NULL;
@@ -903,8 +861,8 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 	sdp_stream_t sdp = session->sdp;
 
 	/* Default is no-specific */
-	if (!parse_attr_specific)
-		parse_attr_specific = no_specific;
+	if (!specific)
+		specific = no_specific;
 
 	/* parse v= */
 	if (sdp_parse_version(sdp, &line, &len, &session->v) ==
@@ -958,8 +916,8 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 		goto exit;
 	}
 
-	if (sdp_parse_session_level_attr(sdp, &line, &len, &session->a,
-			parse_attr_specific) == SDP_PARSE_ERROR) {
+	if (sdp_parse_session_level_attr(sdp, &line, &len, &session->a, specific)
+			== SDP_PARSE_ERROR) {
 		goto exit;
 	}
 
@@ -1027,9 +985,8 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 			return SDP_PARSE_OK;
 
 		/* parse media-level a=* */
-		if (sdp_parse_media_level_attr(sdp, &line, &len, media,
-				&media->a,
-				parse_attr_specific) == SDP_PARSE_ERROR) {
+		if (sdp_parse_media_level_attr(sdp, &line, &len, media, &media->a,
+				specific) == SDP_PARSE_ERROR) {
 			goto exit;
 		}
 	} while (line);
@@ -1037,13 +994,14 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 	/*************/
 	/* Validate: */
 	/*************/
-	if (parse_attr_specific != no_specific) {
+	if (specific != no_specific) {
 		struct sdp_media *media;
+
 		for (media = session->media; media; media = media->next) {
-			if (parse_attr_specific->validator) {
-				err = parse_attr_specific->validator(media);
+			if (specific->validator) {
+				err = specific->validator(media);
 				if (err != SDP_PARSE_OK) {
-					sdperr("Media validation failed.");
+					sdperr("media validation failed");
 					goto exit;
 				}
 			}

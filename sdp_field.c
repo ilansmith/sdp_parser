@@ -2,17 +2,12 @@
 #include "sdp_parser.h"
 #include "sdp_field.h"
 
-static struct sdp_specific empty_specific = SDP_SPECIFIC_INIT();
+static struct sdp_specific empty_specific = SDP_SPECIFIC_INIT;
 
 struct sdp_specific *no_specific = &empty_specific;
 
-void no_free_required(interpretable* field)
-{
-	(void)field;
-}
-
 enum sdp_parse_err sdp_parse_type_verify(char *endptr, const char *input,
-	const char* expected_name)
+	const char *expected_name)
 {
 	if (*endptr) {
 		sdperr("invalid value '%s'. %s is expected.", input, expected_name);
@@ -34,6 +29,7 @@ enum sdp_parse_err sdp_parse_str(char **result, const char *input)
 enum sdp_parse_err sdp_parse_int(int *result, const char *input)
 {
 	char *endptr;
+
 	if (!input)
 		return sdprerr("no value specified.");
 	*result = strtol(input, &endptr, 10);
@@ -43,6 +39,7 @@ enum sdp_parse_err sdp_parse_int(int *result, const char *input)
 enum sdp_parse_err sdp_parse_long(long *result, const char *input)
 {
 	char *endptr;
+
 	if (!input)
 		return sdprerr("no value specified.");
 	*result = strtol(input, &endptr, 10);
@@ -52,6 +49,7 @@ enum sdp_parse_err sdp_parse_long(long *result, const char *input)
 enum sdp_parse_err sdp_parse_long_long(long long *result, const char *input)
 {
 	char *endptr;
+
 	if (!input)
 		return sdprerr("no value specified.");
 	*result = strtoll(input, &endptr, 10);
@@ -61,6 +59,7 @@ enum sdp_parse_err sdp_parse_long_long(long long *result, const char *input)
 enum sdp_parse_err sdp_parse_float(float *result, const char *input)
 {
 	char *endptr;
+
 	if (!input)
 		return sdprerr("no value specified.");
 	*result = strtof(input, &endptr);
@@ -70,13 +69,15 @@ enum sdp_parse_err sdp_parse_float(float *result, const char *input)
 enum sdp_parse_err sdp_parse_double(double *result, const char *input)
 {
 	char *endptr;
+
 	if (!input)
 		return sdprerr("no value specified.");
 	*result = strtod(input, &endptr);
 	return sdp_parse_type_verify(endptr, input, "Number");
 }
 
-enum sdp_parse_err sdp_parse_field_default(interpretable *field, char *input)
+enum sdp_parse_err sdp_parse_field_default(struct interpretable *field,
+		char *input)
 {
 	if (!input) {
  		field->as.as_ptr = NULL;
@@ -87,7 +88,7 @@ enum sdp_parse_err sdp_parse_field_default(interpretable *field, char *input)
 }
 
 enum sdp_parse_err sdp_parse_field(struct sdp_media *media,
-		struct sdp_attr *attr, interpretable *field, char *input,
+		struct sdp_attr *attr, struct interpretable *field, char *input,
 		sdp_field_interpreter specific_field_interpreter)
 {
 	/*
@@ -100,7 +101,7 @@ enum sdp_parse_err sdp_parse_field(struct sdp_media *media,
 	return sdp_parse_field_default(field, input);
 }
 
-void sdp_free_field(interpretable* field)
+void sdp_free_field(struct interpretable *field)
 {
 	if (field->dtor)
 		field->dtor(field->as.as_ptr);

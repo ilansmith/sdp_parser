@@ -108,9 +108,9 @@ struct sdp_attr_value_group {
 /* a=rtpmap:<payload type> <encoding name>/<clock rate> [/<encoding parameters> */
 struct sdp_attr_value_rtpmap {
 	struct sdp_media_fmt *fmt; /* payload-type */
-	interpretable encoding_name;
+	struct interpretable encoding_name;
 	int clock_rate;
-	interpretable encoding_parameters;
+	struct interpretable encoding_parameters;
 };
 
 /* a=ptime:<packet time> */
@@ -121,7 +121,7 @@ struct sdp_attr_value_ptime {
 /* a=fmtp:<val> <params> */
 struct sdp_attr_value_fmtp {
 	struct sdp_media_fmt *fmt;
-	interpretable params;
+	struct interpretable params;
 };
 
 enum sdp_attr_source_filter_mode {
@@ -249,13 +249,11 @@ struct sdp_session {
 	struct sdp_media *media; /* media-level descriptor(s) */
 };
 
-typedef struct sdp_specific *parse_attr_specific_t;
-
 struct sdp_session *sdp_parser_init(enum sdp_stream_type type, void *ctx);
 void sdp_parser_uninit(struct sdp_session *session);
 
 enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
-		parse_attr_specific_t parse_attr_specific);
+		struct sdp_specific *specific);
 
 void sdpwarn(char *fmt, ...);
 void sdperr(char *fmt, ...);

@@ -1,10 +1,3 @@
-/*
- * comp_tests.c
- *
- *  Created on: May 3, 2018
- *      Author: eladw
- */
-
 #include <string.h>
 
 #include "sdp_test_util.h"
@@ -16,7 +9,8 @@
 	set_attr_vinfo(m_id, a_id, (sdp_attr_func_ptr)func, \
 		num_args((sdp_attr_func_ptr )func), __VA_ARGS__)
 
-static int test_generic_smpte2110_get_error(const char *content, enum sdp_parse_err expected)
+static int test_generic_smpte2110_get_error(const char *content,
+		enum sdp_parse_err expected)
 {
 	return test_generic(content, expected, NULL, smpte2110);
 }
@@ -64,8 +58,8 @@ static int no_specific_fmtp(const struct sdp_attr *attr,
 		long long fmt, const char *params)
 {
 	return ASSERT_INT(attr->type, SDP_ATTR_FMTP) &&
-	       ASSERT_INT(attr->value.fmtp.fmt->id, fmt) &&
-	       ASSERT_STR(attr->value.fmtp.params.as.as_str, params);
+			ASSERT_INT(attr->value.fmtp.fmt->id, fmt) &&
+			ASSERT_STR(attr->value.fmtp.params.as.as_str, params);
 }
 
 static int no_specific_rtpmap(const struct sdp_attr *attr,
@@ -73,17 +67,19 @@ static int no_specific_rtpmap(const struct sdp_attr *attr,
 		long long clock_rate, const char *encoding_parameters)
 {
 	return ASSERT_INT(attr->type, SDP_ATTR_RTPMAP) &&
-	       ASSERT_INT(attr->value.rtpmap.fmt->id, payload_type) &&
-	       ASSERT_STR(attr->value.rtpmap.encoding_name.as.as_str, encoding_name) &&
-	       ASSERT_INT(attr->value.rtpmap.clock_rate, clock_rate) &&
-	       ASSERT_STR(attr->value.rtpmap.encoding_parameters.as.as_str, encoding_parameters);
+			ASSERT_INT(attr->value.rtpmap.fmt->id, payload_type) &&
+			ASSERT_STR(attr->value.rtpmap.encoding_name.as.as_str,
+					encoding_name) &&
+			ASSERT_INT(attr->value.rtpmap.clock_rate, clock_rate) &&
+			ASSERT_STR(attr->value.rtpmap.encoding_parameters.as.as_str,
+					encoding_parameters);
 }
 
 static inline int no_specific_ptime(const struct sdp_attr *attr,
 		double packet_time)
 {
 	return ASSERT_INT(attr->type, SDP_ATTR_PTIME) &&
-	       ASSERT_FLT(attr->value.ptime.packet_time, packet_time);
+			ASSERT_FLT(attr->value.ptime.packet_time, packet_time);
 }
 
 static inline int smpte2110_rtpmap(const struct sdp_attr *attr,
@@ -91,10 +87,11 @@ static inline int smpte2110_rtpmap(const struct sdp_attr *attr,
 		long long num_channels)
 {
 	return ASSERT_INT(attr->type, SDP_ATTR_RTPMAP) &&
-	       ASSERT_INT(attr->value.rtpmap.fmt->id, payload_type) &&
-	       ASSERT_INT(attr->value.rtpmap.encoding_name.as.as_ll, bit_width) &&
-	       ASSERT_INT(attr->value.rtpmap.clock_rate, clock_rate) &&
-	       ASSERT_INT(attr->value.rtpmap.encoding_parameters.as.as_ll, num_channels);
+			ASSERT_INT(attr->value.rtpmap.fmt->id, payload_type) &&
+			ASSERT_INT(attr->value.rtpmap.encoding_name.as.as_ll, bit_width) &&
+			ASSERT_INT(attr->value.rtpmap.clock_rate, clock_rate) &&
+			ASSERT_INT(attr->value.rtpmap.encoding_parameters.as.as_ll,
+					num_channels);
 }
 
 int num_args(sdp_attr_func_ptr func) {
@@ -112,7 +109,8 @@ int num_args(sdp_attr_func_ptr func) {
 
 void set_attr_vinfo(int m_id, int a_id, sdp_attr_func_ptr func, int num_args, ...)
 {
-	struct attr_validator_info *av = &validator_info.medias[m_id].attributes[a_id];
+	struct attr_validator_info *av =
+			&validator_info.medias[m_id].attributes[a_id];
 	av->func = func;
 
 	va_list vl;
@@ -136,7 +134,7 @@ void set_attr_vinfo(int m_id, int a_id, sdp_attr_func_ptr func, int num_args, ..
 	va_end(vl);
 }
 
-int assert_attr(struct sdp_attr* attr, struct attr_validator_info *av)
+int assert_attr(struct sdp_attr *attr, struct attr_validator_info *av)
 {
 	int res = 0;
 	if (av->func ==  NULL) {
@@ -144,11 +142,13 @@ int assert_attr(struct sdp_attr* attr, struct attr_validator_info *av)
 	} else if (av->func == (sdp_attr_func_ptr)no_specific_fmtp) {
 		res = no_specific_fmtp(attr, av->args[0].as.as_ll, av->args[1].as.as_str);
 	} else if (av->func == (sdp_attr_func_ptr)no_specific_rtpmap) {
-		res = no_specific_rtpmap(attr, av->args[0].as.as_ll, av->args[1].as.as_str, av->args[2].as.as_ll, av->args[3].as.as_str);
+		res = no_specific_rtpmap(attr, av->args[0].as.as_ll, av->args[1].as.as_str,
+				av->args[2].as.as_ll, av->args[3].as.as_str);
 	} else if (av->func == (sdp_attr_func_ptr)no_specific_ptime) {
 		res = no_specific_ptime(attr, av->args[0].as.as_d);
 	} else if (av->func == (sdp_attr_func_ptr)smpte2110_rtpmap) {
-		res = smpte2110_rtpmap(attr, av->args[0].as.as_ll, av->args[1].as.as_ll, av->args[2].as.as_ll, av->args[3].as.as_ll);
+		res = smpte2110_rtpmap(attr, av->args[0].as.as_ll, av->args[1].as.as_ll,
+				av->args[2].as.as_ll, av->args[3].as.as_ll);
 	} else {
 		res = assert_error("Unsupported assertion function %p.\n", av->func);
 	}
@@ -498,7 +498,8 @@ REG_TEST(test017, "a=source-filter: <filter-mode> <filter-spec>")
 		"a=mediaclk:direct=0\n"
 		"a=mid:secondary\n";
 
-	return test_generic(content, SDP_PARSE_OK, assert_source_filter, smpte2110);
+	return test_generic(content, SDP_PARSE_OK, assert_source_filter,
+			smpte2110);
 }
 
 static int assert_mid(struct sdp_session *session)
@@ -876,7 +877,7 @@ REG_TEST(test024, "sampling parameters")
 /******************************************************************************
                               Some Comp Tests
 ******************************************************************************/
-static const char* no_specific_content =
+static const char *no_specific_content =
 		"v=0\n"
 		"s=SDP test\n"
 		"t=0 0\n"
@@ -915,7 +916,7 @@ REG_TEST(test025, "PASS - SDP with no specific interpretation/restrictions")
 REG_TEST(smpte2110_sub_types_1,
 		"FAIL - smpte2110 unknown media sub type audio 1")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: sub types 1\n"
 		"t=0 0\n"
@@ -927,7 +928,7 @@ REG_TEST(smpte2110_sub_types_1,
 REG_TEST(smpte2110_sub_types_2,
 		"FAIL - smpte2110 unknown media sub type audio 2")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: sub types 2\n"
 		"t=0 0\n"
@@ -939,7 +940,7 @@ REG_TEST(smpte2110_sub_types_2,
 REG_TEST(smpte2110_sub_types_3,
 		"FAIL - smpte2110 unknown media sub type video 1")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: sub types 3\n"
 		"t=0 0\n"
@@ -951,7 +952,7 @@ REG_TEST(smpte2110_sub_types_3,
 REG_TEST(smpte2110_sub_types_4,
 		"FAIL - smpte2110 multiple formats")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: sub types 4\n"
 		"t=0 0\n"
@@ -967,7 +968,7 @@ REG_TEST(smpte2110_sub_types_4,
 REG_TEST(smpte2110_sub_types_5,
 		"PASS - smpte2110 multiple formats")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: sub types 5\n"
 		"m=video 50000 RTP/AVP 100 101\n"
@@ -989,7 +990,7 @@ REG_TEST(smpte2110_sub_types_5,
 REG_TEST(test_rtpmap_payload_type_1,
 		"FAIL - payload type is not an int")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: payload types 1\n"
 		"t=0 0\n"
@@ -1001,7 +1002,7 @@ REG_TEST(test_rtpmap_payload_type_1,
 REG_TEST(test_rtpmap_payload_type_2,
 		"FAIL - payload type - not found (rtpmap)")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: payload types 2\n"
 		"t=0 0\n"
@@ -1015,7 +1016,7 @@ REG_TEST(test_rtpmap_payload_type_2,
 REG_TEST(test_rtpmap_payload_type_3,
 		"FAIL - payload type - not found (fmtp)")
 {
-	char* content =
+	char *content =
 		"v=0\nt=0 0\n"
 		"s=SDP test: payload types 3\n"
 		"m=audio 50000 RTP/AVP 101 102 104\n"
@@ -1028,7 +1029,7 @@ REG_TEST(test_rtpmap_payload_type_3,
 REG_TEST(test_rtpmap_payload_type_4,
 		"PASS - payload type - match eventually")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: payload types 4\n"
 		"t=0 0\n"
@@ -1045,7 +1046,7 @@ REG_TEST(test_rtpmap_payload_type_4,
 REG_TEST(test_rtpmap_payload_type_5,
 		"PASS - payload type - formats with no attributes")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: payload types 5\n"
 		"t=0 0\n"
@@ -1059,7 +1060,7 @@ REG_TEST(test_rtpmap_payload_type_5,
 REG_TEST(test_rtpmap_encoding_name_1,
 		"FAIL - rtpmap encoding name not specified")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: rtp encoding name 1\n"
 		"t=0 0\n"
@@ -1073,7 +1074,7 @@ REG_TEST(test_rtpmap_encoding_name_1,
 ******************************************************************************/
 REG_TEST(test_rtpmap_bit_depth_1, "PASS - smpte2110 rtpmap bit-depth 16")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: rtp bit depth 1\n"
 		"t=0 0\n"
@@ -1086,7 +1087,7 @@ REG_TEST(test_rtpmap_bit_depth_1, "PASS - smpte2110 rtpmap bit-depth 16")
 
 REG_TEST(test_rtpmap_bit_depth_2, "PASS - smpte2110 rtpmap bit-depth 24")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: rtp bit depth 2\n"
 		"t=0 0\n"
@@ -1102,7 +1103,7 @@ REG_TEST(test_rtpmap_bit_depth_2, "PASS - smpte2110 rtpmap bit-depth 24")
 ******************************************************************************/
 REG_TEST(test_rtpmap_clock_rate_1, "FAIL - rtpmap clock-rate not specified")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: clock rate 1\n"
 		"t=0 0\n"
@@ -1113,7 +1114,7 @@ REG_TEST(test_rtpmap_clock_rate_1, "FAIL - rtpmap clock-rate not specified")
 
 REG_TEST(test_rtpmap_clock_rate_2, "FAIL - rtpmap clock-rate not int")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: clock rate 2\n"
 		"t=0 0\n"
@@ -1124,7 +1125,7 @@ REG_TEST(test_rtpmap_clock_rate_2, "FAIL - rtpmap clock-rate not int")
 
 REG_TEST(test_rtpmap_clock_rate_3, "FAIL - rtpmap clock-rate 0")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: clock rate 3\n"
 		"t=0 0\n"
@@ -1139,7 +1140,7 @@ REG_TEST(test_rtpmap_clock_rate_3, "FAIL - rtpmap clock-rate 0")
 REG_TEST(test_rtpmap_num_channels_1,
 		"FAIL - smpte2110 rtpmap num channels not int")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: num channels 1\n"
 		"t=0 0\n"
@@ -1150,7 +1151,7 @@ REG_TEST(test_rtpmap_num_channels_1,
 
 REG_TEST(test_rtpmap_num_channels_2, "FAIL - smpte2110 rtpmap num channels 0")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: num channels 2\n"
 		"t=0 0\n"
@@ -1162,7 +1163,7 @@ REG_TEST(test_rtpmap_num_channels_2, "FAIL - smpte2110 rtpmap num channels 0")
 REG_TEST(test_rtpmap_num_channels_3,
 		"PASS - smpte2110 rtpmap num channels empty string")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=Testing rtpmap num channels 3\n"
 		"t=0 0\n"
@@ -1177,7 +1178,7 @@ REG_TEST(test_rtpmap_num_channels_3,
 REG_TEST(test_rtpmap_num_channels_4,
 		"PASS - smpte2110 rtpmap num channels default (NULL)")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=Testing rtpmap num channels 4\n"
 		"t=0 0\n"
@@ -1192,7 +1193,7 @@ REG_TEST(test_rtpmap_num_channels_4,
 REG_TEST(test_rtpmap_num_channels_5,
 		"PASS - smpte2110 rtpmap num channels specified.")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=Testing rtpmap num channels 5\n"
 		"t=0 0\n"
@@ -1209,7 +1210,7 @@ REG_TEST(test_rtpmap_num_channels_5,
 ******************************************************************************/
 REG_TEST(test_ptime_1, "FAIL - smpte2110 ptime not specified.")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: ptime 1\n"
 		"t=0 0\n"
@@ -1220,7 +1221,7 @@ REG_TEST(test_ptime_1, "FAIL - smpte2110 ptime not specified.")
 
 REG_TEST(test_ptime_2, "FAIL - smpte2110 ptime not int.")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: ptime 2\n"
 		"t=0 0\n"
@@ -1231,7 +1232,7 @@ REG_TEST(test_ptime_2, "FAIL - smpte2110 ptime not int.")
 
 REG_TEST(test_ptime_3, "FAIL - smpte2110 ptime 0.")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: ptime 3\n"
 		"t=0 0\n"
@@ -1242,7 +1243,7 @@ REG_TEST(test_ptime_3, "FAIL - smpte2110 ptime 0.")
 
 REG_TEST(test_ptime_4, "PASS - smpte2110 ptime int.")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: ptime 4\n"
 		"t=0 0\n"
@@ -1255,7 +1256,7 @@ REG_TEST(test_ptime_4, "PASS - smpte2110 ptime int.")
 
 REG_TEST(test_ptime_5, "PASS - smpte2110 ptime double.")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: ptime 5\n"
 		"t=0 0\n"
@@ -1271,7 +1272,7 @@ REG_TEST(test_ptime_5, "PASS - smpte2110 ptime double.")
 ******************************************************************************/
 REG_TEST(test_smpte_40_1, "PASS - smpte2110 no fmtp.")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: smpte 40 1\n"
 		"t=0 0\n"
@@ -1282,7 +1283,7 @@ REG_TEST(test_smpte_40_1, "PASS - smpte2110 no fmtp.")
 
 REG_TEST(test_smpte_40_2, "PASS - smpte2110 empty fmtp.")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: smpte 40 2\n"
 		"t=0 0\n"
@@ -1294,7 +1295,7 @@ REG_TEST(test_smpte_40_2, "PASS - smpte2110 empty fmtp.")
 
 REG_TEST(test_smpte_40_3, "PASS - smpte2110-40 unknown fmtp params.")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: smpte 40 3\n"
 		"t=0 0\n"
@@ -1310,7 +1311,7 @@ REG_TEST(test_smpte_40_3, "PASS - smpte2110-40 unknown fmtp params.")
 
 REG_TEST(test_smpte_40_4, "FAIL - smpte2110-40 one DID_SDID bad format 1.")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: smpte 40 4\n"
 		"t=0 0\n"
@@ -1322,7 +1323,7 @@ REG_TEST(test_smpte_40_4, "FAIL - smpte2110-40 one DID_SDID bad format 1.")
 
 REG_TEST(test_smpte_40_5, "FAIL - smpte2110-40 one DID_SDID bad format 2.")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: smpte 40 5\n"
 		"t=0 0\n"
@@ -1334,7 +1335,7 @@ REG_TEST(test_smpte_40_5, "FAIL - smpte2110-40 one DID_SDID bad format 2.")
 
 REG_TEST(test_smpte_40_6, "FAIL - smpte2110-40 one DID_SDID bad format 3.")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: smpte 40 6\n"
 		"t=0 0\n"
@@ -1346,7 +1347,7 @@ REG_TEST(test_smpte_40_6, "FAIL - smpte2110-40 one DID_SDID bad format 3.")
 
 REG_TEST(test_smpte_40_7, "PASS - smpte2110-40 one DID_SDID valid.")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: smpte 40 7\n"
 		"t=0 0\n"
@@ -1358,7 +1359,7 @@ REG_TEST(test_smpte_40_7, "PASS - smpte2110-40 one DID_SDID valid.")
 }
 REG_TEST(test_smpte_40_8, "PASS - smpte2110 multiple DID_SDID, mixed spaces.")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: smpte 40 8\n"
 		"t=0 0\n"
@@ -1376,7 +1377,7 @@ REG_TEST(test_smpte_40_8, "PASS - smpte2110 multiple DID_SDID, mixed spaces.")
 
 REG_TEST(test_smpte_40_9, "FAIL - smpte2110 one VPID_code bad format 1.")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: smpte 40 9\n"
 		"t=0 0\n"
@@ -1388,7 +1389,7 @@ REG_TEST(test_smpte_40_9, "FAIL - smpte2110 one VPID_code bad format 1.")
 
 REG_TEST(test_smpte_40_10, "FAIL - smpte2110 one VPID_code bad format 2.")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: smpte 40 10\n"
 		"t=0 0\n"
@@ -1401,7 +1402,7 @@ REG_TEST(test_smpte_40_10, "FAIL - smpte2110 one VPID_code bad format 2.")
 
 REG_TEST(test_smpte_40_11, "FAIL - smpte2110 one VPID_code bad format 3.")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: smpte 40 11\n"
 		"t=0 0\n"
@@ -1413,7 +1414,7 @@ REG_TEST(test_smpte_40_11, "FAIL - smpte2110 one VPID_code bad format 3.")
 
 REG_TEST(test_smpte_40_12, "PASS - smpte2110 one VPID_code valid.")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: smpte 40 12\n"
 		"t=0 0\n"
@@ -1429,7 +1430,7 @@ REG_TEST(test_smpte_40_12, "PASS - smpte2110 one VPID_code valid.")
 
 REG_TEST(test_smpte_40_13, "FAIL - smpte2110 multiple VPID_codes.")
 {
-	char* content =
+	char *content =
 		"v=0\n"
 		"s=SDP test: smpte 40 13\n"
 		"t=0 0\n"

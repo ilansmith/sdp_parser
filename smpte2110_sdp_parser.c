@@ -105,16 +105,16 @@ static enum sdp_parse_err sdp_parse_params(void *result,
 				break;
 		}
 		if (i == list_size)
-			return sdprerr("unknown attribute: %s.", token);
+			return sdprerr("unknown attribute: %s", token);
 
 		/* verify no multiple attribute signaling */
 		if (param->occurrences == param->max_occurrences)
 			return sdprerr("multiple attribute signaling: %s "
-				"(%u allowed).", param->name, param->max_occurrences);
+				"(%u allowed)", param->name, param->max_occurrences);
 
 		/* parse attribute */
 		if (param->parser(token, result, &err) == SDP_PARSE_ERROR)
-			return sdprerr("failed to parse parameter %s.",
+			return sdprerr("failed to parse parameter %s",
 					param->name);
 
 		/* mark attriute as parsed */
@@ -228,8 +228,7 @@ exit:
 	return SDP_PARSE_OK;
 
 err:
-	sdperr("parameter format: '%s'", str);
-	return SDP_PARSE_ERROR;
+	return sdprerr("parameter format: '%s'", str);
 }
 
 static enum sdp_parse_err sdp_attr_param_parse_depth(char *str,
@@ -241,10 +240,8 @@ static enum sdp_parse_err sdp_attr_param_parse_depth(char *str,
 	int ret;
 
 	ret = sscanf(str, "depth=%i%c", &depth, &f);
-	if (ret != 1 && ret != 2) {
-		sdperr("parameter format: %s", str);
-		return SDP_PARSE_ERROR;
-	}
+	if (ret != 1 && ret != 2)
+		return sdprerr("parameter format: %s", str);
 
 	if (ret == 2) {
 		if (depth != 16 || f != 'f')
@@ -277,8 +274,7 @@ static enum sdp_parse_err sdp_attr_param_parse_depth(char *str,
 	return SDP_PARSE_OK;
 
 err:
-	sdperr("supported depth: 8, 10, 12, 16, 16f");
-	return SDP_PARSE_ERROR;
+	return sdprerr("supported depth: 8, 10, 12, 16, 16f");
 }
 
 static enum sdp_parse_err sdp_attr_param_parse_width(char *str,
@@ -287,15 +283,11 @@ static enum sdp_parse_err sdp_attr_param_parse_width(char *str,
 	struct attr_params *params = (struct attr_params*)res;
 	uint32_t width;
 
-	if (sscanf(str, "width=%u", &width) != 1) {
-		sdperr("parameter format: %s", str);
-		return SDP_PARSE_ERROR;
-	}
+	if (sscanf(str, "width=%u", &width) != 1)
+		return sdprerr("parameter format: %s", str);
 
-	if (width < 1 || 32767 < width) {
-		sdperr("width is in the range of: [1, 32767]");
-		return SDP_PARSE_ERROR;
-	}
+	if (width < 1 || 32767 < width)
+		return sdprerr("width is in the range of: [1, 32767]");
 
 	params->width = width;
 	*err |= SMPTE_ERR_WIDTH;
@@ -308,15 +300,11 @@ static enum sdp_parse_err sdp_attr_param_parse_height(char *str,
 	struct attr_params *params = (struct attr_params*)res;
 	uint32_t height;
 
-	if (sscanf(str, "height=%u", &height) != 1) {
-		sdperr("parameter format: %s", str);
-		return SDP_PARSE_ERROR;
-	}
+	if (sscanf(str, "height=%u", &height) != 1)
+		return sdprerr("parameter format: %s", str);
 
-	if (height < 1 || 32767 < height) {
-		sdperr("height is in the range of: [1, 32767]");
-		return SDP_PARSE_ERROR;
-	}
+	if (height < 1 || 32767 < height)
+		return sdprerr("height is in the range of: [1, 32767]");
 
 	params->height = height;
 	*err |= SMPTE_ERR_HEIGHT;
@@ -333,10 +321,8 @@ static enum sdp_parse_err sdp_attr_param_parse_exactframerate(char *str,
 
 	ret = sscanf(str, "exactframerate=%i/%i", &nominator, &denominator);
 	if (ret == 2) {
-		if (denominator != 1001) {
-			sdperr("bad format param value: %s", str);
-			return SDP_PARSE_ERROR;
-		}
+		if (denominator != 1001)
+			return sdprerr("bad format param value: %s", str);
 
 		params->exactframerate.is_integer = 0;
 		goto exit;
@@ -348,8 +334,7 @@ static enum sdp_parse_err sdp_attr_param_parse_exactframerate(char *str,
 		goto exit;
 	}
 
-	sdperr("parameter format: %s", str);
-	return SDP_PARSE_ERROR;
+	return sdprerr("parameter format: %s", str);
 
 exit:
 	params->exactframerate.nominator = nominator;
@@ -363,10 +348,8 @@ static enum sdp_parse_err sdp_attr_param_parse_colorimetry(char *str,
 	struct attr_params *params = (struct attr_params*)res;
 	char colorimetry[256];
 
-	if (sscanf(str, "colorimetry=%s", colorimetry) != 1) {
-		sdperr("parameter format: %s", str);
-		return SDP_PARSE_ERROR;
-	}
+	if (sscanf(str, "colorimetry=%s", colorimetry) != 1)
+		return sdprerr("parameter format: %s", str);
 
 	if (!strncmp(colorimetry, "BT601", strlen("BT601")))
 		params->colorimetry = COLORIMETRY_BT601;
@@ -389,9 +372,8 @@ static enum sdp_parse_err sdp_attr_param_parse_colorimetry(char *str,
 	return SDP_PARSE_OK;
 
 err:
-	sdperr("colorimetry can be: BT601, BT709, BT2020, BT2100, ST2065_1, "
-		"ST2065_3, UNSPECIFIED");
-	return SDP_PARSE_ERROR;
+	return sdprerr("colorimetry can be: BT601, BT709, BT2020, BT2100, "
+		"ST2065_1, ST2065_3, UNSPECIFIED");
 }
 
 static enum sdp_parse_err sdp_attr_param_parse_pm(char *str,
@@ -400,10 +382,8 @@ static enum sdp_parse_err sdp_attr_param_parse_pm(char *str,
 	struct attr_params *params = (struct attr_params*)res;
 	char pm[256];
 
-	if (sscanf(str, "PM=%s", pm) != 1) {
-		sdperr("parameter format: %s", str);
-		return SDP_PARSE_ERROR;
-	}
+	if (sscanf(str, "PM=%s", pm) != 1)
+		return sdprerr("parameter format: %s", str);
 
 	if (!strncmp(pm, "2110GPM", strlen("2110GPM")))
 		params->pm = PM_2110GPM;
@@ -416,8 +396,7 @@ static enum sdp_parse_err sdp_attr_param_parse_pm(char *str,
 	return SDP_PARSE_OK;
 
 err:
-	sdperr("PM can be: 2110GPM, 2110BPM");
-	return SDP_PARSE_ERROR;
+	return sdprerr("PM can be: 2110GPM, 2110BPM");
 }
 
 static enum sdp_parse_err sdp_attr_param_parse_tp(char *str,
@@ -426,10 +405,8 @@ static enum sdp_parse_err sdp_attr_param_parse_tp(char *str,
 	struct attr_params *params = (struct attr_params*)res;
 	char tp[256];
 
-	if (sscanf(str, "TP=%s", tp) != 1) {
-		sdperr("parameter format: %s", str);
-		return SDP_PARSE_ERROR;
-	}
+	if (sscanf(str, "TP=%s", tp) != 1)
+		return sdprerr("parameter format: %s", str);
 
 	if (!strncmp(tp, "2110TPNL", strlen("2110TPNL")))
 		params->tp = TP_2110TPNL;
@@ -444,8 +421,7 @@ static enum sdp_parse_err sdp_attr_param_parse_tp(char *str,
 	return SDP_PARSE_OK;
 
 err:
-	sdperr("TP can be: 2110TPN, 2110TPNL, 2110TPW");
-	return SDP_PARSE_ERROR;
+	return sdprerr("TP can be: 2110TPN, 2110TPNL, 2110TPW");
 }
 
 static enum sdp_parse_err sdp_attr_param_parse_ssn(char *str,
@@ -454,10 +430,8 @@ static enum sdp_parse_err sdp_attr_param_parse_ssn(char *str,
 	struct attr_params *params = (struct attr_params*)res;
 	if (strncmp(str, "SSN=ST2110-20:2017", strlen("SSN=ST2110-20:2017")) &&
 			strncmp(str, "SSN=\"ST2110-20:2017\"",
-			strlen("SSN=\"ST2110-20:2017\""))) {
-		sdperr("parameter format: %s", str);
-		return SDP_PARSE_ERROR;
-	}
+			strlen("SSN=\"ST2110-20:2017\"")))
+		return sdprerr("parameter format: %s", str);
 
 	params->is_ssn = 1;
 	*err |= SMPTE_ERR_SSN;
@@ -468,10 +442,8 @@ static enum sdp_parse_err sdp_attr_param_parse_interlace(char *str,
 		void *res, uint32_t *err)
 {
 	struct attr_params *params = (struct attr_params*)res;
-	if (strncmp(str, "interlace", strlen("interlace"))) {
-		sdperr("parameter format: interlace");
-		return SDP_PARSE_ERROR;
-	}
+	if (strncmp(str, "interlace", strlen("interlace")))
+		return sdprerr("parameter format: interlace");
 
 	params->is_interlace = 1;
 	*err |= SMPTE_ERR_INERLACE;
@@ -482,10 +454,8 @@ static enum sdp_parse_err sdp_attr_param_parse_segmented(char *str,
 		void *res, uint32_t *err)
 {
 	struct attr_params *params = (struct attr_params*)res;
-	if (strncmp(str, "segmented", strlen("segmented"))) {
-		sdperr("parameter format: segmented");
-		return SDP_PARSE_ERROR;
-	}
+	if (strncmp(str, "segmented", strlen("segmented")))
+		return sdprerr("parameter format: segmented");
 
 	params->is_segmented = 1;
 	*err |= SMPTE_ERR_SEGMENTED;
@@ -498,10 +468,8 @@ static enum sdp_parse_err sdp_attr_param_parse_tcs(char *str,
 	struct attr_params *params = (struct attr_params*)res;
 	char tcs[256];
 
-	if (sscanf(str, "TCS=%s", tcs) != 1) {
-		sdperr("parameter format: %s", str);
-		return SDP_PARSE_ERROR;
-	}
+	if (sscanf(str, "TCS=%s", tcs) != 1)
+		return sdprerr("parameter format: %s", str);
 
 	if (!strncmp(tcs, "SDR", strlen("SDR")))
 		params->tcs = TCS_SDR;
@@ -530,9 +498,8 @@ static enum sdp_parse_err sdp_attr_param_parse_tcs(char *str,
 	return SDP_PARSE_OK;
 
 err:
-	sdperr("TCS can be: SDR, PQ, HLG, LINEAR, BT2100LINPQ, BT2100LINHLG, "
-		"ST2065-1, ST428-1, DENSITY, UNSPECIFIED");
-	return SDP_PARSE_ERROR;
+	return sdprerr("TCS can be: SDR, PQ, HLG, LINEAR, BT2100LINPQ, "
+		"BT2100LINHLG, ST2065-1, ST428-1, DENSITY, UNSPECIFIED");
 }
 
 static enum sdp_parse_err sdp_attr_param_parse_range(char *str,
@@ -541,10 +508,8 @@ static enum sdp_parse_err sdp_attr_param_parse_range(char *str,
 	struct attr_params *params = (struct attr_params*)res;
 	char range[256];
 
-	if (sscanf(str, "RANGE=%s", range) != 1) {
-		sdperr("parameter format: %s", str);
-		return SDP_PARSE_ERROR;
-	}
+	if (sscanf(str, "RANGE=%s", range) != 1)
+		return sdprerr("parameter format: %s", str);
 
 	if (!strncmp(range, "NARROW", strlen("NARROW")))
 		params->range = RANGE_NARROW;
@@ -559,8 +524,7 @@ static enum sdp_parse_err sdp_attr_param_parse_range(char *str,
 	return SDP_PARSE_OK;
 
 err:
-	sdperr("RANGE can be: NARROW, FULL, FULLPROTECT");
-	return SDP_PARSE_ERROR;
+	return sdprerr("RANGE can be: NARROW, FULL, FULLPROTECT");
 }
 
 static enum sdp_parse_err sdp_attr_param_parse_maxudp(char *str,
@@ -569,10 +533,8 @@ static enum sdp_parse_err sdp_attr_param_parse_maxudp(char *str,
 	struct attr_params *params = (struct attr_params*)res;
 	uint32_t maxudp;
 
-	if (sscanf(str, "MAXUDP=%u", &maxudp) != 1) {
-		sdperr("parameter format: %s", str);
-		return SDP_PARSE_ERROR;
-	}
+	if (sscanf(str, "MAXUDP=%u", &maxudp) != 1)
+		return sdprerr("parameter format: %s", str);
 
 	if (maxudp != 1460 && maxudp != 8960)
 		goto err;
@@ -582,8 +544,7 @@ static enum sdp_parse_err sdp_attr_param_parse_maxudp(char *str,
 	return SDP_PARSE_OK;
 
 err:
-	sdperr("MAXUDP can be: 1460, 8960");
-	return SDP_PARSE_ERROR;
+	return sdprerr("MAXUDP can be: 1460, 8960");
 }
 
 static enum sdp_parse_err sdp_attr_param_parse_par(char *str,
@@ -593,10 +554,8 @@ static enum sdp_parse_err sdp_attr_param_parse_par(char *str,
 	uint32_t width;
 	uint32_t height;
 
-	if (sscanf(str, "PAR=%u:%u", &width, &height) != 2) {
-		sdperr("parameter format: %s", str);
-		return SDP_PARSE_ERROR;
-	}
+	if (sscanf(str, "PAR=%u:%u", &width, &height) != 2)
+		return sdprerr("parameter format: %s", str);
 
 	params->par.width = width;
 	params->par.height = height;
@@ -610,10 +569,8 @@ static enum sdp_parse_err sdp_attr_param_parse_troff(char *str,
 	struct attr_params *params = (struct attr_params*)res;
 	uint32_t troff;
 
-	if (sscanf(str, "TROFF=%u", &troff) != 1) {
-		sdperr("parameter format: %s", str);
-		return SDP_PARSE_ERROR;
-	}
+	if (sscanf(str, "TROFF=%u", &troff) != 1)
+		return sdprerr("parameter format: %s", str);
 
 	params->troff = troff;
 	*err |= SMPTE_ERR_TROFF;
@@ -626,10 +583,8 @@ static enum sdp_parse_err sdp_attr_param_parse_cmax(char *str,
 	struct attr_params *params = (struct attr_params*)res;
 	int cmax;
 
-	if (sscanf(str, "CMAX=%i", &cmax) != 1) {
-		sdperr("parameter format: %s", str);
-		return SDP_PARSE_ERROR;
-	}
+	if (sscanf(str, "CMAX=%i", &cmax) != 1)
+		return sdprerr("parameter format: %s", str);
 
 	params->cmax = cmax;
 	*err |= SMPTE_ERR_CMAX;
@@ -637,10 +592,11 @@ static enum sdp_parse_err sdp_attr_param_parse_cmax(char *str,
 }
 
 static enum sdp_parse_err smpte2110_20_parse_fmtp_params(
-		interpretable *field, char *input)
+		struct interpretable *field, char *input)
 {
 	struct attr_params p;
 	struct smpte2110_media_attr_fmtp *smpte2110_fmtp;
+
 	SMPTE_2110_FMTP_TABLE_START(attribute_param_list,
 	                            SMPTE2110_20_FMTP_PARAMS_NUM)
 		SMPTE_2110_FMTP_NUM_ENTRY(sampling);
@@ -666,7 +622,7 @@ static enum sdp_parse_err smpte2110_20_parse_fmtp_params(
 	if (sdp_parse_params(&p, input, attribute_param_list,
 			ARRAY_SIZE(attribute_param_list),
 			SMPTE_2110_ATTR_PARAM_ERR_REQUIRED) != SDP_PARSE_OK)
-		return sdprerr("failed to parse one or more parameters.");
+		return sdprerr("failed to parse one or more parameters");
 	/* assert segmented parameter is not provided without interlace */
 	if (p.is_segmented && ! p.is_interlace)
 		return sdprerr("cannot signal 'segmented' without 'interlace'");
@@ -704,8 +660,8 @@ static enum sdp_parse_err sdp_attr_param_parse_DID_SDID(char *str,
 	unsigned int c1, c2;
 	struct smpte2110_40_fmtp_params *params =
 			(struct smpte2110_40_fmtp_params*)res;
-	(void)err;
 
+	NOT_IN_USE(err);
 	if (sscanf(str, "DID_SDID={0x%x,0x%x}", &c1, &c2) != 2)
 		return sdprerr("parameter format: '%s'", str);
 
@@ -729,9 +685,10 @@ static enum sdp_parse_err sdp_attr_param_parse_VPID_code(char *str,
 {
 	struct smpte2110_40_fmtp_params *params =
 			(struct smpte2110_40_fmtp_params*)res;
-	(void)err;
+
+	NOT_IN_USE(err);
 	if (sscanf(str, "VPID_code=%u", &params->VPID_code) != 1)
-		return sdprerr("parameter format: '%s'.", str);
+		return sdprerr("parameter format: '%s'", str);
 	return SDP_PARSE_OK;
 }
 
@@ -739,6 +696,7 @@ void smpte2110_40_free_fmtp_param(void *ptr)
 {
 	struct smpte2110_40_fmtp_params *params =
 			(struct smpte2110_40_fmtp_params*)ptr;
+
 	struct smpte2110_40_DID_SDID *did;
 	if (!params)
 		return;
@@ -749,7 +707,7 @@ void smpte2110_40_free_fmtp_param(void *ptr)
 }
 
 static enum sdp_parse_err smpte2110_40_parse_fmtp_params(
-		interpretable *field, char *input)
+		struct interpretable *field, char *input)
 {
 	struct smpte2110_40_fmtp_params *params;
 
@@ -767,7 +725,7 @@ static enum sdp_parse_err smpte2110_40_parse_fmtp_params(
 	if (sdp_parse_params(params, input, attribute_param_list,
 			ARRAY_SIZE(attribute_param_list), 0x0) != SDP_PARSE_OK) {
 		smpte2110_40_free_fmtp_param(params);
-		return sdprerr("failed to parse smpte2110-40 fmtp params.");
+		return sdprerr("failed to parse smpte2110-40 fmtp params");
 	}
 
 	field->as.as_ptr = params;
@@ -778,20 +736,16 @@ static enum sdp_parse_err smpte2110_40_parse_fmtp_params(
 static enum sdp_parse_err smpte2110_sdp_parse_group(struct sdp_media *media,
 		struct sdp_attr *a, char *value, char *params)
 {
-	(void)media;
 	char *tmp;
 	struct group_identification_tag **tag;
 	struct sdp_attr_value_group *group = &a->value.group;
 
-	if (strncmp(value, "DUP", strlen("DUP"))) {
-		sdperr("unsupported group semantic for media: %s", value);
-		return SDP_PARSE_ERROR;
-	}
+	NOT_IN_USE(media);
+	if (strncmp(value, "DUP", strlen("DUP")))
+		return sdprerr("unsupported group semantic for media: %s", value);
 
-	if (!params) {
-		sdperr("group DUP attriute bad format - no params");
-		return SDP_PARSE_ERROR;
-	}
+	if (!params)
+		return sdprerr("group DUP attriute bad format - no params");
 
 	if (!(group->semantic = strdup(value))) {
 		sdperr("memory allocation");
@@ -830,44 +784,37 @@ fail:
 	return SDP_PARSE_ERROR;
 }
 
-/*********************************/
-/* 2110-30 Audio SDP interpreter */
-/*********************************/
-
-enum sdp_parse_err smpte2110_30_parse_bit_width(interpretable *field,
+enum sdp_parse_err smpte2110_30_parse_bit_width(struct interpretable *field,
 		char *input)
 {
 	if (!*input || (input[0] != 'L') ||
-	    (sdp_parse_long_long(&field->as.as_ll, &input[1]) != SDP_PARSE_OK)) {
-		return sdprerr("Invalid bit-depth '%s': expected L<int>.", input);
-	}
-	if (field->as.as_ll == 0) {
-		return sdprerr("Invalid bit-depth: 0");
-	}
+	    (sdp_parse_long_long(&field->as.as_ll, &input[1]) != SDP_PARSE_OK))
+		return sdprerr("invalid bit-depth '%s': expected L<int>", input);
+	if (field->as.as_ll == 0)
+		return sdprerr("invalid bit-depth: 0");
 	return SDP_PARSE_OK;
 }
 
-enum sdp_parse_err smpte2110_30_parse_num_channels(interpretable *field,
+enum sdp_parse_err smpte2110_30_parse_num_channels(struct interpretable *field,
 		char *input)
 {
 	if (!input) {
 		field->as.as_ll = 1;
 		return SDP_PARSE_OK;
 	}
-	if (sdp_parse_long_long(&field->as.as_ll, input) != SDP_PARSE_OK) {
-		return sdprerr("Invalid num-channels '%s': expected <int>.", input);
-	}
-	if (field->as.as_ll == 0) {
-		return sdprerr("Invalid num-channels: 0");
-	}
+	if (sdp_parse_long_long(&field->as.as_ll, input) != SDP_PARSE_OK)
+		return sdprerr("invalid num-channels '%s': expected <int>", input);
+	if (field->as.as_ll == 0)
+		return sdprerr("invalid num-channels: 0");
 	return SDP_PARSE_OK;
 }
 
-enum sdp_parse_err smpte2110_30_parse_channel_order(interpretable *field, char *input)
+enum sdp_parse_err smpte2110_30_parse_channel_order(
+		struct interpretable *field, char *input)
 {
 	/* TODO: (eladw) Parse as params */
-	(void)field;
-	(void)input;
+	NOT_IN_USE(field);
+	NOT_IN_USE(input);
 	return SDP_PARSE_OK;
 }
 
@@ -903,7 +850,8 @@ static const char *get_attr_type_name(enum sdp_attr_type type)
 	}
 }
 
-static enum sdp_parse_err smpte2110_validate_required_attributes(struct sdp_media *media)
+static enum sdp_parse_err smpte2110_validate_required_attributes(
+		struct sdp_media *media)
 {
 	struct sdp_media_fmt *fmt;
 	struct sdp_attr *attr;
@@ -918,14 +866,13 @@ static enum sdp_parse_err smpte2110_validate_required_attributes(struct sdp_medi
 
 		if (required_attr_mask != 0) {
 			enum sdp_attr_type attr = 0;
-			sdperr("Media format %u is missing required attributes:", fmt->id);
+			sdperr("media format %u is missing required attributes:", fmt->id);
 			while (required_attr_mask > 0) {
 				if (required_attr_mask & 0x1)
 					sdperr("   (%02u) %s", attr, get_attr_type_name(attr));
 				required_attr_mask >>= 1;
 				attr += 1;
 			}
-
 			return SDP_PARSE_ERROR;
 		}
 	}
@@ -933,8 +880,8 @@ static enum sdp_parse_err smpte2110_validate_required_attributes(struct sdp_medi
 }
 
 static enum sdp_parse_err smpte2110_parse_rtpmap_encoding_name(
-		struct sdp_media* media, struct sdp_attr* attr, interpretable *field,
-		char *input)
+		struct sdp_media *media, struct sdp_attr *attr,
+		struct interpretable *field, char *input)
 {
 	int *sub_type = &attr->value.rtpmap.fmt->specific_sub_type;
 
@@ -954,22 +901,24 @@ static enum sdp_parse_err smpte2110_parse_rtpmap_encoding_name(
 }
 
 static enum sdp_parse_err smpte2110_parse_rtpmap_encoding_parameters(
-		struct sdp_media* media, struct sdp_attr* attr, interpretable *field,
-		char *input)
+		struct sdp_media *media, struct sdp_attr *attr,
+		struct interpretable *field, char *input)
 {
 	int sub_type = attr->value.rtpmap.fmt->specific_sub_type;
-	(void)media;
+
+	NOT_IN_USE(media);
 	if (sub_type == SMPTE_SUB_TYPE_30)
 		return smpte2110_30_parse_num_channels(field, input);
 	return sdp_parse_field_default(field, input);
 }
 
 static enum sdp_parse_err smpte2110_parse_fmtp_params(
-		struct sdp_media* media, struct sdp_attr* attr, interpretable *field,
-		char *input)
+		struct sdp_media *media, struct sdp_attr *attr,
+		struct interpretable *field, char *input)
 {
 	int sub_type = attr->value.fmtp.fmt->specific_sub_type;
-	(void)media;
+
+	NOT_IN_USE(media);
 	if (sub_type == SMPTE_SUB_TYPE_20)
 		return smpte2110_20_parse_fmtp_params(field, input);
 	if (sub_type == SMPTE_SUB_TYPE_40)
@@ -977,13 +926,13 @@ static enum sdp_parse_err smpte2110_parse_fmtp_params(
 	return sdp_parse_field_default(field, input);
 }
 
-static enum sdp_parse_err smpte2110_validate_media(struct sdp_media* media)
+static enum sdp_parse_err smpte2110_validate_media(struct sdp_media *media)
 {
 	struct sdp_media_fmt *fmt;
 
 	for (fmt = &media->m.fmt; fmt; fmt = fmt->next) {
 		if (fmt->specific_sub_type == SMPTE_SUB_TYPE_UNKNOWN) {
-			sdperr("No valid smpte2110 sub type was recognized for format %u.",
+			sdperr("no valid smpte2110 sub type was recognized for format %u",
 					fmt->id);
 			return SDP_PARSE_NOT_SUPPORTED;
 		}

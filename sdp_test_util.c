@@ -55,7 +55,7 @@ int vprint_title(const char *format, va_list va)
    return uiLen + 4;
 }
 
-int print_title(const char* format, ...)
+int print_title(const char *format, ...)
 {
    va_list va;
    int ret;
@@ -239,7 +239,7 @@ void add_test(test_func func, const char *name, const char *description)
 
 static int run_test_generic(const char *content, enum sdp_parse_err expected,
 		int (*verifier)(struct sdp_session *session),
-		enum sdp_stream_type stream_type, parse_attr_specific_t specific)
+		enum sdp_stream_type stream_type, struct sdp_specific *specific)
 {
 	int ret = -1;
 	struct test_ctx *ctx;
@@ -260,7 +260,7 @@ static int run_test_generic(const char *content, enum sdp_parse_err expected,
 
 int test_generic(const char *content, enum sdp_parse_err expected,
 		int (*verifier)(struct sdp_session *session),
-		parse_attr_specific_t specific)
+		struct sdp_specific *specific)
 {
 	int i;
 	int ret;
@@ -383,15 +383,18 @@ int assert_session_x(struct sdp_session *session)
 /******************************************************************************
                                     Main
 ******************************************************************************/
-int main()
+int main(void)
 {
+	int i, res;
+	struct single_test *test;
+
 	init_tests();
-	for (int i = 0; i < num_tests; ++i)
+	for (i = 0; i < num_tests; ++i)
 	{
-		struct single_test* test = &tests[i];
+		test = &tests[i];
 		print_title("Running test #%u: %s - %s",
 			i + 1, test->name, test->description);
-		int res = test->func();
+		res = test->func();
 		if (res == 0)
 		{
 			test_log(C_GREEN "Success" C_NORMAL "\n");
