@@ -740,57 +740,6 @@ static enum sdp_parse_err smpte2110_40_parse_fmtp_params(
 	return SDP_PARSE_OK;
 }
 
-static enum sdp_parse_err smpte2110_sdp_parse_group(struct sdp_media *media,
-		struct sdp_attr *a, char *value, char *params)
-{
-	char *tmp;
-	struct group_identification_tag **tag;
-	struct sdp_attr_value_group *group = &a->value.group;
-
-	NOT_IN_USE(media);
-	if (strncmp(value, "DUP", strlen("DUP")))
-		return sdprerr("unsupported group semantic for media: %s", value);
-
-	if (!params)
-		return sdprerr("group DUP attriute bad format - no params");
-
-	if (!(group->semantic = strdup(value))) {
-		sdperr("memory allocation");
-		goto fail;
-	}
-
-	tag = &group->tag;
-	do {
-		char *cur = strtok_r(params, " ", &tmp);
-
-		*tag = (struct group_identification_tag*)calloc(1,
-			sizeof(struct group_identification_tag));
-		if (!*tag || !((*tag)->identification_tag = strdup(cur))) {
-			sdperr("memory allocation");
-			goto fail;
-		}
-
-		group->num_tags++;
-		tag = &(*tag)->next;
-		params = NULL;
-	} while (*tmp);
-
-	a->type = SDP_ATTR_GROUP;
-	return SDP_PARSE_OK;
-
-fail:
-	tag = &group->tag;
-	while (*tag) {
-		struct group_identification_tag *tmp = *tag;
-
-		tag = &(*tag)->next;
-		free(tmp->identification_tag);
-		free(tmp);
-	}
-
-	return SDP_PARSE_ERROR;
-}
-
 enum sdp_parse_err smpte2110_30_parse_bit_width(struct interpretable *field,
 		char *input)
 {
@@ -899,7 +848,6 @@ static enum sdp_parse_err smpte2110_validate_media(struct sdp_media *media)
 static struct sdp_specific smpte2110_specific =
 {
 	"smpte2110",
-	smpte2110_sdp_parse_group,
 	smpte2110_parse_fmtp_params,
 	smpte2110_parse_rtpmap_encoding_name,
 	smpte2110_parse_rtpmap_encoding_parameters,

@@ -41,7 +41,6 @@ static struct sdp_specific smpte2022_specific =
 {
 	"smpte2022",
 	NULL,
-	NULL,
 	smpte2022_parse_rtpmap_encoding_name,
 	NULL,
 	smpte2022_validate_media,

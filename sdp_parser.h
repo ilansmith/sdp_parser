@@ -15,7 +15,7 @@ extern "C" {
 #endif
 
 #define IS_WHITESPACE(_char_) ((_char_) == ' ' || (_char_) == '\t')
-#define SDP_SPECIFIC_INIT(_name_) { _name_, NULL, NULL, NULL, NULL, NULL }
+#define SDP_SPECIFIC_INIT(_name_) { _name_, NULL, NULL, NULL, NULL }
 
 enum sdp_parse_err {
 	SDP_PARSE_OK,
@@ -116,6 +116,7 @@ struct interpretable{
 
 struct group_identification_tag {
 	char *identification_tag;
+	struct sdp_media *media;
 	struct group_identification_tag *next;
 };
 
@@ -224,6 +225,8 @@ struct sdp_media {
 	 */
 
 	struct sdp_attr *a; /* a=* */
+	struct sdp_attr_value_mid *mid;
+	struct sdp_attr_value_group *group;
 	struct sdp_media *next;
 };
 
@@ -288,7 +291,6 @@ typedef enum sdp_parse_err (*sdp_media_validator)(struct sdp_media *media);
 /* Media level interpreter */
 struct sdp_specific {
 	char *name;
-	sdp_attribute_interpreter group;
 	sdp_field_interpreter fmtp_params;
 	sdp_field_interpreter rtpmap_encoding_name;
 	sdp_field_interpreter rtpmap_encoding_parameters;

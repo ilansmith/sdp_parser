@@ -380,6 +380,51 @@ static enum sdp_parse_err sdp_parse_media(sdp_stream_t sdp, char **line,
 	return err;
 }
 
+static enum sdp_parse_err sdp_parse_attr_group(
+		struct sdp_attr_value_group *group, char *value, char *params,
+		struct sdp_specific *specific)
+{
+	char *tmp;
+	struct group_identification_tag **tag = &group->tag;
+
+	NOT_IN_USE(specific);
+
+	if (sdp_parse_str(&group->semantic, value))
+		return SDP_PARSE_ERROR;
+
+	if (!params)
+		return sdprerr("a group must have at least one id tag");
+
+
+	do {
+		char *cur = strtok_r(params, " ", &tmp);
+
+		*tag = (struct group_identification_tag*)calloc(1,
+			sizeof(struct group_identification_tag));
+		if (!*tag || !((*tag)->identification_tag = strdup(cur))) {
+			sdperr("memory allocation");
+			goto fail;
+		}
+
+		group->num_tags++;
+		tag = &(*tag)->next;
+		params = NULL;
+	} while (*tmp);
+	return SDP_PARSE_OK;
+
+fail:
+	tag = &group->tag;
+	while (*tag) {
+		struct group_identification_tag *tmp = *tag;
+
+		tag = &(*tag)->next;
+		free(tmp->identification_tag);
+		free(tmp);
+	}
+
+	return SDP_PARSE_ERROR;
+}
+
 static enum sdp_parse_err parse_attr_common(struct sdp_attr *a, char *attr,
 		char *value, char *params, struct sdp_specific *specific)
 {
@@ -424,6 +469,12 @@ static enum sdp_parse_err sdp_parse_attr(sdp_stream_t sdp, char **line,
 		value = NULL;
 		params = NULL;
 		ptr = *line + 2;
+
+		/* Special case - a=group breaks media blocks (not RFC standard) */
+		if (media && !strncmp(ptr, "group", 5)) {
+			sdpwarn("got a=group. Ending the media-block");
+			break;
+		}
 
 		attr = strtok_r(ptr, ":", &tmp);
 		if (attr)
@@ -486,15 +537,12 @@ static enum sdp_parse_err parse_attr_session(struct sdp_media *media,
 		struct sdp_attr *a, char *attr, char *value, char *params,
 		struct sdp_specific *specific)
 {
+	NOT_IN_USE(media);
+
 	if (!strncmp(attr, "group", strlen("group"))) {
-		/* currently not supporting the general case */
-		sdp_attribute_interpreter interpreter =
-			specific->group;
-
-		if (!interpreter)
-			return SDP_PARSE_NOT_SUPPORTED;
-
-		return interpreter(media, a, value, params);
+		a->type = SDP_ATTR_GROUP;
+		return sdp_parse_attr_group(&a->value.group, value, params,
+				specific);
 	} else {
 		a->type = SDP_ATTR_NOT_SUPPORTED;
 		return SDP_PARSE_NOT_SUPPORTED;
@@ -891,6 +939,62 @@ enum sdp_parse_err validate_media_blocks(struct sdp_session *session,
 	return SDP_PARSE_OK;
 }
 
+enum sdp_parse_err connect_medias_to_group(struct sdp_session *session,
+		struct sdp_attr_value_group *group)
+{
+	struct sdp_media *media;
+	struct group_identification_tag *tag;
+
+	for (tag = group->tag; tag; tag = tag->next) {
+		if (tag->media)
+			continue;
+
+		for (media = session->media; media; media = media->next) {
+			if (media->group || !media->mid)
+				continue;
+
+			if (!strcmp(media->mid->identification_tag,
+					tag->identification_tag)) {
+				media->group = group;
+				tag->media = media;
+				break;
+			}
+		}
+
+		if (!tag->media) {
+			sdpwarn("group '%s' tag '%s' does not have a"
+					" matching media with 'mid=%s'"
+					" defined.", group->semantic,
+					tag->identification_tag,
+					tag->identification_tag);
+			/*
+			sdpwarn("note that the current SDP implementation does"
+					" not support multiple groups per"
+					" media, so it is possible that a"
+					" matching media exists, but already"
+					" belongs to another group.");
+					*/
+		}
+	}
+	return SDP_PARSE_OK;
+}
+
+
+enum sdp_parse_err connect_media_groups(struct sdp_session *session)
+{
+	struct sdp_attr *attr;
+	enum sdp_parse_err err;
+
+	for (attr = sdp_session_attr_get(session, SDP_ATTR_GROUP); attr;
+			attr = sdp_attr_get_next(attr))
+	{
+		err = connect_medias_to_group(session, &attr->value.group);
+		if (err != SDP_PARSE_OK)
+			return err;
+	}
+	return SDP_PARSE_OK;
+}
+
 enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 		struct sdp_specific *specific)
 {
@@ -898,6 +1002,7 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 	char *line = NULL;
 	size_t len = 0;
 	sdp_stream_t sdp = session->sdp;
+	struct sdp_attr **last_session_a;
 
 	/* Default is no-specific */
 	if (!specific)
@@ -966,8 +1071,7 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 	}
 
 	/* parse media-level description */
-
-	do {
+	while (line) {
 		struct sdp_media *media;
 		struct sdp_media **next;
 		enum sdp_parse_err err;
@@ -997,7 +1101,7 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 		}
 
 		if (!line)
-			return SDP_PARSE_OK;
+			break;
 
 		/* skip parsing of non supported media-level descriptors */
 		if (sdp_parse_non_supported(sdp, &line, &len, "i") ==
@@ -1005,7 +1109,7 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 			goto exit;
 		}
 		if (!line)
-			return SDP_PARSE_OK;
+			break;
 
 		/* parse c=* */
 		if (sdp_parse_connection_information(sdp, &line, &len,
@@ -1013,7 +1117,7 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 			goto exit;
 		}
 		if (!line)
-			return SDP_PARSE_OK;
+			break;
 
 		/* skip parsing of non supported media-level descriptors */
 		if (sdp_parse_non_supported(sdp, &line, &len, "bk") ==
@@ -1021,19 +1125,30 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 			goto exit;
 		}
 		if (!line)
-			return SDP_PARSE_OK;
+			break;
 
 		/* parse media-level a=* */
 		if (sdp_parse_media_level_attr(sdp, &line, &len, media, &media->a,
 				specific) == SDP_PARSE_ERROR) {
 			goto exit;
 		}
-	} while (line);
 
+		/* Handle a media-block terminating a=group */
+		for (last_session_a = &session->a; *last_session_a;
+				last_session_a = &(*last_session_a)->next);
+		if (sdp_parse_session_level_attr(sdp, &line, &len,
+				last_session_a, specific) == SDP_PARSE_ERROR) {
+			goto exit;
+		}
+	}
 
 
 	if ((err = validate_media_blocks(session, specific)) != SDP_PARSE_OK)
 		goto exit;
+
+	if ((err = connect_media_groups(session)) != SDP_PARSE_OK)
+		goto exit;
+
 	err = SDP_PARSE_OK;
 	goto exit;
 
