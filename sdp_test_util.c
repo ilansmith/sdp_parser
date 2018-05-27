@@ -327,6 +327,14 @@ inline int assert_flt(const char *left_name, double left,
 	return 1;
 }
 
+int assert_ptr(const char *left_name, void *left,
+		const char *right_name, void *right)
+{
+	if (left != right)
+		return assert_error("Assertion failed: %s ('%p') != %s ('%p').\n", left_name, left, right_name, right);
+	return 1;
+}
+
 int assert_res(int res, const char *name, const char* file, int line)
 {
 	if (!res)
@@ -344,13 +352,16 @@ int num_tests = 0;
 void init_session_validator(void)
 {
 	struct media_validator_info *mv;
-	int m_id;
+	int m_id, f_id;
 	memset(&validator_info, 0, sizeof(validator_info));
 	validator_info.media_count = -1;
 	for (m_id = 0; m_id < MAX_NUM_MEDIA_ATTRIBUTES; ++m_id)
 	{
 		mv = &validator_info.medias[m_id];
-		mv->attr_count = -1;
+		mv->fmt_count = IGNORE_VALUE;
+		for (f_id = 0; f_id < MAX_NUM_MEDIA_FORMATS; ++f_id)
+			mv->formats[f_id].id = IGNORE_VALUE;
+		mv->attr_count = IGNORE_VALUE;
 	}
 }
 
@@ -358,19 +369,28 @@ int assert_session_x(struct sdp_session *session)
 {
 	struct sdp_media *media;
 	struct sdp_attr *attr;
+	struct sdp_media_fmt *fmt;
 	struct media_validator_info *mv;
+	struct fmt_validator_info *fv;
 	struct attr_validator_info *av;
-	int m_cnt = 0, a_cnt = 0;
+	int m_cnt = 0, a_cnt = 0, f_cnt = 0;
 	int res = 1;
 
 	for (media = session->media; media; media = media->next) {
 		mv = &validator_info.medias[m_cnt];
-		a_cnt = 0;
-		for (attr = media->a; attr; attr = attr->next) {
-			av = &mv->attributes[a_cnt];
-			res &= ASSERT_RES(assert_attr(attr, av));
-			++a_cnt;
+		for (f_cnt = 0, fmt = &media->m.fmt; fmt; fmt = fmt->next) {
+			fv = &mv->formats[f_cnt++];
+			if (fv->id != IGNORE_VALUE) {
+				res &= ASSERT_INT(fmt->id, fv->id);
+				res &= ASSERT_INT(fmt->sub_type, fv->sub_type);
+			}
 		}
+		for (a_cnt = 0, attr = media->a; attr; attr = attr->next) {
+			av = &mv->attributes[a_cnt++];
+			res &= ASSERT_RES(assert_attr(attr, av));
+		}
+		if (mv->fmt_count != IGNORE_VALUE)
+			res &= ASSERT_INT(mv->fmt_count, f_cnt);
 		if (mv->attr_count != IGNORE_VALUE)
 			res &= ASSERT_INT(mv->attr_count, a_cnt);
 		++m_cnt;

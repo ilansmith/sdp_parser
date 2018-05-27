@@ -59,8 +59,15 @@ void init_tests();
 #define MAX_NUM_SESSION_ATTRIBUTES 20
 #define MAX_NUM_MEDIA_ATTRIBUTES 20
 #define MAX_NUM_ATTRIBUTE_FIELDS 10
+#define MAX_NUM_MEDIA_FORMATS 10
 
 typedef void (*sdp_attr_func_ptr)(void);
+
+struct fmt_validator_info
+{
+	int id;
+	int sub_type;
+};
 
 struct attr_validator_info
 {
@@ -70,6 +77,8 @@ struct attr_validator_info
 
 struct media_validator_info
 {
+	int fmt_count;
+	struct fmt_validator_info formats[MAX_NUM_MEDIA_FORMATS];
 	int attr_count;
 	struct attr_validator_info attributes[MAX_NUM_MEDIA_ATTRIBUTES];
 };
@@ -97,6 +106,8 @@ int assert_int(const char *left_name, long long left, const char *right_name,
 		long long right);
 int assert_flt(const char *left_name, double left, const char *right_name,
 		double right);
+int assert_ptr(const char *left_name, void *left, const char *right_name,
+		void *right);
 int assert_res(int res, const char *name, const char *file, int line);
 
 #define ASSERT_RES(_res_) \
@@ -110,6 +121,9 @@ int assert_res(int res, const char *name, const char *file, int line);
 #define ASSERT_FLT(_left_, _right_) \
 	assert_res(assert_flt(#_left_, _left_, #_right_, _right_), \
 			"ASSERT_FLT(" #_left_ ", " #_right_ ")", __FILE__, __LINE__)
+#define ASSERT_PTR(_left_, _right_) \
+	assert_res(assert_ptr(#_left_,_left_, #_right_, _right_), \
+			"ASSERT_PTR(" #_left_ ", " #_right_ ")", __FILE__, __LINE__)
 
 int assert_attr(struct sdp_attr *attr, struct attr_validator_info *av);
 int assert_session_x(struct sdp_session *session);

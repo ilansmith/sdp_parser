@@ -4,6 +4,7 @@
 #include "sdp_stream.h"
 #include "sdp_parser.h"
 #include "smpte2110_sdp_parser.h"
+#include "smpte2022_sdp_parser.h"
 
 #define SET_ATTR_VINFO(m_id, a_id, func, ...) \
 	set_attr_vinfo(m_id, a_id, (sdp_attr_func_ptr)func, \
@@ -94,6 +95,13 @@ static inline int smpte2110_rtpmap(const struct sdp_attr *attr,
 					num_channels);
 }
 
+static inline int no_specific_framerate(const struct sdp_attr *attr,
+		double frame_rate)
+{
+	return ASSERT_INT(attr->type, SDP_ATTR_FRAMERATE) &&
+		ASSERT_FLT(attr->value.framerate.frame_rate, frame_rate);
+}
+
 int num_args(sdp_attr_func_ptr func) {
 	int num_args = 0;
 	if (func == (sdp_attr_func_ptr)no_specific_fmtp)
@@ -101,6 +109,8 @@ int num_args(sdp_attr_func_ptr func) {
 	else if (func == (sdp_attr_func_ptr)no_specific_rtpmap)
 		num_args = 4;
 	else if (func == (sdp_attr_func_ptr)no_specific_ptime)
+		num_args = 1;
+	else if (func == (sdp_attr_func_ptr)no_specific_framerate)
 		num_args = 1;
 	else if (func == (sdp_attr_func_ptr)smpte2110_rtpmap)
 		num_args = 4;
@@ -125,6 +135,8 @@ void set_attr_vinfo(int m_id, int a_id, sdp_attr_func_ptr func, int num_args, ..
 		av->args[3].as.as_str = va_arg(vl, char*);
 	} else if (func == (sdp_attr_func_ptr)no_specific_ptime) {
 		av->args[0].as.as_d = va_arg(vl, double);
+	} else if (func == (sdp_attr_func_ptr)no_specific_framerate) {
+		av->args[0].as.as_d = va_arg(vl, double);
 	} else if (func == (sdp_attr_func_ptr)smpte2110_rtpmap) {
 		av->args[0].as.as_ll = va_arg(vl, int);
 		av->args[1].as.as_ll = va_arg(vl, int);
@@ -146,6 +158,8 @@ int assert_attr(struct sdp_attr *attr, struct attr_validator_info *av)
 				av->args[2].as.as_ll, av->args[3].as.as_str);
 	} else if (av->func == (sdp_attr_func_ptr)no_specific_ptime) {
 		res = no_specific_ptime(attr, av->args[0].as.as_d);
+	} else if (av->func == (sdp_attr_func_ptr)no_specific_framerate) {
+		res = no_specific_framerate(attr, av->args[0].as.as_d);
 	} else if (av->func == (sdp_attr_func_ptr)smpte2110_rtpmap) {
 		res = smpte2110_rtpmap(attr, av->args[0].as.as_ll, av->args[1].as.as_ll,
 				av->args[2].as.as_ll, av->args[3].as.as_ll);
@@ -981,7 +995,18 @@ REG_TEST(smpte2110_sub_types_5,
 		"m=audio 50000 RTP/AVP 100 101\n"
 		"a=rtpmap:100 L16/90000\n"
 		"a=rtpmap:101 L24/90000\n";
-	return test_generic(content, SDP_PARSE_OK, NULL, smpte2110);
+	init_session_validator();
+	validator_info.medias[0].fmt_count = 2;
+	validator_info.medias[0].formats[0].id = 100;
+	validator_info.medias[0].formats[0].sub_type = SMPTE_2110_SUB_TYPE_20;
+	validator_info.medias[0].formats[1].id = 101;
+	validator_info.medias[0].formats[1].sub_type = SMPTE_2110_SUB_TYPE_40;
+	validator_info.medias[1].fmt_count = 2;
+	validator_info.medias[1].formats[0].id = 100;
+	validator_info.medias[1].formats[0].sub_type = SMPTE_2110_SUB_TYPE_30;
+	validator_info.medias[1].formats[1].id = 101;
+	validator_info.medias[1].formats[1].sub_type = SMPTE_2110_SUB_TYPE_30;
+	return test_generic(content, SDP_PARSE_OK, assert_session_x, smpte2110);
 }
 
 /******************************************************************************
@@ -1017,7 +1042,8 @@ REG_TEST(test_rtpmap_payload_type_3,
 		"FAIL - payload type - not found (fmtp)")
 {
 	char *content =
-		"v=0\nt=0 0\n"
+		"v=0\n"
+		"t=0 0\n"
 		"s=SDP test: payload types 3\n"
 		"m=audio 50000 RTP/AVP 101 102 104\n"
 		"a=fmtp:101 something\n"
@@ -1268,6 +1294,57 @@ REG_TEST(test_ptime_5, "PASS - smpte2110 ptime double.")
 }
 
 /******************************************************************************
+                                 Framerate
+******************************************************************************/
+REG_TEST(test_framerate_1, "FAIL - smpte2110 framerate not a number.")
+{
+	char *content =
+		"v=0\n"
+		"s=SDP test: framerate 1\n"
+		"t=0 0\n"
+		"m=audio 50000 RTP/AVP 100\n"
+		"a=framerate:xxx\n";
+	return test_generic(content, SDP_PARSE_ERROR, NULL, no_specific);
+}
+
+REG_TEST(test_framerate_2, "FAIL - smpte2110 framerate 0.")
+{
+	char *content =
+		"v=0\n"
+		"s=SDP test: framerate 2\n"
+		"t=0 0\n"
+		"m=audio 50000 RTP/AVP 100\n"
+		"a=framerate:0\n";
+	return test_generic(content, SDP_PARSE_ERROR, NULL, no_specific);
+}
+
+REG_TEST(test_framerate_3, "PASS - smpte2110 framerate int.")
+{
+	char *content =
+		"v=0\n"
+		"s=SDP test: framerate 3\n"
+		"t=0 0\n"
+		"m=audio 50000 RTP/AVP 100\n"
+		"a=framerate:100\n";
+	init_session_validator();
+	SET_ATTR_VINFO(0, 0, no_specific_framerate, 100.0);
+	return test_generic(content, SDP_PARSE_OK, assert_session_x, no_specific);
+}
+
+REG_TEST(test_framerate_4, "PASS - smpte2110 framerate double.")
+{
+	char *content =
+		"v=0\n"
+		"s=SDP test: framerate 4\n"
+		"t=0 0\n"
+		"m=audio 50000 RTP/AVP 100\n"
+		"a=framerate:99.5123\n";
+	init_session_validator();
+	SET_ATTR_VINFO(0, 0, no_specific_framerate, 99.5123);
+	return test_generic(content, SDP_PARSE_OK, assert_session_x, no_specific);
+}
+
+/******************************************************************************
                                 Smpte2110-40
 ******************************************************************************/
 REG_TEST(test_smpte_40_1, "PASS - smpte2110 no fmtp.")
@@ -1445,6 +1522,37 @@ REG_TEST(test_smpte_40_13, "FAIL - smpte2110 multiple VPID_Codes.")
 }
 
 /******************************************************************************
+                                Smpte2022-6
+******************************************************************************/
+REG_TEST(test_smpte_2022_6_1, "FAIL - smpte2022-6 invalid sub-type.")
+{
+	char *content =
+		"v=0\n"
+		"s=SDP test: smpte 2022-6 1\n"
+		"t=0 0\n"
+		"m=video 50000 RTP/AVP 100\n"
+		"a=rtpmap:100 raw/90000\n";
+	return test_generic(content, SDP_PARSE_NOT_SUPPORTED, NULL, smpte2022);
+}
+
+REG_TEST(test_smpte_2022_6_2, "PASS - smpte2022-6.")
+{
+	char *content =
+		"v=0\n"
+		"s=SDP test: smpte 2022-6 2\n"
+		"t=0 0\n"
+		"m=video 50000 RTP/AVP 100\n"
+		"a=rtpmap:100 smpte2022-6/90000\n"
+		"a=framerate:99.99";
+	init_session_validator();
+	validator_info.medias[0].formats[0].id = 100;
+	validator_info.medias[0].formats[0].sub_type = SMPTE_2022_SUB_TYPE_6;
+	SET_ATTR_VINFO(0, 0, no_specific_rtpmap, 100, "smpte2022-6", 90000, NULL);
+	SET_ATTR_VINFO(0, 1, no_specific_framerate, 99.99);
+	return test_generic(content, SDP_PARSE_OK, assert_session_x, smpte2022);
+}
+
+/******************************************************************************
                                  Test Table
 ******************************************************************************/
 void init_tests()
@@ -1500,6 +1608,10 @@ void init_tests()
 	ADD_TEST(test_ptime_3);
 	ADD_TEST(test_ptime_4);
 	ADD_TEST(test_ptime_5);
+	ADD_TEST(test_framerate_1);
+	ADD_TEST(test_framerate_2);
+	ADD_TEST(test_framerate_3);
+	ADD_TEST(test_framerate_4);
 	ADD_TEST(test_smpte_40_1);
 	ADD_TEST(test_smpte_40_2);
 	ADD_TEST(test_smpte_40_3);
@@ -1513,5 +1625,7 @@ void init_tests()
 	ADD_TEST(test_smpte_40_11);
 	ADD_TEST(test_smpte_40_12);
 	ADD_TEST(test_smpte_40_13);
+	ADD_TEST(test_smpte_2022_6_1);
+	ADD_TEST(test_smpte_2022_6_2);
 }
 
