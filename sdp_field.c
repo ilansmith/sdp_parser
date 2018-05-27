@@ -33,7 +33,7 @@ enum sdp_parse_err sdp_parse_type_verify(char *endptr, const char *input,
 	const char* expected_name)
 {
 	if (*endptr) {
-		sdperr("Invalid value '%s'. %s is expected.", input, expected_name);
+		sdperr("invalid value '%s'. %s is expected.", input, expected_name);
 		return SDP_PARSE_ERROR;
 	}
 	return SDP_PARSE_OK;
@@ -41,40 +41,45 @@ enum sdp_parse_err sdp_parse_type_verify(char *endptr, const char *input,
 
 enum sdp_parse_err sdp_parse_int(int *result, const char *input)
 {
-	if (!input) return sdprerr("No value specified.");
 	char *endptr;
+	if (!input)
+		return sdprerr("no value specified.");
 	*result = strtol(input, &endptr, 10);
 	return sdp_parse_type_verify(endptr, input, "Integer");
 }
 
 enum sdp_parse_err sdp_parse_long(long *result, const char *input)
 {
-	if (!input) return sdprerr("No value specified.");
 	char *endptr;
+	if (!input)
+		return sdprerr("no value specified.");
 	*result = strtol(input, &endptr, 10);
 	return sdp_parse_type_verify(endptr, input, "Integer");
 }
 
 enum sdp_parse_err sdp_parse_long_long(long long *result, const char *input)
 {
-	if (!input) return sdprerr("No value specified.");
 	char *endptr;
+	if (!input)
+		return sdprerr("no value specified.");
 	*result = strtoll(input, &endptr, 10);
 	return sdp_parse_type_verify(endptr, input, "Integer");
 }
 
 enum sdp_parse_err sdp_parse_float(float *result, const char *input)
 {
-	if (!input) return sdprerr("No value specified.");
 	char *endptr;
+	if (!input)
+		return sdprerr("no value specified.");
 	*result = strtof(input, &endptr);
 	return sdp_parse_type_verify(endptr, input, "Number");
 }
 
 enum sdp_parse_err sdp_parse_double(double *result, const char *input)
 {
-	if (!input) return sdprerr("No value specified.");
 	char *endptr;
+	if (!input)
+		return sdprerr("no value specified.");
 	*result = strtod(input, &endptr);
 	return sdp_parse_type_verify(endptr, input, "Number");
 }
@@ -99,7 +104,6 @@ enum sdp_parse_err sdp_parse_field(interpretable *field, const char *input,
 
 void sdp_free_field(interpretable* field)
 {
-	if (field->dtor) {
+	if (field->dtor)
 		field->dtor(field->as.as_ptr);
-	}
 }

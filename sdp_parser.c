@@ -639,14 +639,12 @@ static enum sdp_parse_err parse_attr_rtpmap(
 	char *tmp = NULL;
 
 	encoding_name = params ? strtok_r(params, "/", &tmp) : NULL;
-	if (!encoding_name || !tmp) {
-		return sdprerr("Missing required field - encoding-name.");
-	}
+	if (!encoding_name || !tmp)
+		return sdprerr("missing required field - encoding-name.");
 
 	clock_rate = strtok_r(NULL, "/", &tmp);
-	if (!clock_rate || !tmp) {
-		return sdprerr("Missing required field - clock-rate.");
-	}
+	if (!clock_rate || !tmp)
+		return sdprerr("missing required field - clock-rate.");
 
 	encoding_parameters = strtok_r(NULL, "/", &tmp);
 
@@ -873,9 +871,8 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 	sdp_stream_t sdp = session->sdp;
 
 	/* Default is no-specific */
-	if (!parse_attr_specific) {
+	if (!parse_attr_specific)
 		parse_attr_specific = no_specific;
-	}
 
 	/* parse v= */
 	if (sdp_parse_version(sdp, &line, &len, &session->v) ==
