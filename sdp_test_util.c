@@ -355,7 +355,7 @@ void init_session_validator(void)
 	int m_id, f_id;
 	memset(&validator_info, 0, sizeof(validator_info));
 	validator_info.media_count = -1;
-	for (m_id = 0; m_id < MAX_NUM_MEDIA_ATTRIBUTES; ++m_id)
+	for (m_id = 0; m_id < MAX_NUM_MEDIAS; ++m_id)
 	{
 		mv = &validator_info.medias[m_id];
 		mv->fmt_count = IGNORE_VALUE;

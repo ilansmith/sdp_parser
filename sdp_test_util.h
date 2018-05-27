@@ -55,7 +55,7 @@ void init_tests();
                                 Validator Info
 ******************************************************************************/
 #define IGNORE_VALUE -1
-#define MAX_NUM_MEDIA 10
+#define MAX_NUM_MEDIAS 40
 #define MAX_NUM_SESSION_ATTRIBUTES 20
 #define MAX_NUM_MEDIA_ATTRIBUTES 20
 #define MAX_NUM_ATTRIBUTE_FIELDS 10
@@ -88,7 +88,7 @@ struct session_validator_info
 	int media_count;
 	int session_attr_count;
 	struct attr_validator_info attributes[MAX_NUM_SESSION_ATTRIBUTES];
-	struct media_validator_info medias[MAX_NUM_MEDIA_ATTRIBUTES];
+	struct media_validator_info medias[MAX_NUM_MEDIAS];
 };
 
 extern struct session_validator_info validator_info;
