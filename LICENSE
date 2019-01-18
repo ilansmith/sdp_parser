@@ -1,0 +1,57 @@
+/*
+   A parsing engine in C for Session Description Protocol (RFC4566) and
+   SMPTE ST-2110 extenstions.
+   Coded by Ilan A. Smith.
+
+   Copyright (C) 2017, Ilan A. Smith, all rights reserved.
+
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions
+   are met:
+
+     1. Redistributions of source code must retain the above copyright
+        notice, this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+        notice, this list of conditions and the following disclaimer in the
+        documentation and/or other materials provided with the distribution.
+
+     3. The names of its contributors may not be used to endorse or promote
+        products derived from this software without specific prior written
+        permission.
+
+   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+   CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+   EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+   PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+   PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+   LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+   NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+   References:
+
+   Request for Comments (rfc) 4566
+     "SDP: Session Description Protocol"
+   Request for Comments (rfc) 4570
+     "Session Description Protocol (SDP) Source Filters"
+   Request for Comments (rfc) 5888
+     "The Session Description Protocol (SDP) Grouping Framework"
+   Request for Comments (rfc) 7104
+     "Duplication Grouping Semantics in the Session Description Protocol"
+   Society of Motion Picture and Television Engineers (SMPTE) ST2110-10
+     "Professional Media over Managed IP Networks: System Timing & Definitions"
+   Society of Motion Picture and Television Engineers (SMPTE) ST2110-20
+     "Professional Media over Managed IP Networks: Uncompressed Active Video"
+   Society of Motion Picture and Television Engineers (SMPTE) ST2110-30
+     "Professional Media over Managed IP Networks: PCM Digital Audio"
+   Society of Motion Picture and Television Engineers (SMPTE) ST2110-40
+     "Professional Media over Managed IP Networks: Ancillary Data"
+      
+   Any feedback is very welcome.
+   email: lunnys@gmail.com
+*/
+
