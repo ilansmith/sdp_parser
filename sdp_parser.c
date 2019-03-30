@@ -13,6 +13,7 @@
 #error non supported platform
 #endif
 
+#include "util.h"
 #include "sdp_parser.h"
 
 #ifndef NOT_IN_USE
@@ -416,6 +417,8 @@ static enum sdp_parse_err sdp_parse_attr(sdp_stream_t sdp, char **line,
 	enum sdp_parse_err err;
 	char *ptr = *line;
 	char *tmp = NULL;
+	struct sdp_attr **iter = a;
+	unsigned long long attr_mask;
 
 	char *common_level_attr[] = {
 #if 0
@@ -490,6 +493,33 @@ static enum sdp_parse_err sdp_parse_attr(sdp_stream_t sdp, char **line,
 		*a = NULL;
 
 		sdp_getline(line, len, sdp);
+	}
+
+	/* assert no multiple instances of supported attributes */
+	for (attr_mask = 0; *iter; iter = &(*iter)->next) {
+		if ((*iter)->type == SDP_ATTR_NONE ||
+				(*iter)->type == SDP_ATTR_SPECIFIC ||
+				(*iter)->type == SDP_ATTR_NOT_SUPPORTED) {
+			continue;
+		}
+
+		if (attr_mask & 1 << (*iter)->type) {
+			struct code2str attributes[] = {
+				{ SDP_ATTR_GROUP, "group" },
+				{ SDP_ATTR_RTPMAP, "rtpmap" },
+				{ SDP_ATTR_FMTP, "fmtp" },
+				{ SDP_ATTR_SOURCE_FILTER, "source-filter" },
+				{ SDP_ATTR_MID, "mid" },
+				{ -1 }
+			};
+			char *type = code2str(attributes, (*iter)->type);
+
+			sdperr("multiple instances of attribute: %s", type ?
+				type : "N/A");
+			return SDP_PARSE_ERROR;
+		}
+
+		attr_mask |= 1 << (*iter)->type;
 	}
 
 	return SDP_PARSE_OK;
@@ -774,6 +804,8 @@ static void sdp_attr_free(struct sdp_attr *attr)
 		case SDP_ATTR_SPECIFIC:
 			free(tmp->value.specific);
 			break;
+		case SDP_ATTR_RTPMAP:
+		case SDP_ATTR_NOT_SUPPORTED:
 		default:
 			break;
 		}

@@ -117,12 +117,15 @@
     <ClCompile Include="sdp_stream.c" />
     <ClCompile Include="smpte2110_sdp_parser.c" />
     <ClCompile Include="test.c" />
+    <ClCompile Include="util.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="code2x.h" />
     <ClInclude Include="sdp_compat.h" />
     <ClInclude Include="sdp_parser.h" />
     <ClInclude Include="sdp_stream.h" />
     <ClInclude Include="smpte2110_sdp_parser.h" />
+    <ClInclude Include="util.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
