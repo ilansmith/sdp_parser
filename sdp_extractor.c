@@ -319,7 +319,9 @@ static int extract_stream_params(struct sdp_extractor *e, int npackets)
 	struct smpte2110_media_attr_fmtp_params *fmtp_params;
 	int i = 0;
 
-	while ((fmtp_params = extract_fmtp_attr_params(e->session, &media))) {
+	while (i < MAX_STRMS_PER_RING &&
+			(fmtp_params = extract_fmtp_attr_params(e->session,
+				&media))) {
 		struct sdp_connection_information *c;
 
 		c = get_connection_information(session, media);
@@ -376,6 +378,11 @@ static int sdp_parse(struct sdp_extractor *e, void *sdp,
 	if (e->stream_num < 1) {
 		sdp_extractor_err("no video streams found",
 			e->stream_num);
+		return -1;
+	}
+	if (MAX_STRMS_PER_RING < e->stream_num) {
+		sdp_extractor_err("sdp extractor is limited to %d media "
+			"sections", MAX_STRMS_PER_RING);
 		return -1;
 	}
 
