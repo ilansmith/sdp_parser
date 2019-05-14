@@ -981,6 +981,43 @@ static int test024(void)
 	return SDP_PARSE_OK;
 }
 
+static int test025(void)
+{
+	char *content =
+		"v=0\n"
+		"s=s\n"
+		"m=m\n"
+		"m=video 5 ÒTP 98\n"
+		"c=IN IP4 2391/32\n"
+		"a=rtpmap:98 raw/90000\n"
+		"a=fmtp:98 sampling=Y-4:2:2; width=1920; height=1080; "
+			"interlace; exactframerate=3/1001; depth=10; TCS=SDR; "
+			"colorimetry=BT709; PM=2110GPM; SSN=ST2110-20:2017; "
+			"TP=2110TPN; \n"
+		"m=video 50120 RTP/AVP 98\n"
+		"c=IN IP4 1/32\n"
+		"a=rtpmap:98 raw/0\n"
+		"a=fmtp:98 sampling=r-4:2:2; width=1920; height=1080; "
+			"interlace; exactframerate=0/1001; depth=10; TCS=SDR; "
+			"colorimetry=BT709; PM=2110GPM; SSN=ST2110-20:2017; "
+			"TP=2110TPN; \n"
+		"a=a\n"
+		"a=fmtp:98 sampling=Y-4:2:2; width=1920; height=1080; "
+			"interlace; exactframerate=3/1001; depth=10; TCS=SDR; "
+			"colorimetry=BT709; PM=2110GPM; SSN=ST2110-20:2017; "
+			"TP=2110TPN; \n"
+		"m=video 5 RTP/AVP 98\n"
+		"c=IN IP4 1/32\n"
+		"a=a\n"
+		"a=rtpmap:98 raw/0\n"
+		"a=fmtp:98 sampling=YCbCr-4:2:2; width=1920; height=1080; "
+			"interlace; exactframerate=30000/1001; depth=10; "
+			"TCS=SDR; colorimetry=BT709; PM=2110GPM; "
+			"SSN=ST2110-20:2017; TP=2110TPN;";
+
+	return test_generic_get_error(content, SDP_PARSE_ERROR);
+}
+
 static struct single_test sdp_tests[] = {
 	{
 		description: "SMPTE2110-10 annex B example SDP",
@@ -1077,6 +1114,10 @@ static struct single_test sdp_tests[] = {
 	{
 		description: "sampling parameters",
 		func: test024,
+	},
+	{
+		description: "malformed SDP",
+		func: test025,
 	},
 };
 
