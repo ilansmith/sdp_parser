@@ -916,6 +916,13 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 		if (err == SDP_PARSE_ERROR)
 			goto exit;
 
+		/* skip non suppored m= media blocks */
+		if (err == SDP_PARSE_NOT_SUPPORTED) {
+			while (line && sdp_parse_descriptor_type(line) != 'm')
+				sdp_getline(&line, &len, sdp);
+			continue;
+		}
+
 		if (!line)
 			return SDP_PARSE_OK;
 
