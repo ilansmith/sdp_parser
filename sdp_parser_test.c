@@ -182,7 +182,7 @@ static int run_test_generic(char *content, enum sdp_parse_err expected,
 	if (!ctx)
 		return -1;
 
-	err = sdp_session_parse(ctx->session, smpte2110_sdp_parse_specific);
+	err = sdp_session_parse(ctx->session, smpte2110);
 	if (err == expected)
 		ret = (!verifier || !verifier(ctx->session)) ? 0 : -1;
 
@@ -893,8 +893,8 @@ static int test022(void)
 		"a=mid:VID1\n"
 		"m=audio 5010 RTP/AVP 110\n"
 		"c=IN IPV4 239.10.10.110/96\n"
-		"a=rtpmap:100 L24/48000/2\n"
-		"a=fmtp:100 channel-order=SMPTE2110.(ST)\n"
+		"a=rtpmap:110 L24/48000/2\n"
+		"a=fmtp:110 channel-order=SMPTE2110.(ST)\n"
 		"a=ptime:1.000\n"
 		"a=tsrefclk:ptp=IEEE1588-2008:08-00-11-FF-FE-22-39-E4:125\n"
 		"a=mediaclk:direct=0\n"
