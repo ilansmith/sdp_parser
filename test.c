@@ -47,7 +47,7 @@ int main (int argc, char **argv)
 		return -1;
 	}
 
-	err = sdp_session_parse(session, smpte2110_sdp_parse_specific);
+	err = sdp_session_parse(session, smpte2110);
 	printf("parsing result: %s\n", err2str[err]);
 
 	sdp_parser_uninit(session);

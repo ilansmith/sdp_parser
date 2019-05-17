@@ -88,7 +88,7 @@ static struct smpte2110_media_attr_fmtp_params *extract_fmtp_attr_params(
 	}
 
 	fmtp_value = &fmtp_attr->value.fmtp;
-	return (struct smpte2110_media_attr_fmtp_params*)fmtp_value->params;
+	return (struct smpte2110_media_attr_fmtp_params*)fmtp_value->params.as.as_ptr;
 }
 
 static int extract_dup_num(struct sdp_extractor *e)
@@ -367,7 +367,7 @@ static int sdp_parse(struct sdp_extractor *e, void *sdp,
 		return -1;
 	}
 
-	err = sdp_session_parse(e->session, smpte2110_sdp_parse_specific);
+	err = sdp_session_parse(e->session, smpte2110);
 	if (err != SDP_PARSE_OK) {
 		sdp_extractor_err("sdp parsing failed");
 		return -1;

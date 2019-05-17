@@ -14,13 +14,9 @@
 extern "C" {
 #endif
 
-#define IS_WHITESPACE(_char_) ((_char_) == ' ' || (_char_) == '\t')
+#include "sdp_field.h"
 
-enum sdp_parse_err {
-	SDP_PARSE_OK,
-	SDP_PARSE_NOT_SUPPORTED,
-	SDP_PARSE_ERROR,
-};
+#define IS_WHITESPACE(_char_) ((_char_) == ' ' || (_char_) == '\t')
 
 /* sdp version */
 
@@ -88,6 +84,7 @@ enum sdp_attr_type {
       SDP_ATTR_NONE,
       SDP_ATTR_GROUP,
       SDP_ATTR_RTPMAP,
+      SDP_ATTR_PTIME,
       SDP_ATTR_FMTP,
       SDP_ATTR_SOURCE_FILTER,
       SDP_ATTR_MID,
@@ -107,18 +104,23 @@ struct sdp_attr_value_group {
 	int num_tags;
 };
 
-/* a=rtpmap:<val> <subytype>/<clock> */
+/* a=rtpmap:<payload type> <encoding name>/<clock rate> [/<encoding parameters> */
 struct sdp_attr_value_rtpmap {
-	int fmt;
-	char media_subtype[64];
+	int payload_type;
+	interpretable encoding_name;
 	int clock_rate;
+	interpretable encoding_parameters;
+};
+
+/* a=ptime:<packet time> */
+struct sdp_attr_value_ptime {
+	float packet_time;
 };
 
 /* a=fmtp:<val> <params> */
 struct sdp_attr_value_fmtp {
 	int fmt;
-	void *params;
-	void (*param_dtor)(void *params);
+	interpretable params;
 };
 
 enum sdp_attr_source_filter_mode {
@@ -158,6 +160,7 @@ union sdp_attr_value {
 	/* Media */
 	struct sdp_attr_value_group group;
 	struct sdp_attr_value_rtpmap rtpmap;
+	struct sdp_attr_value_ptime ptime;
 	struct sdp_attr_value_fmtp fmtp;
 	struct sdp_attr_value_source_filter source_filter;
 	struct sdp_attr_value_mid mid;
@@ -245,8 +248,7 @@ struct sdp_session {
 	struct sdp_media *media; /* media-level descriptor(s) */
 };
 
-typedef enum sdp_parse_err (*parse_attr_specific_t)(struct sdp_media *media,
-	struct sdp_attr *a, char *attr, char *value, char *params);
+typedef struct sdp_specific *parse_attr_specific_t;
 
 struct sdp_session *sdp_parser_init(enum sdp_stream_type type, void *ctx);
 void sdp_parser_uninit(struct sdp_session *session);
@@ -256,6 +258,7 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 
 void sdpwarn(char *fmt, ...);
 void sdperr(char *fmt, ...);
+enum sdp_parse_err sdprerr(char *fmt, ...);
 
 /* Accessors */
 struct sdp_media *sdp_media_get(struct sdp_session *session,

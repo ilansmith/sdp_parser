@@ -600,14 +600,14 @@ static enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(
 	for (rtpmap_attr = sdp_media_attr_get(media, SDP_ATTR_RTPMAP);
 			rtpmap_attr;
 			rtpmap_attr = sdp_attr_get_next(rtpmap_attr )) {
-		if (strncmp(rtpmap_attr->value.rtpmap.media_subtype, "raw", 3))
+		if (strncmp(rtpmap_attr->value.rtpmap.encoding_name.as.as_str, "raw", 3))
 			continue;
 
-		if (rtpmap_attr->value.rtpmap.fmt == fmt)
+		if (rtpmap_attr->value.rtpmap.payload_type == fmt)
 			break;
 		
 		sdperr("fmtp wrong format - %d (expected - %d)", fmt,
-			rtpmap_attr->value.rtpmap.fmt);
+			rtpmap_attr->value.rtpmap.payload_type);
 		return SDP_PARSE_ERROR;
 	}
 
@@ -695,8 +695,8 @@ static enum sdp_parse_err smpte2110_sdp_parse_fmtp_params(
 	smpte2110_fmtp->params.par = p.par;
 
 	a->type = SDP_ATTR_FMTP;
-	a->value.fmtp.params = smpte2110_fmtp;
-	a->value.fmtp.param_dtor = free;
+	a->value.fmtp.params.as.as_ptr = smpte2110_fmtp;
+	a->value.fmtp.params.dtor = free;
 
 	return SDP_PARSE_OK;
 
@@ -705,9 +705,10 @@ fail:
 	return SDP_PARSE_ERROR;
 }
 
-static enum sdp_parse_err smpte2110_sdp_parse_group(struct sdp_attr *a,
-		char *value, char *params)
+static enum sdp_parse_err smpte2110_sdp_parse_group(struct sdp_media *media,
+		struct sdp_attr *a, char *value, char *params)
 {
+	(void)media;
 	char *tmp;
 	struct group_identification_tag **tag;
 	struct sdp_attr_value_group *group = &a->value.group;
@@ -759,18 +760,132 @@ fail:
 	return SDP_PARSE_ERROR;
 }
 
-enum sdp_parse_err smpte2110_sdp_parse_specific(struct sdp_media *media,
-		struct sdp_attr *a, char *attr, char *value, char *params)
+/*********************************/
+/* 2110-30 Audio SDP interpreter */
+/*********************************/
+
+enum sdp_parse_err smpte2110_30_parse_bit_width(interpretable *field,
+		const char *input)
 {
-	if (media && media->m.type != SDP_MEDIA_TYPE_VIDEO)
-		return SDP_PARSE_OK;
-
-	if (!strncmp(attr, "fmtp", strlen("fmtp")))
-		return smpte2110_sdp_parse_fmtp_params(media, a, value, params);
-
-	if (!strncmp(attr, "group", strlen("group")))
-		return smpte2110_sdp_parse_group(a, value, params);
-
-	return SDP_PARSE_ERROR;
+	if (!*input || (input[0] != 'L') ||
+	    (sdp_parse_long_long(&field->as.as_ll, &input[1]) != SDP_PARSE_OK)) {
+		return sdprerr("Invalid bit-depth '%s': expected L<int>.", input);
+	}
+	if (field->as.as_ll == 0) {
+		return sdprerr("Invalid bit-depth: 0");
+	}
+	return SDP_PARSE_OK;
 }
 
+enum sdp_parse_err smpte2110_30_parse_num_channels(interpretable *field,
+		const char *input)
+{
+	if (!input) {
+		field->as.as_ll = 1;
+		return SDP_PARSE_OK;
+	}
+	if (sdp_parse_long_long(&field->as.as_ll, input) != SDP_PARSE_OK) {
+		return sdprerr("Invalid num-channels '%s': expected <int>.", input);
+	}
+	if (field->as.as_ll == 0) {
+		return sdprerr("Invalid num-channels: 0");
+	}
+	return SDP_PARSE_OK;
+}
+
+enum sdp_parse_err smpte2110_30_parse_channel_order(interpretable *field, const char *input)
+{
+	/* TODO: (eladw) Parse as params */
+	(void)field;
+	(void)input;
+	return SDP_PARSE_OK;
+}
+
+enum sdp_parse_err smpte2110_30_validate_formats(struct sdp_media *media)
+{
+	/* Make sure all formats exist: */
+	/* TODO: (eladw) Use this in video as well. */
+	/* Using naive algorithm: */
+	struct sdp_attr *attr;
+	struct sdp_media_fmt *fmt;
+
+	for (fmt = &media->m.fmt; fmt; fmt = fmt->next) {
+		int found = 0;
+
+		if (fmt->id == 0) {
+			continue;
+		}
+
+		for (attr = media->a; attr; attr = attr->next) {
+			if (attr->type == SDP_ATTR_RTPMAP) {
+				if (attr->value.rtpmap.payload_type == fmt->id) {
+					found = 1;
+					break;
+				}
+			}
+		}
+		if (!found)
+			return sdprerr("Media format %u is missing a required attribute a=rtpmap.", fmt->id);
+	}
+	return SDP_PARSE_OK;
+}
+
+/***********************************/
+/* Create the specific descriptor: */
+/***********************************/
+static struct sdp_session_interpreter *smpte2110_create_session_interpreter()
+{
+	static struct sdp_session_interpreter instance = SDP_SESSION_INTERPRETER_INIT();
+	instance.group = smpte2110_sdp_parse_group;
+	return &instance;
+}
+
+static struct sdp_media_interpreter *smpte2110_create_video_interpreter()
+{
+	static struct sdp_media_interpreter instance = SDP_MEDIA_INTERPRETER_INIT();
+	instance.fmtp = smpte2110_sdp_parse_fmtp_params;
+	return &instance;
+}
+
+static struct sdp_media_interpreter *smpte2110_create_audio_interpreter()
+{
+	static struct sdp_media_interpreter instance = SDP_MEDIA_INTERPRETER_INIT();
+	instance.fmtp_params = smpte2110_30_parse_channel_order;
+	instance.rtpmap_encoding_name = smpte2110_30_parse_bit_width;
+	instance.rtpmap_encoding_parameters = smpte2110_30_parse_num_channels;
+	instance.validator = smpte2110_30_validate_formats;
+	return &instance;
+}
+
+#define GET_OR_CREATE(_type_, _creator_) \
+	do { \
+		static _type_ *instance = NULL; \
+		if (instance == NULL) \
+			instance = _creator_(); \
+		return instance; \
+	} while (0);
+
+
+static struct sdp_session_interpreter *smpte2110_get_session_interpreter()
+{
+	GET_OR_CREATE(struct sdp_session_interpreter, smpte2110_create_session_interpreter);
+}
+
+static struct sdp_media_interpreter *smpte2110_get_media_interpreter(struct sdp_media_m *m)
+{
+	if (m->type == SDP_MEDIA_TYPE_AUDIO) {
+		GET_OR_CREATE(struct sdp_media_interpreter, smpte2110_create_audio_interpreter);
+	} else if (m->type == SDP_MEDIA_TYPE_VIDEO) {
+		GET_OR_CREATE(struct sdp_media_interpreter, smpte2110_create_video_interpreter);
+	} else {
+		return no_specific_media_interpreter(m);
+	}
+}
+
+static struct sdp_specific smpte2110_specific =
+{
+	smpte2110_get_session_interpreter,
+	smpte2110_get_media_interpreter
+};
+
+struct sdp_specific *smpte2110 = &smpte2110_specific;
