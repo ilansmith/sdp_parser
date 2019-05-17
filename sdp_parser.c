@@ -525,7 +525,16 @@ static enum sdp_parse_err sdp_parse_attr(sdp_stream_t sdp, char **line,
 		if (attr_mask & 1 << (*iter)->type) {
 			struct code2str attributes[] = {
 				{ SDP_ATTR_GROUP, "group" },
-				{ SDP_ATTR_RTPMAP, "rtpmap" },
+				{ SDP_ATTR_RTPMAP, "rtpmap" }, /* XXX rfc4566:
+								  Up to one rtpmap attribute can be defined for each
+								  media format specified. Thus, we might have
+								  the following:
+
+								           m=audio 49230 RTP/AVP 96 97 98
+									   a=rtpmap:96 L8/8000
+									   a=rtpmap:97 L16/8000
+									   a=rtpmap:98 L16/11025/2
+								*/
 				{ SDP_ATTR_FMTP, "fmtp" },
 				{ SDP_ATTR_SOURCE_FILTER, "source-filter" },
 				{ SDP_ATTR_MID, "mid" },

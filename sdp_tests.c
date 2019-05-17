@@ -5,12 +5,19 @@
  *      Author: eladw
  */
 
-#include "sdp.h"
+#include <stdlib.h>
 #include <math.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <string.h>
 #if defined(__linux__)
 #include <errno.h>
 #include <unistd.h>
 #endif
+
+#include "sdp_stream.h"
+#include "sdp_parser.h"
+#include "smpte2110_sdp_parser.h"
 
 #define C_RED    "\033[00;31m"
 #define C_GREEN  "\033[00;32m"
@@ -22,7 +29,9 @@
 #define ARRAY_SZ(array) (int)(sizeof(array) / sizeof(array[0]))
 #endif
 
+typedef void (*sdp_attr_func_ptr)(void);
 typedef int (*test_func)(void);
+
 struct single_test
 {
 	const char *name;
@@ -48,15 +57,23 @@ void add_test(test_func func, const char *name, const char *description)
 
 #define ADD_TEST(_name_) add_test(_name_, #_name_, _name_ ## _summary)
 
-#define test_log(FMT, ... ) fprintf(stderr, "#### " FMT, ##__VA_ARGS__)
+static int test_log(const char *format, ...)
+{
+	va_list va;
+	va_start(va, format);
+	fprintf(stderr, "#### ");
+	vfprintf(stderr, format, va);
+	va_end(va);
+	return 0;
+}
 
-static bool assert_error(const char *format, ...)
+static int assert_error(const char *format, ...)
 {
 	va_list va;
 	va_start(va, format);
 	vfprintf(stderr, format, va);
 	va_end(va);
-	return false;
+	return 0;
 }
 
 int vprint_title(const char *format, va_list va)
@@ -358,42 +375,42 @@ static int missing_required_fmtp_param(enum smpte_2110_attr_param_err missing)
 /******************************************************************************
                               Common Validators
 ******************************************************************************/
-static bool assert_str(const char *left_name, const char *left,
+static int assert_str(const char *left_name, const char *left,
 		const char *right_name, const char *right)
 {
 	if ((!left) && (!right))
-		return true;
+		return 1;
 	if (!left)
 		return assert_error("Assertion failed: %s is NULL.\n", left_name);
 	if (!right)
 		return assert_error("Assertion failed: %s is NULL.\n", right_name);
 	if (strcmp(left, right) != 0)
 		return assert_error("Assertion failed: %s ('%s') != %s ('%s').\n", left_name, left, right_name, right);
-	return true;
+	return 1;
 }
 
-static bool assert_int(const char *left_name, long long left,
+static int assert_int(const char *left_name, long long left,
 		const char *right_name, long long right)
 {
 	if (left != right)
 		return assert_error("Assertion failed: %s ('%lld') != %s ('%lld').\n", left_name, left, right_name, right);
-	return true;
+	return 1;
 }
 
-static inline bool assert_flt(const char *left_name, double left,
+static inline int assert_flt(const char *left_name, double left,
 		const char *right_name, double right)
 {
 	static const double epsilon = 0.00001;
 	if (fabs(left - right) > epsilon)
 		return assert_error("Assertion failed: %s ('%lf') != %s ('%lf').\n", left_name, left, right_name, right);
-	return true;
+	return 1;
 }
 
-static bool assert_res(bool res, const char *name, const char* file, int line)
+static int assert_res(int res, const char *name, const char* file, int line)
 {
 	if (!res)
 		return assert_error("    In: %s:%u: %s\n", file, line, name);
-	return true;
+	return 1;
 }
 
 #define ASSERT_RES(_res_)           assert_res(_res_, #_res_, __FILE__, __LINE__)
@@ -404,41 +421,41 @@ static bool assert_res(bool res, const char *name, const char* file, int line)
 /******************************************************************************
                               Validator Functions
 ******************************************************************************/
-static bool no_specific_fmtp(const struct sdp_attr *attr,
+static int no_specific_fmtp(const struct sdp_attr *attr,
 		long long fmt, const char *params)
 {
 	return ASSERT_INT(attr->type, SDP_ATTR_FMTP) &&
 	       ASSERT_INT(attr->value.fmtp.fmt, fmt) &&
-	       ASSERT_STR(attr->value.fmtp.params.as_str, params);
+	       ASSERT_STR(attr->value.fmtp.params.as.as_str, params);
 }
 
-static bool no_specific_rtpmap(const struct sdp_attr *attr,
+static int no_specific_rtpmap(const struct sdp_attr *attr,
 		long long payload_type, const char *encoding_name,
 		long long clock_rate, const char *encoding_parameters)
 {
 	return ASSERT_INT(attr->type, SDP_ATTR_RTPMAP) &&
 	       ASSERT_INT(attr->value.rtpmap.payload_type, payload_type) &&
-	       ASSERT_STR(attr->value.rtpmap.encoding_name.as_str, encoding_name) &&
+	       ASSERT_STR(attr->value.rtpmap.encoding_name.as.as_str, encoding_name) &&
 	       ASSERT_INT(attr->value.rtpmap.clock_rate, clock_rate) &&
-	       ASSERT_STR(attr->value.rtpmap.encoding_parameters.as_str, encoding_parameters);
+	       ASSERT_STR(attr->value.rtpmap.encoding_parameters.as.as_str, encoding_parameters);
 }
 
-static inline bool no_specific_ptime(const struct sdp_attr *attr,
+static inline int no_specific_ptime(const struct sdp_attr *attr,
 		double packet_time)
 {
 	return ASSERT_INT(attr->type, SDP_ATTR_PTIME) &&
 	       ASSERT_FLT(attr->value.ptime.packet_time, packet_time);
 }
 
-static inline bool smpte2110_rtpmap(const struct sdp_attr *attr,
+static inline int smpte2110_rtpmap(const struct sdp_attr *attr,
 		long long payload_type, long long bit_width, long long clock_rate,
 		long long num_channels)
 {
 	return ASSERT_INT(attr->type, SDP_ATTR_RTPMAP) &&
 	       ASSERT_INT(attr->value.rtpmap.payload_type, payload_type) &&
-	       ASSERT_INT(attr->value.rtpmap.encoding_name.as_ll, bit_width) &&
+	       ASSERT_INT(attr->value.rtpmap.encoding_name.as.as_ll, bit_width) &&
 	       ASSERT_INT(attr->value.rtpmap.clock_rate, clock_rate) &&
-	       ASSERT_INT(attr->value.rtpmap.encoding_parameters.as_ll, num_channels);
+	       ASSERT_INT(attr->value.rtpmap.encoding_parameters.as.as_ll, num_channels);
 }
 
 /******************************************************************************
@@ -452,7 +469,7 @@ static inline bool smpte2110_rtpmap(const struct sdp_attr *attr,
 
 struct attr_validator_info
 {
-	void *func; /* Indicates validator type */
+	sdp_attr_func_ptr func; /* Indicates validator type */
 	interpretable args[MAX_NUM_ATTRIBUTE_FIELDS];
 };
 
@@ -485,61 +502,61 @@ void init_session_validator(void)
 	}
 }
 
-int num_args(void *func) {
+int num_args(sdp_attr_func_ptr func) {
 	int num_args = 0;
-	if (func == no_specific_fmtp)
+	if (func == (sdp_attr_func_ptr)no_specific_fmtp)
 		num_args = 2;
-	else if (func == no_specific_rtpmap)
+	else if (func == (sdp_attr_func_ptr)no_specific_rtpmap)
 		num_args = 4;
-	else if (func == no_specific_ptime)
+	else if (func == (sdp_attr_func_ptr)no_specific_ptime)
 		num_args = 1;
-	else if (func == smpte2110_rtpmap)
+	else if (func == (sdp_attr_func_ptr)smpte2110_rtpmap)
 		num_args = 4;
 	return num_args;
 }
 
-void set_attr_vinfo(int m_id, int a_id, void *func, int num_args, ...)
+void set_attr_vinfo(int m_id, int a_id, sdp_attr_func_ptr func, int num_args, ...)
 {
 	struct attr_validator_info *av = &validator_info.medias[m_id].attributes[a_id];
 	av->func = func;
 
 	va_list vl;
 	va_start(vl, num_args);
-	if (func == no_specific_fmtp) {
-		av->args[0].as_ll = va_arg(vl, int);
-		av->args[1].as_str = va_arg(vl, char*);
-	} else if (func ==  no_specific_rtpmap) {
-		av->args[0].as_ll = va_arg(vl, int);
-		av->args[1].as_str = va_arg(vl, char*);
-		av->args[2].as_ll = va_arg(vl, int);
-		av->args[3].as_str = va_arg(vl, char*);
-	} else if (func == no_specific_ptime) {
-		av->args[0].as_d = va_arg(vl, double);
-	} else if (func == smpte2110_rtpmap) {
-		av->args[0].as_ll = va_arg(vl, int);
-		av->args[1].as_ll = va_arg(vl, int);
-		av->args[2].as_ll = va_arg(vl, int);
-		av->args[3].as_ll = va_arg(vl, int);
+	if (func == (sdp_attr_func_ptr)no_specific_fmtp) {
+		av->args[0].as.as_ll = va_arg(vl, int);
+		av->args[1].as.as_str = va_arg(vl, char*);
+	} else if (func ==  (sdp_attr_func_ptr)no_specific_rtpmap) {
+		av->args[0].as.as_ll = va_arg(vl, int);
+		av->args[1].as.as_str = va_arg(vl, char*);
+		av->args[2].as.as_ll = va_arg(vl, int);
+		av->args[3].as.as_str = va_arg(vl, char*);
+	} else if (func == (sdp_attr_func_ptr)no_specific_ptime) {
+		av->args[0].as.as_d = va_arg(vl, double);
+	} else if (func == (sdp_attr_func_ptr)smpte2110_rtpmap) {
+		av->args[0].as.as_ll = va_arg(vl, int);
+		av->args[1].as.as_ll = va_arg(vl, int);
+		av->args[2].as.as_ll = va_arg(vl, int);
+		av->args[3].as.as_ll = va_arg(vl, int);
 	}
 	va_end(vl);
 }
 
 #define SET_ATTR_VINFO(m_id, a_id, func, ...) \
-	set_attr_vinfo(m_id, a_id, func, num_args(func), __VA_ARGS__)
+	set_attr_vinfo(m_id, a_id, (sdp_attr_func_ptr)func, num_args((sdp_attr_func_ptr)func), __VA_ARGS__)
 
-static bool assert_attr(struct sdp_attr* attr, struct attr_validator_info *av)
+static int assert_attr(struct sdp_attr* attr, struct attr_validator_info *av)
 {
-	bool res = false;
+	int res = 0;
 	if (av->func ==  NULL) {
-		res = true;
-	} else if (av->func == no_specific_fmtp) {
-		res = no_specific_fmtp(attr, av->args[0].as_ll, av->args[1].as_str);
-	} else if (av->func == no_specific_rtpmap) {
-		res = no_specific_rtpmap(attr, av->args[0].as_ll, av->args[1].as_str, av->args[2].as_ll, av->args[3].as_str);
-	} else if (av->func == no_specific_ptime) {
-		res = no_specific_ptime(attr, av->args[0].as_d);
-	} else if (av->func == smpte2110_rtpmap) {
-		res = smpte2110_rtpmap(attr, av->args[0].as_ll, av->args[1].as_ll, av->args[2].as_ll, av->args[3].as_ll);
+		res = 1;
+	} else if (av->func == (sdp_attr_func_ptr)no_specific_fmtp) {
+		res = no_specific_fmtp(attr, av->args[0].as.as_ll, av->args[1].as.as_str);
+	} else if (av->func == (sdp_attr_func_ptr)no_specific_rtpmap) {
+		res = no_specific_rtpmap(attr, av->args[0].as.as_ll, av->args[1].as.as_str, av->args[2].as.as_ll, av->args[3].as.as_str);
+	} else if (av->func == (sdp_attr_func_ptr)no_specific_ptime) {
+		res = no_specific_ptime(attr, av->args[0].as.as_d);
+	} else if (av->func == (sdp_attr_func_ptr)smpte2110_rtpmap) {
+		res = smpte2110_rtpmap(attr, av->args[0].as.as_ll, av->args[1].as.as_ll, av->args[2].as.as_ll, av->args[3].as.as_ll);
 	} else {
 		res = assert_error("Unsupported assertion function %p.\n", av->func);
 	}
@@ -553,7 +570,7 @@ static int assert_session_x(struct sdp_session *session)
 	struct media_validator_info *mv;
 	struct attr_validator_info *av;
 	int m_cnt = 0, a_cnt = 0;
-	bool res = true;
+	int res = 1;
 
 	for (media = session->media; media; media = media->next) {
 		mv = &validator_info.medias[m_cnt];
@@ -1294,6 +1311,7 @@ REG_TEST(test024,
 ******************************************************************************/
 static const char* no_specific_content =
 		"v=0\n"
+		"s=SDP test\n"
 		"t=0 0\n"
 		"m=video 50000 RTP/AVP 1234\n"
 		"a=rtpmap:100 something/10000\n"
@@ -1607,7 +1625,7 @@ static void init_tests()
 	ADD_TEST(test_ptime_4);
 	ADD_TEST(test_ptime_5);
 	/* TODO: (eladw) Test memory deallocation. */
-};
+}
 
 /******************************************************************************
                                     Main
