@@ -1,5 +1,6 @@
 test
 sdp_extractor
+sdp_tests
 *.o
 *.a
 tags
