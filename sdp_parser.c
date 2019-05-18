@@ -436,8 +436,6 @@ static enum sdp_parse_err sdp_parse_attr(sdp_stream_t sdp, char **line,
 	enum sdp_parse_err err;
 	char *ptr = *line;
 	char *tmp = NULL;
-	struct sdp_attr **iter = a;
-	unsigned long long attr_mask;
 
 	char *common_level_attr[] = {
 #if 0
@@ -512,42 +510,6 @@ static enum sdp_parse_err sdp_parse_attr(sdp_stream_t sdp, char **line,
 		*a = NULL;
 
 		sdp_getline(line, len, sdp);
-	}
-
-	/* assert no multiple instances of supported attributes */
-	for (attr_mask = 0; *iter; iter = &(*iter)->next) {
-		if ((*iter)->type == SDP_ATTR_NONE ||
-				(*iter)->type == SDP_ATTR_SPECIFIC ||
-				(*iter)->type == SDP_ATTR_NOT_SUPPORTED) {
-			continue;
-		}
-
-		if (attr_mask & 1 << (*iter)->type) {
-			struct code2str attributes[] = {
-				{ SDP_ATTR_GROUP, "group" },
-				{ SDP_ATTR_RTPMAP, "rtpmap" }, /* XXX rfc4566:
-								  Up to one rtpmap attribute can be defined for each
-								  media format specified. Thus, we might have
-								  the following:
-
-								           m=audio 49230 RTP/AVP 96 97 98
-									   a=rtpmap:96 L8/8000
-									   a=rtpmap:97 L16/8000
-									   a=rtpmap:98 L16/11025/2
-								*/
-				{ SDP_ATTR_FMTP, "fmtp" },
-				{ SDP_ATTR_SOURCE_FILTER, "source-filter" },
-				{ SDP_ATTR_MID, "mid" },
-				{ -1 }
-			};
-			char *type = code2str(attributes, (*iter)->type);
-
-			sdperr("multiple instances of attribute: %s", type ?
-				type : "N/A");
-			return SDP_PARSE_ERROR;
-		}
-
-		attr_mask |= 1 << (*iter)->type;
 	}
 
 	return SDP_PARSE_OK;

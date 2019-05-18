@@ -167,7 +167,7 @@ static int tmpfile_open(const char *content, struct test_ctx *ctx)
 			break;
 		}
 
-		fprintf(stderr, "%s(): %s\n", __FUNCTION__, err);
+		fprintf(stderr, "%s(): %s\n", __func__, err);
 		return -1;
 	}
 
@@ -175,7 +175,7 @@ static int tmpfile_open(const char *content, struct test_ctx *ctx)
 	ret = write(fd, content, len);
 	if (ret != len) {
 		test_log("%s(): Error writing content to temp file.\n",
-			__FUNCTION__);
+			__func__);
 		close(fd);
 		unlink(name);
 		return -1;
@@ -779,7 +779,7 @@ static int assert_source_filter(struct sdp_session *session)
 		int cnt_a;
 
 		if (1 < cnt_m) {
-			test_log("%s(): excess media clauses\n", __FUNCTION__);
+			test_log("%s(): excess media clauses\n", __func__);
 			return -1;
 		}
 
@@ -804,14 +804,14 @@ static int assert_source_filter(struct sdp_session *session)
 
 			if (0 < cnt_a) {
 				test_log("%s(): excess source-filter "
-					"attributes\n", __FUNCTION__);
+					"attributes\n", __func__);
 				return -1;
 			}
 
 			/* assert attribute type */
 			if (attr->type != SDP_ATTR_SOURCE_FILTER) {
 				test_log("%s(): bad attr type: %d\n",
-					__FUNCTION__, attr->type);
+					__func__, attr->type);
 				return -1;
 			}
 
@@ -820,14 +820,14 @@ static int assert_source_filter(struct sdp_session *session)
 			/* assert source-filter mode */
 			if (source_filter->mode != SDP_ATTR_SRC_FLT_INCL) {
 				test_log("%s(): bad source-filter mode: %d\n",
-					__FUNCTION__, source_filter->mode);
+					__func__, source_filter->mode);
 				return -1;
 			}
 
 			/* assert source-filter net type */
 			if (source_filter->spec.nettype != SDP_CI_NETTYPE_IN) {
 				test_log("%s(): bad source-filter nettype: %d\n",
-					__FUNCTION__,
+					__func__,
 					source_filter->spec.nettype);
 				return -1;
 			}
@@ -836,7 +836,7 @@ static int assert_source_filter(struct sdp_session *session)
 			if (source_filter->spec.addrtype !=
 					SDP_CI_ADDRTYPE_IPV4) {
 				test_log("%s(): bad source-filter addrtype: %d\n",
-					__FUNCTION__,
+					__func__,
 					source_filter->spec.addrtype);
 				return -1;
 			}
@@ -846,7 +846,7 @@ static int assert_source_filter(struct sdp_session *session)
 					source_filter->spec.dst_addr,
 					sizeof(source_filter->spec.dst_addr))) {
 				test_log("%s(): bad source-filter dst-addr: %s\n",
-					__FUNCTION__,
+					__func__,
 					source_filter->spec.dst_addr);
 				return -1;
 			}
@@ -857,7 +857,7 @@ static int assert_source_filter(struct sdp_session *session)
 					sizeof(
 					source_filter->spec.src_list.addr))) {
 				test_log("%s(): bad source-filter src-addr: %s\n",
-					__FUNCTION__,
+					__func__,
 					source_filter->spec.src_list.addr);
 				return -1;
 			}
@@ -865,7 +865,7 @@ static int assert_source_filter(struct sdp_session *session)
 			/* assert source-filter has a single src addr */
 			if (source_filter->spec.src_list.next) {
 				test_log("%s() bad source_filter src_list.next "
-					"pointer: %p\n", __FUNCTION__,
+					"pointer: %p\n", __func__,
 					source_filter->spec.src_list.next);
 				return -1;
 			}
@@ -873,7 +873,7 @@ static int assert_source_filter(struct sdp_session *session)
 			/* assert source-filter has a single src addr */
 			if (source_filter->spec.src_list_len != 1) {
 				test_log("%s() bad source_filter src_list_len: "
-					"%d", __FUNCTION__,
+					"%d", __func__,
 					source_filter->spec.src_list_len);
 				return -1;
 			}
@@ -882,13 +882,13 @@ static int assert_source_filter(struct sdp_session *session)
 
 		if (cnt_a != 1) {
 			test_log("%s() Wrong number of source-filter attributes: "
-				"%d\n", __FUNCTION__, cnt_a);
+				"%d\n", __func__, cnt_a);
 			return -1;
 		}
 	}
 
 	if (cnt_m != 2) {
-		test_log("%s() Wrong number of media clauses: %d\n", __FUNCTION__,
+		test_log("%s() Wrong number of media clauses: %d\n", __func__,
 			cnt_m);
 		return -1;
 	}
@@ -945,7 +945,7 @@ static int assert_mid(struct sdp_session *session)
 		int cnt_a;
 
 		if (1 < cnt_m) {
-			test_log("%s(): excess media clauses\n", __FUNCTION__);
+			test_log("%s(): excess media clauses\n", __func__);
 			return -1;
 		}
 
@@ -961,14 +961,14 @@ static int assert_mid(struct sdp_session *session)
 			if (0 < cnt_a) {
 				test_log("%s(): excess media stream "
 					"identification attributes\n",
-					__FUNCTION__);
+					__func__);
 				return -1;
 			}
 
 			/* assert attribute type */
 			if (attr->type != SDP_ATTR_MID) {
 				test_log("%s(): bad attr type: %d\n",
-					__FUNCTION__, attr->type);
+					__func__, attr->type);
 				return -1;
 			}
 
@@ -979,7 +979,7 @@ static int assert_mid(struct sdp_session *session)
 					identification_tag[cnt_m],
 					strlen(mid->identification_tag))) {
 				test_log("%s(): bad identification tag: %s\n",
-					__FUNCTION__, mid->identification_tag);
+					__func__, mid->identification_tag);
 				return -1;
 			}
 
@@ -987,14 +987,14 @@ static int assert_mid(struct sdp_session *session)
 
 		if (cnt_a != 1) {
 			test_log("%s() Wrong number of media steram "
-				"identification attributes: %d\n", __FUNCTION__,
+				"identification attributes: %d\n", __func__,
 				cnt_a);
 			return -1;
 		}
 	}
 
 	if (cnt_m != 2) {
-		test_log("%s() Wrong number of media clauses: %d\n", __FUNCTION__,
+		test_log("%s() Wrong number of media clauses: %d\n", __func__,
 			cnt_m);
 		return -1;
 	}
@@ -1055,13 +1055,13 @@ static int assert_group(struct sdp_session *session)
 
 		if (0 < cnt_a) {
 			test_log("%s(): excess media stream group attributes\n",
-				__FUNCTION__);
+				__func__);
 			return -1;
 		}
 
 		/* assert attribute type */
 		if (attr->type != SDP_ATTR_GROUP) {
-			test_log("%s(): bad attr type: %d\n", __FUNCTION__,
+			test_log("%s(): bad attr type: %d\n", __func__,
 				attr->type);
 			return -1;
 		}
@@ -1070,14 +1070,14 @@ static int assert_group(struct sdp_session *session)
 
 		/* assert that group semantic is "DUP" */
 		if (strncmp(group->semantic, "DUP", strlen("DUP"))) {
-			test_log("%s(): bad group semantic: %s\n", __FUNCTION__,
+			test_log("%s(): bad group semantic: %s\n", __func__,
 				group->semantic);
 			return -1;
 		}
 
 		/* assert that number of tags in group is 2 */
 		if (group->num_tags != 2) {
-			test_log("%s(): bad number of tags: %d\n", __FUNCTION__,
+			test_log("%s(): bad number of tags: %d\n", __func__,
 				group->num_tags);
 			return -1;
 		}
@@ -1089,7 +1089,7 @@ static int assert_group(struct sdp_session *session)
 					identification_tag[i],
 					strlen(identification_tag[i]))) {
 				test_log("%s(): bad group identification tag: "
-					"%s\n", __FUNCTION__,
+					"%s\n", __func__,
 					tag->identification_tag);
 				return -1;
 			}
@@ -1098,7 +1098,7 @@ static int assert_group(struct sdp_session *session)
 		/* assert that there are no excess tags */
 		if (tag) {
 			test_log("%s(): last group identification tag points to "
-				"dangling location: %p", __FUNCTION__, tag);
+				"dangling location: %p", __func__, tag);
 			return -1;
 		}
 	}
@@ -1106,7 +1106,7 @@ static int assert_group(struct sdp_session *session)
 	/* assert a single media group attribute */
 	if (cnt_a != 1) {
 		test_log("%s() Wrong number of media steram group attributes: "
-			"attributes: %d\n", __FUNCTION__, cnt_a);
+			"attributes: %d\n", __func__, cnt_a);
 		return -1;
 	}
 
@@ -1120,7 +1120,7 @@ static int assert_no_group(struct sdp_session *session)
 	attr = sdp_session_attr_get(session, SDP_ATTR_GROUP);
 	if (attr) {
 		test_log("%s(): found non existing media group identification\n",
-			__FUNCTION__);
+			__func__);
 		return -1;
 	}
 
@@ -1353,7 +1353,8 @@ REG_TEST(test026, "FAIL - SDP with smpte2110 interpretation/restrictions")
 REG_TEST(test_rtpmap_payload_type_1, "FAIL - smpte2110 rtpmap payload type is not an int")
 {
 	char* content =
-		"v=0\nt=0 0\n"
+		"v=0\n"
+		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 100\n"
 		"a=rtpmap:xxx L8/10000\n";
 	return test_generic_smpte2110_get_error(content, SDP_PARSE_ERROR);
@@ -1362,7 +1363,8 @@ REG_TEST(test_rtpmap_payload_type_1, "FAIL - smpte2110 rtpmap payload type is no
 REG_TEST(test_rtpmap_payload_type_2, "FAIL - smpte2110 rtpmap payload type - not found")
 {
 	char* content =
-		"v=0\nt=0 0\n"
+		"v=0\n"
+		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 101 102 104\n"
 		"a=rtpmap:101 L8/10000\n"
 		"a=rtpmap:102 L8/10000\n"
@@ -1373,7 +1375,9 @@ REG_TEST(test_rtpmap_payload_type_2, "FAIL - smpte2110 rtpmap payload type - not
 REG_TEST(test_rtpmap_payload_type_3, "PASS - smpte2110 rtpmap payload type - match eventually")
 {
 	char* content =
-		"v=0\nt=0 0\n"
+		"v=0\n"
+		"s=Testing rtpmap payload type 3\n"
+		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 101 105 104 102\n"
 		"a=rtpmap:101 L8/10000\n"
 		"a=rtpmap:102 L8/10000\n"
@@ -1387,7 +1391,9 @@ REG_TEST(test_rtpmap_payload_type_3, "PASS - smpte2110 rtpmap payload type - mat
 REG_TEST(test_rtpmap_payload_type_4, "PASS - smpte2110 rtpmap payload type - 0")
 {
 	char* content =
-		"v=0\nt=0 0\n"
+		"v=0\n"
+		"s=Testing rtpmap payload type 4\n"
+		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 0\n";
 	return test_generic_smpte2110_get_error(content, SDP_PARSE_OK);
 }
@@ -1418,7 +1424,8 @@ REG_TEST(test_rtpmap_bit_depth_2, "FAIL - smpte2110 rtpmap bit-depth not startin
 REG_TEST(test_rtpmap_bit_depth_3, "FAIL - smpte2110 rtpmap bit-depth not int")
 {
 	char* content =
-		"v=0\nt=0 0\n"
+		"v=0\n"
+		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 100\n"
 		"a=rtpmap:100 Lbc/10000\n";
 	return test_generic(content, SDP_PARSE_ERROR, NULL, smpte2110);
@@ -1427,7 +1434,8 @@ REG_TEST(test_rtpmap_bit_depth_3, "FAIL - smpte2110 rtpmap bit-depth not int")
 REG_TEST(test_rtpmap_bit_depth_4, "FAIL - smpte2110 rtpmap bit-depth 0")
 {
 	char* content =
-		"v=0\nt=0 0\n"
+		"v=0\n"
+		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 100\n"
 		"a=rtpmap:100 L0/10000\n";
 	return test_generic(content, SDP_PARSE_ERROR, NULL, smpte2110);
@@ -1439,7 +1447,8 @@ REG_TEST(test_rtpmap_bit_depth_4, "FAIL - smpte2110 rtpmap bit-depth 0")
 REG_TEST(test_rtpmap_clock_rate_1, "FAIL - rtpmap clock-rate not specified")
 {
 	char* content =
-		"v=0\nt=0 0\n"
+		"v=0\n"
+		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 100\n"
 		"a=rtpmap:100 L24/\n";
 	return test_generic(content, SDP_PARSE_ERROR, NULL, no_specific);
@@ -1448,7 +1457,8 @@ REG_TEST(test_rtpmap_clock_rate_1, "FAIL - rtpmap clock-rate not specified")
 REG_TEST(test_rtpmap_clock_rate_2, "FAIL - rtpmap clock-rate not int")
 {
 	char* content =
-		"v=0\nt=0 0\n"
+		"v=0\n"
+		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 100\n"
 		"a=rtpmap:100 L24/abc\n";
 	return test_generic(content, SDP_PARSE_ERROR, NULL, no_specific);
@@ -1457,7 +1467,8 @@ REG_TEST(test_rtpmap_clock_rate_2, "FAIL - rtpmap clock-rate not int")
 REG_TEST(test_rtpmap_clock_rate_3, "FAIL - rtpmap clock-rate 0")
 {
 	char* content =
-		"v=0\nt=0 0\n"
+		"v=0\n"
+		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 100\n"
 		"a=rtpmap:100 L24/0\n";
 	return test_generic(content, SDP_PARSE_ERROR, NULL, no_specific);
@@ -1469,7 +1480,8 @@ REG_TEST(test_rtpmap_clock_rate_3, "FAIL - rtpmap clock-rate 0")
 REG_TEST(test_rtpmap_num_channels_1, "FAIL - smpte2110 rtpmap num channels not int")
 {
 	char* content =
-		"v=0\nt=0 0\n"
+		"v=0\n"
+		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 100\n"
 		"a=rtpmap:100 L24/10000/abc\n";
 	return test_generic_smpte2110_get_error(content, SDP_PARSE_ERROR);
@@ -1478,7 +1490,8 @@ REG_TEST(test_rtpmap_num_channels_1, "FAIL - smpte2110 rtpmap num channels not i
 REG_TEST(test_rtpmap_num_channels_2, "FAIL - smpte2110 rtpmap num channels 0")
 {
 	char* content =
-		"v=0\nt=0 0\n"
+		"v=0\n"
+		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 100\n"
 		"a=rtpmap:100 L24/10000/0\n";
 	return test_generic_smpte2110_get_error(content, SDP_PARSE_ERROR);
@@ -1487,7 +1500,9 @@ REG_TEST(test_rtpmap_num_channels_2, "FAIL - smpte2110 rtpmap num channels 0")
 REG_TEST(test_rtpmap_num_channels_3, "PASS - smpte2110 rtpmap num channels empty string")
 {
 	char* content =
-		"v=0\nt=0 0\n"
+		"v=0\n"
+		"s=Testing rtpmap num channels 3\n"
+		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 100\n"
 		"a=rtpmap:100 L24/10000/\n";
 
@@ -1499,7 +1514,9 @@ REG_TEST(test_rtpmap_num_channels_3, "PASS - smpte2110 rtpmap num channels empty
 REG_TEST(test_rtpmap_num_channels_4, "PASS - smpte2110 rtpmap num channels default (NULL)")
 {
 	char* content =
-		"v=0\nt=0 0\n"
+		"v=0\n"
+		"s=Testing rtpmap num channels 4\n"
+		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 100\n"
 		"a=rtpmap:100 L24/10000\n";
 
@@ -1511,7 +1528,9 @@ REG_TEST(test_rtpmap_num_channels_4, "PASS - smpte2110 rtpmap num channels defau
 REG_TEST(test_rtpmap_num_channels_5, "PASS - smpte2110 rtpmap num channels specified.")
 {
 	char* content =
-		"v=0\nt=0 0\n"
+		"v=0\n"
+		"s=Testing rtpmap num channels 5\n"
+		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 100\n"
 		"a=rtpmap:100 L24/10000/4\n";
 
@@ -1526,7 +1545,8 @@ REG_TEST(test_rtpmap_num_channels_5, "PASS - smpte2110 rtpmap num channels speci
 REG_TEST(test_ptime_1, "FAIL - smpte2110 ptime not specified.")
 {
 	char* content =
-		"v=0\nt=0 0\n"
+		"v=0\n"
+		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 100\n"
 		"a=ptime:\n";
 	return test_generic(content, SDP_PARSE_ERROR, NULL, no_specific);
@@ -1535,7 +1555,8 @@ REG_TEST(test_ptime_1, "FAIL - smpte2110 ptime not specified.")
 REG_TEST(test_ptime_2, "FAIL - smpte2110 ptime not int.")
 {
 	char* content =
-		"v=0\nt=0 0\n"
+		"v=0\n"
+		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 100\n"
 		"a=ptime:xxx\n";
 	return test_generic(content, SDP_PARSE_ERROR, NULL, no_specific);
@@ -1544,7 +1565,8 @@ REG_TEST(test_ptime_2, "FAIL - smpte2110 ptime not int.")
 REG_TEST(test_ptime_3, "FAIL - smpte2110 ptime 0.")
 {
 	char* content =
-		"v=0\nt=0 0\n"
+		"v=0\n"
+		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 100\n"
 		"a=ptime:0\n";
 	return test_generic(content, SDP_PARSE_ERROR, NULL, no_specific);
@@ -1553,7 +1575,9 @@ REG_TEST(test_ptime_3, "FAIL - smpte2110 ptime 0.")
 REG_TEST(test_ptime_4, "PASS - smpte2110 ptime int.")
 {
 	char* content =
-		"v=0\nt=0 0\n"
+		"v=0\n"
+		"s=Testing ptime 4\n"
+		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 100\n"
 		"a=ptime:100\n";
 	init_session_validator();
@@ -1564,7 +1588,9 @@ REG_TEST(test_ptime_4, "PASS - smpte2110 ptime int.")
 REG_TEST(test_ptime_5, "PASS - smpte2110 ptime double.")
 {
 	char* content =
-		"v=0\nt=0 0\n"
+		"v=0\n"
+		"s=Testing ptime 5\n"
+		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 100\n"
 		"a=ptime:99.5123\n";
 	init_session_validator();
