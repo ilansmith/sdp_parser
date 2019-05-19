@@ -468,12 +468,16 @@ static int sdp_parse(struct sdp_extractor *e, void *sdp,
 	}
 
 	/* extract source address and destination address/port */
-	if (extract_networking_info(e))
+	if (extract_networking_info(e)) {
+		sdp_extractor_err("failed to parse networking info");
 		return -1;
+	}
 
 	/* extract packet size and rate */
-	if (extract_stream_params(e, 0))
+	if (extract_stream_params(e, 0)) {
+		sdp_extractor_err("failed to parse stream parameters");
 		return -1;
+	}
 
 	return 0;
 }
