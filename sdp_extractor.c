@@ -40,23 +40,57 @@ struct pgroup_info {
 	int coverage;
 };
 
+enum rm_media_type {
+	RM_MEDIA_TYPE_UNKNOWN,
+	RM_MEDIA_TYPE_VIDEO_2110_20,
+	RM_MEDIA_TYPE_VIDEO_2022_06,
+	RM_MEDIA_TYPE_AUDIO,
+	RM_MEDIA_TYPE_ANCILLARY
+};
+
+struct media_attribute_video {
+	int packet_size;
+	double rate;
+	uint16_t width;
+	uint16_t height;
+	enum smpte_2110_colorimetry colorimetry;
+	int is_rate_integer;
+	enum smpte_2110_pm pm;
+	int npackets;
+	double fps;
+	enum smpte_2110_tp type;
+	enum smpte_2110_signal signal;
+};
+
+struct media_attribute_audio {
+	int bit_depth;
+	int num_channels;
+	double ptime;
+};
+
+struct media_attribute_ancillary {
+	int dummy;
+};
+
+struct media_attribute {
+	char addr_src[IP_MAX_HDR_LEN + 1];
+	char addr_dst[IP_MAX_HDR_LEN + 1];
+	uint16_t port_dst;
+	uint8_t ttl;
+	uint32_t clock_rate;
+	enum rm_media_type media_type;
+	union {
+		struct media_attribute_video video;
+		struct media_attribute_audio audio;
+		struct media_attribute_ancillary anc;
+	} type;
+};
+
 struct sdp_extractor {
 	struct sdp_session *session;
 
 	int stream_num;
-	enum smpte_2110_pm pm[MAX_STRMS_PER_RING];
-	char addr_src[MAX_STRMS_PER_RING][IP_MAX_HDR_LEN + 1];
-	char addr_dst[MAX_STRMS_PER_RING][IP_MAX_HDR_LEN + 1];
-	uint16_t port_dst[MAX_STRMS_PER_RING];
-
-	int packet_size[MAX_STRMS_PER_RING];
-	double rate[MAX_STRMS_PER_RING]; /* Bytes per second */
-	int is_rate_integer[MAX_STRMS_PER_RING];
-	int npackets[MAX_STRMS_PER_RING];
-	double fps[MAX_STRMS_PER_RING];
-
-	enum smpte_2110_tp type[MAX_STRMS_PER_RING];
-	enum smpte_2110_signal signal[MAX_STRMS_PER_RING];
+	struct media_attribute attributes[MAX_STRMS_PER_RING];
 };
 
 static void sdp_extractor_out(char *level, char *fmt, va_list va)
@@ -68,28 +102,6 @@ static void sdp_extractor_out(char *level, char *fmt, va_list va)
 }
 
 SDP_EXTRACTOR_OUT(err, "error")
-
-static struct smpte2110_media_attr_fmtp_params *extract_fmtp_attr_params(
-		struct sdp_session *session, struct sdp_media **media)
-{
-	struct sdp_attr *fmtp_attr;
-	struct sdp_attr_value_fmtp *fmtp_value;
-
-	*media = *media ? sdp_media_get_next(*media) :
-		sdp_media_get(session, SDP_MEDIA_TYPE_VIDEO);
-
-	if (!*media)
-		return NULL;
-
-	fmtp_attr = sdp_media_attr_get(*media, SDP_ATTR_FMTP);
-	if (!fmtp_attr) {
-		sdp_extractor_err("no a=fmtp found for video media");
-		return NULL;
-	}
-
-	fmtp_value = &fmtp_attr->value.fmtp;
-	return (struct smpte2110_media_attr_fmtp_params*)fmtp_value->params.as.as_ptr;
-}
 
 static int extract_dup_num(struct sdp_extractor *e)
 {
@@ -121,18 +133,6 @@ static int extract_dup_num(struct sdp_extractor *e)
 	return count_m;
 }
 
-static int extract_pm(struct sdp_extractor *e)
-{
-	struct sdp_media *media = NULL;
-	struct smpte2110_media_attr_fmtp_params *fmtp_params;
-	int i = 0;
-
-	while ((fmtp_params = extract_fmtp_attr_params(e->session, &media)))
-		e->pm[i++] = fmtp_params->pm;
-
-	return i == e->stream_num ? 0 : -1;
-}
-
 static struct sdp_connection_information *get_connection_information(
 		struct sdp_session *session, struct sdp_media *media) {
 	if (media->c.count)
@@ -158,7 +158,7 @@ static int extract_networking_info(struct sdp_extractor *e)
 		source_filter_attr =
 			sdp_media_attr_get(media, SDP_ATTR_SOURCE_FILTER);
 		if (source_filter_attr) {
-			strncpy(e->addr_src[i],
+			strncpy(e->attributes[i].addr_src,
 				source_filter_attr->value.source_filter.spec.src_list.addr,
 				IP_MAX_HDR_LEN);
 		}
@@ -175,8 +175,8 @@ static int extract_networking_info(struct sdp_extractor *e)
 			return -1;
 		}
 
-		strncpy(e->addr_dst[i], c->sdp_ci_addr, IP_MAX_HDR_LEN);
-		e->port_dst[i] = media->m.port;
+		strncpy(e->attributes[i].addr_dst, c->sdp_ci_addr, IP_MAX_HDR_LEN);
+		e->attributes[i].port_dst = media->m.port;
 	}
 
 	return 0;
@@ -312,45 +312,126 @@ static int extract_packet_info(
 	return 0;
 }
 
-static int extract_stream_params(struct sdp_extractor *e, int npackets)
+static int extract_2110_20_params(struct sdp_session *session,
+		struct sdp_media *media, struct media_attribute *attributes,
+		int i, int npackets)
+{
+	struct sdp_attr *attr;
+	struct sdp_connection_information *c;
+
+	c = get_connection_information(session, media);
+	if (!c) {
+		sdp_extractor_err("no connection information for stream %d", i);
+		return -1;
+	}
+
+	attributes[i].media_type = RM_MEDIA_TYPE_VIDEO_2110_20;
+	for (attr = media->a; attr; attr = attr->next) {
+		if (attr->type == SDP_ATTR_FMTP) {
+			struct smpte2110_media_attr_fmtp_params *fmtp_params =
+				(struct smpte2110_media_attr_fmtp_params*)
+				attr->value.fmtp.params.as.as_ptr;
+
+			attributes[i].type.video.colorimetry =
+				fmtp_params->colorimetry;
+			attributes[i].type.video.width = fmtp_params->width;
+			attributes[i].type.video.height = fmtp_params->height;
+			attributes[i].type.video.pm = fmtp_params->pm;
+
+			attributes[i].type.video.npackets = npackets;
+			if (extract_packet_info(fmtp_params, c,
+					&attributes[i].type.video.npackets,
+					&attributes[i].type.video.packet_size)) {
+				attributes[i].type.video.npackets = 0;
+				attributes[i].type.video.packet_size = 0;
+				return -1;
+			}
+			attributes[i].type.video.is_rate_integer =
+				fmtp_params->exactframerate.is_integer;
+			attributes[i].type.video.fps =
+				(double)fmtp_params->exactframerate.nominator;
+			if (!attributes[i].type.video.is_rate_integer) {
+				attributes[i].type.video.fps /=
+					FPS_NON_INT_DEMONINATOR;
+			}
+
+			attributes[i].type.video.rate =
+				attributes[i].type.video.packet_size *
+				attributes[i].type.video.npackets *
+				attributes[i].type.video.fps * BYTE_SIZE;
+			attributes[i].type.video.type = fmtp_params->tp;
+			attributes[i].type.video.signal = fmtp_params->signal;
+		}
+	}
+	return 0;
+}
+
+static int extract_2110_30_params(struct sdp_session *session,
+		struct sdp_media *media, struct media_attribute *attributes,
+		int i)
+{
+	struct sdp_attr *attr;
+
+	NOT_IN_USE(session);
+
+	attributes[i].media_type = RM_MEDIA_TYPE_AUDIO;
+	for (attr = media->a; attr; attr = attr->next) {
+		if (attr->type == SDP_ATTR_RTPMAP) {
+			attributes[i].clock_rate =
+				attr->value.rtpmap.clock_rate;
+			attributes[i].type.audio.bit_depth =
+				attr->value.rtpmap.encoding_name.as.as_ll;
+			attributes[i].type.audio.num_channels =
+				attr->value.rtpmap.encoding_parameters.as.as_ll;
+		} else if (attr->type == SDP_ATTR_PTIME) {
+			attributes[i].type.audio.ptime =
+				attr->value.ptime.packet_time;
+		}
+	}
+	return 0;
+}
+
+int extract_2110_40_params(struct sdp_session *session, struct sdp_media *media,
+		struct media_attribute *attributes, int i)
+{
+	struct sdp_attr *attr;
+
+	NOT_IN_USE(session);
+
+	attributes[i].media_type = RM_MEDIA_TYPE_ANCILLARY;
+	for (attr = media->a; attr; attr = attr->next) {
+		if (attr->type == SDP_ATTR_RTPMAP) {
+			attributes[i].clock_rate =
+				attr->value.rtpmap.clock_rate;
+		} else if (attr->type == SDP_ATTR_FMTP) {
+			// TODO: DID_SDID / VPID_Code
+		}
+	}
+	return 0;
+}
+
+int extract_stream_params(struct sdp_extractor *e, int npackets)
 {
 	struct sdp_session *session = e->session;
-	struct sdp_media *media = NULL;
-	struct smpte2110_media_attr_fmtp_params *fmtp_params;
-	int i = 0;
+	struct sdp_media *media;
+	int i;
 
-	while (i < MAX_STRMS_PER_RING &&
-			(fmtp_params = extract_fmtp_attr_params(e->session,
-				&media))) {
-		struct sdp_connection_information *c;
-
-		c = get_connection_information(session, media);
-		if (!c) {
-			sdp_extractor_err("no connection information for "
-				"stream %d", i);
-			return -1;
-		}
-
-		e->npackets[i] = npackets;
-		if (extract_packet_info(fmtp_params, c, &e->npackets[i],
-				&e->packet_size[i])) {
-			e->npackets[i] = 0;
-			e->packet_size[i] = 0;
-			return -1;
-		}
-		e->fps[i] = (double)fmtp_params->exactframerate.nominator;
-		if (!fmtp_params->exactframerate.is_integer) {
-			e->fps[i] /= FPS_NON_INT_DEMONINATOR;
-			e->is_rate_integer[i] = 0;
+	for (media = session->media, i = 0; media; media = media->next, i++) {
+		if (media->m.fmt.specific_sub_type == SMPTE_SUB_TYPE_20) {
+			extract_2110_20_params(session, media, e->attributes, i,
+				npackets);
+		} else if (media->m.fmt.specific_sub_type ==
+				SMPTE_SUB_TYPE_30) {
+			extract_2110_30_params(session, media, e->attributes,
+				i);
+		} else if (media->m.fmt.specific_sub_type ==
+				SMPTE_SUB_TYPE_40) {
+			extract_2110_40_params(session, media, e->attributes,
+				i);
 		} else {
-			e->is_rate_integer[i] = 1;
+			sdp_extractor_err("unsupported media format");
+			return -1;
 		}
-
-		e->rate[i] = e->packet_size[i] * e->npackets[i] * e->fps[i] *
-			BYTE_SIZE;
-		e->type[i] = fmtp_params->tp;
-		e->signal[i] = fmtp_params->signal;
-		i++;
 	}
 
 	return i == e->stream_num ? 0 : -1;
@@ -386,10 +467,6 @@ static int sdp_parse(struct sdp_extractor *e, void *sdp,
 		return -1;
 	}
 
-	/* extract packaging mode */
-	if (extract_pm(e))
-		return -1;
-
 	/* extract source address and destination address/port */
 	if (extract_networking_info(e))
 		return -1;
@@ -422,7 +499,7 @@ int sdp_extractor_get_packaging_mode(sdp_extractor_t sdp_extractor, int dup)
 	if (e->stream_num < dup)
 		return -1;
 
-	return e->pm[dup];
+	return e->attributes[dup].type.video.pm;
 }
 
 char *sdp_extractor_get_src_ip(sdp_extractor_t sdp_extractor, int dup)
@@ -432,7 +509,8 @@ char *sdp_extractor_get_src_ip(sdp_extractor_t sdp_extractor, int dup)
 	if (e->stream_num < dup)
 		return NULL;
 
-	return *e->addr_src[dup] ? e->addr_src[dup] : "N/A";
+	return *e->attributes[dup].addr_src ?
+		e->attributes[dup].addr_src : "N/A";
 }
 
 char *sdp_extractor_get_dst_ip(sdp_extractor_t sdp_extractor, int dup)
@@ -442,7 +520,7 @@ char *sdp_extractor_get_dst_ip(sdp_extractor_t sdp_extractor, int dup)
 	if (e->stream_num < dup)
 		return NULL;
 
-	return e->addr_dst[dup];
+	return e->attributes[dup].addr_dst;
 }
 
 uint16_t sdp_extractor_get_dst_port(sdp_extractor_t sdp_extractor, int dup)
@@ -452,7 +530,7 @@ uint16_t sdp_extractor_get_dst_port(sdp_extractor_t sdp_extractor, int dup)
 	if (e->stream_num < dup)
 		return -1;
 
-	return e->port_dst[dup];
+	return e->attributes[dup].port_dst;
 }
 
 int sdp_extractor_get_packet_size(sdp_extractor_t sdp_extractor, int dup)
@@ -462,7 +540,7 @@ int sdp_extractor_get_packet_size(sdp_extractor_t sdp_extractor, int dup)
 	if (e->stream_num < dup)
 		return -1;
 
-	return e->packet_size[dup];
+	return e->attributes[dup].type.video.packet_size;
 }
 
 double sdp_extractor_get_rate(sdp_extractor_t sdp_extractor, int dup)
@@ -472,7 +550,7 @@ double sdp_extractor_get_rate(sdp_extractor_t sdp_extractor, int dup)
 	if (e->stream_num < dup)
 		return -1;
 
-	return e->rate[dup];
+	return e->attributes[dup].type.video.rate;
 }
 
 int sdp_extractor_get_is_rate_integer(sdp_extractor_t sdp_extractor, int dup)
@@ -482,7 +560,7 @@ int sdp_extractor_get_is_rate_integer(sdp_extractor_t sdp_extractor, int dup)
 	if (e->stream_num < dup)
 		return -1;
 
-	return e->is_rate_integer[dup];
+	return e->attributes[dup].type.video.is_rate_integer;
 }
 
 int sdp_extractor_get_npackets(sdp_extractor_t sdp_extractor, int dup)
@@ -492,7 +570,7 @@ int sdp_extractor_get_npackets(sdp_extractor_t sdp_extractor, int dup)
 	if (e->stream_num < dup)
 		return -1;
 
-	return e->npackets[dup];
+	return e->attributes[dup].type.video.npackets;
 }
 
 double sdp_extractor_get_fps(sdp_extractor_t sdp_extractor, int dup)
@@ -502,7 +580,7 @@ double sdp_extractor_get_fps(sdp_extractor_t sdp_extractor, int dup)
 	if (e->stream_num < dup)
 		return -1;
 
-	return e->fps[dup];
+	return e->attributes[dup].type.video.fps;
 }
 
 int sdp_extractor_get_type(sdp_extractor_t sdp_extractor, int dup)
@@ -512,7 +590,7 @@ int sdp_extractor_get_type(sdp_extractor_t sdp_extractor, int dup)
 	if (e->stream_num < dup)
 		return -1;
 
-	return e->type[dup];
+	return e->attributes[dup].type.video.type;
 }
 
 int sdp_extractor_get_signal(sdp_extractor_t sdp_extractor, int dup)
@@ -522,7 +600,7 @@ int sdp_extractor_get_signal(sdp_extractor_t sdp_extractor, int dup)
 	if (e->stream_num < dup)
 		return -1;
 
-	return e->signal[dup];
+	return e->attributes[dup].type.video.signal;
 }
 
 int sdp_extractor_set_npackets(sdp_extractor_t sdp_extractor, int npackets)
