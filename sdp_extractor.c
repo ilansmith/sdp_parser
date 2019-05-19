@@ -117,10 +117,8 @@ static int extract_dup_num(struct sdp_extractor *e)
 		dup_num = group_attr->value.group.num_tags;
 
 	/* count m= blocks */
-	for (media = sdp_media_get(session, SDP_MEDIA_TYPE_VIDEO);
-			media; media = sdp_media_get_next(media)) {
+	for (media = session->media; media; media = media->next)
 		count_m++;
-	}
 
 	/* assert that number of m= blocks is equals dup_num */
 	if (dup_num && count_m != dup_num) {
@@ -150,8 +148,7 @@ static int extract_networking_info(struct sdp_extractor *e)
 	struct sdp_media *media;
 	int i;
 
-	for (media = sdp_media_get(session, SDP_MEDIA_TYPE_VIDEO), i = 0;
-			media; media = sdp_media_get_next(media), i++) {
+	for (media = session->media, i = 0; media; media = media->next, i++) {
 		struct sdp_attr *source_filter_attr;
 		struct sdp_connection_information *c;
 
