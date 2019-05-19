@@ -821,11 +821,11 @@ enum sdp_parse_err smpte2110_30_parse_channel_order(
 static int get_required_attr_mask(enum smpte_2110_media_sub_type sub_type)
 {
 	switch (sub_type) {
-	case SMPTE_SUB_TYPE_20:
+	case SMPTE_2110_SUB_TYPE_20:
 		return (1 << SDP_ATTR_FMTP);
-	case SMPTE_SUB_TYPE_30:
+	case SMPTE_2110_SUB_TYPE_30:
 		return 0;
-	case SMPTE_SUB_TYPE_40:
+	case SMPTE_2110_SUB_TYPE_40:
 		return 0;
 	default:
 		return 0;
@@ -887,13 +887,13 @@ static enum sdp_parse_err smpte2110_parse_rtpmap_encoding_name(
 
 	if (media->m.type == SDP_MEDIA_TYPE_VIDEO) {
 		if (!strcmp(input, "raw"))
-			*sub_type = SMPTE_SUB_TYPE_20;
+			*sub_type = SMPTE_2110_SUB_TYPE_20;
 		else if (!strcmp(input, "smpte291"))
-			*sub_type = SMPTE_SUB_TYPE_40;
+			*sub_type = SMPTE_2110_SUB_TYPE_40;
 	} else if (media->m.type == SDP_MEDIA_TYPE_AUDIO) {
 		if (!strncmp(input, "L16", strlen("L16")) ||
 		    !strncmp(input, "L24", strlen("L24"))) {
-			*sub_type = SMPTE_SUB_TYPE_30;
+			*sub_type = SMPTE_2110_SUB_TYPE_30;
 			return smpte2110_30_parse_bit_width(field, input);
 		}
 	}
@@ -907,7 +907,7 @@ static enum sdp_parse_err smpte2110_parse_rtpmap_encoding_parameters(
 	int sub_type = attr->value.rtpmap.fmt->specific_sub_type;
 
 	NOT_IN_USE(media);
-	if (sub_type == SMPTE_SUB_TYPE_30)
+	if (sub_type == SMPTE_2110_SUB_TYPE_30)
 		return smpte2110_30_parse_num_channels(field, input);
 	return sdp_parse_field_default(field, input);
 }
@@ -919,9 +919,9 @@ static enum sdp_parse_err smpte2110_parse_fmtp_params(
 	int sub_type = attr->value.fmtp.fmt->specific_sub_type;
 
 	NOT_IN_USE(media);
-	if (sub_type == SMPTE_SUB_TYPE_20)
+	if (sub_type == SMPTE_2110_SUB_TYPE_20)
 		return smpte2110_20_parse_fmtp_params(field, input);
-	if (sub_type == SMPTE_SUB_TYPE_40)
+	if (sub_type == SMPTE_2110_SUB_TYPE_40)
 		return smpte2110_40_parse_fmtp_params(field, input);
 	return sdp_parse_field_default(field, input);
 }
@@ -931,7 +931,7 @@ static enum sdp_parse_err smpte2110_validate_media(struct sdp_media *media)
 	struct sdp_media_fmt *fmt;
 
 	for (fmt = &media->m.fmt; fmt; fmt = fmt->next) {
-		if (fmt->specific_sub_type == SMPTE_SUB_TYPE_UNKNOWN) {
+		if (fmt->specific_sub_type == SMPTE_2110_SUB_TYPE_UNKNOWN) {
 			sdperr("no valid smpte2110 sub type was recognized for format %u",
 					fmt->id);
 			return SDP_PARSE_NOT_SUPPORTED;

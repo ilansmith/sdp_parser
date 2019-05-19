@@ -11,10 +11,10 @@ extern "C" {
 /* media-level attributes */
 
 enum smpte_2110_media_sub_type {
-	SMPTE_SUB_TYPE_UNKNOWN,
-	SMPTE_SUB_TYPE_20,
-	SMPTE_SUB_TYPE_30,
-	SMPTE_SUB_TYPE_40,
+	SMPTE_2110_SUB_TYPE_UNKNOWN,
+	SMPTE_2110_SUB_TYPE_20,
+	SMPTE_2110_SUB_TYPE_30,
+	SMPTE_2110_SUB_TYPE_40,
 };
 
 enum smpte_2110_attr_param_err {
