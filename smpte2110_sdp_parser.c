@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "smpte2110_sdp_parser.h"
+#include "sdp_field.h"
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))

@@ -15,6 +15,7 @@
 
 #include "util.h"
 #include "sdp_parser.h"
+#include "sdp_field.h"
 
 #ifndef NOT_IN_USE
 #define NOT_IN_USE(a) ((void)(a))
