@@ -530,7 +530,8 @@ static int sdp_parse_fmt(struct sdp_media *media,
 			return 1;
 		}
 	}
-	sdperr("media format not found: %u", *field);
+	sdperr("media format not found: %u. Media formats are listed in m=\n",
+		fmt_id);
 	return 0;
 }
 

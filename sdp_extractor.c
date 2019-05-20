@@ -121,7 +121,7 @@ static int extract_dup_num(struct sdp_extractor *e)
 		count_m++;
 
 	/* assert that number of m= blocks is equals dup_num */
-	if (dup_num && count_m != dup_num) {
+	if (dup_num && count_m < dup_num) {
 		sdp_extractor_err("bad sdp format, dup num:%d, m= count:%d",
 			dup_num, count_m);
 
