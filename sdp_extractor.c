@@ -148,7 +148,8 @@ static int extract_networking_info(struct sdp_extractor *e)
 	struct sdp_media *media;
 	int i;
 
-	for (media = session->media, i = 0; media; media = media->next, i++) {
+	for (media = session->media, i = 0; media && (i < MAX_STRMS_PER_RING);
+			media = media->next, i++) {
 		struct sdp_attr *source_filter_attr;
 		struct sdp_connection_information *c;
 
@@ -411,27 +412,29 @@ int extract_stream_params(struct sdp_extractor *e, int npackets)
 {
 	struct sdp_session *session = e->session;
 	struct sdp_media *media;
+	int ret = 0;
 	int i;
 
-	for (media = session->media, i = 0; media; media = media->next, i++) {
+	for (media = session->media, i = 0; media && (i < e->stream_num);
+			media = media->next, i++) {
 		if (media->m.fmt.specific_sub_type == SMPTE_2110_SUB_TYPE_20) {
-			extract_2110_20_params(session, media, e->attributes, i,
-				npackets);
+			ret = extract_2110_20_params(session, media,
+				e->attributes, i, npackets);
 		} else if (media->m.fmt.specific_sub_type ==
 				SMPTE_2110_SUB_TYPE_30) {
-			extract_2110_30_params(session, media, e->attributes,
-				i);
+			ret = extract_2110_30_params(session, media,
+				e->attributes, i);
 		} else if (media->m.fmt.specific_sub_type ==
 				SMPTE_2110_SUB_TYPE_40) {
-			extract_2110_40_params(session, media, e->attributes,
-				i);
+			ret = extract_2110_40_params(session, media,
+				e->attributes, i);
 		} else {
 			sdp_extractor_err("unsupported media format");
-			return -1;
+			ret = -1;
 		}
 	}
 
-	return i == e->stream_num ? 0 : -1;
+	return ret;
 }
 
 static int sdp_parse(struct sdp_extractor *e, void *sdp,
@@ -453,7 +456,7 @@ static int sdp_parse(struct sdp_extractor *e, void *sdp,
 
 	/* extract number of dup sessions */
 	e->stream_num = extract_dup_num(e);
-	if (e->stream_num < 1) {
+	if (e->stream_num < 1 || MAX_STRMS_PER_RING < e->stream_num) {
 		sdp_extractor_err("no video streams found",
 			e->stream_num);
 		return -1;
