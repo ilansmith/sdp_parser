@@ -72,7 +72,7 @@ enum sdp_media_proto {
 
 struct sdp_media_fmt {
 	int id;
-	int specific_sub_type;
+	int sub_type;
 	struct sdp_media_fmt *next;
 };
 

@@ -417,15 +417,13 @@ int extract_stream_params(struct sdp_extractor *e, int npackets)
 
 	for (media = session->media, i = 0; media && (i < e->stream_num);
 			media = media->next, i++) {
-		if (media->m.fmt.specific_sub_type == SMPTE_2110_SUB_TYPE_20) {
+		if (media->m.fmt.sub_type == SMPTE_2110_SUB_TYPE_20) {
 			ret = extract_2110_20_params(session, media,
 				e->attributes, i, npackets);
-		} else if (media->m.fmt.specific_sub_type ==
-				SMPTE_2110_SUB_TYPE_30) {
+		} else if (media->m.fmt.sub_type == SMPTE_2110_SUB_TYPE_30) {
 			ret = extract_2110_30_params(session, media,
 				e->attributes, i);
-		} else if (media->m.fmt.specific_sub_type ==
-				SMPTE_2110_SUB_TYPE_40) {
+		} else if (media->m.fmt.sub_type == SMPTE_2110_SUB_TYPE_40) {
 			ret = extract_2110_40_params(session, media,
 				e->attributes, i);
 		} else {

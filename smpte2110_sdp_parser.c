@@ -859,7 +859,7 @@ static enum sdp_parse_err smpte2110_validate_required_attributes(
 	int required_attr_mask = 0;
 
 	for (fmt = &media->m.fmt; fmt; fmt = fmt->next) {
-		required_attr_mask = get_required_attr_mask(fmt->specific_sub_type);
+		required_attr_mask = get_required_attr_mask(fmt->sub_type);
 		for (attr = media->a; attr; attr = attr->next) {
 			if (attr_is_of_format(attr, fmt->id))
 				required_attr_mask &= ~(1 << attr->type);
@@ -884,7 +884,7 @@ static enum sdp_parse_err smpte2110_parse_rtpmap_encoding_name(
 		struct sdp_media *media, struct sdp_attr *attr,
 		struct interpretable *field, char *input)
 {
-	int *sub_type = &attr->value.rtpmap.fmt->specific_sub_type;
+	int *sub_type = &attr->value.rtpmap.fmt->sub_type;
 
 	if (media->m.type == SDP_MEDIA_TYPE_VIDEO) {
 		if (!strcmp(input, "raw"))
@@ -905,7 +905,7 @@ static enum sdp_parse_err smpte2110_parse_rtpmap_encoding_parameters(
 		struct sdp_media *media, struct sdp_attr *attr,
 		struct interpretable *field, char *input)
 {
-	int sub_type = attr->value.rtpmap.fmt->specific_sub_type;
+	int sub_type = attr->value.rtpmap.fmt->sub_type;
 
 	NOT_IN_USE(media);
 	if (sub_type == SMPTE_2110_SUB_TYPE_30)
@@ -917,7 +917,7 @@ static enum sdp_parse_err smpte2110_parse_fmtp_params(
 		struct sdp_media *media, struct sdp_attr *attr,
 		struct interpretable *field, char *input)
 {
-	int sub_type = attr->value.fmtp.fmt->specific_sub_type;
+	int sub_type = attr->value.fmtp.fmt->sub_type;
 
 	NOT_IN_USE(media);
 	if (sub_type == SMPTE_2110_SUB_TYPE_20)
@@ -932,7 +932,7 @@ static enum sdp_parse_err smpte2110_validate_media(struct sdp_media *media)
 	struct sdp_media_fmt *fmt;
 
 	for (fmt = &media->m.fmt; fmt; fmt = fmt->next) {
-		if (fmt->specific_sub_type == SMPTE_2110_SUB_TYPE_UNKNOWN) {
+		if (fmt->sub_type == SMPTE_2110_SUB_TYPE_UNKNOWN) {
 			sdperr("no valid smpte2110 sub type was recognized for format %u",
 					fmt->id);
 			return SDP_PARSE_NOT_SUPPORTED;
