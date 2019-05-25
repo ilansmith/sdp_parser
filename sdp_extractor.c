@@ -18,6 +18,8 @@
 		va_end(va); \
 	}
 
+#define ARRAY_SIZE(_arr_) (sizeof(_arr_) / sizeof(_arr_)[0])
+
 #define BYTE_SIZE 8
 #define BPM_OCTET_MULTIPLE 180 
 #define MAC_HDR_SIZE 14
@@ -90,6 +92,7 @@ struct sdp_extractor {
 	struct sdp_session *session;
 
 	int stream_num;
+	struct sdp_specific *parser;
 	struct media_attribute attributes[MAX_STRMS_PER_RING];
 };
 
@@ -408,49 +411,92 @@ int extract_2110_40_params(struct sdp_session *session, struct sdp_media *media,
 	return 0;
 }
 
+int extract_2022_6_params(struct sdp_session *session, struct sdp_media *media,
+		struct media_attribute *attributes, int i)
+{
+	struct sdp_attr *attr;
+
+	NOT_IN_USE(session);
+
+	attributes[i].media_type = RM_MEDIA_TYPE_VIDEO_2022_06;
+	for (attr = media->a; attr; attr = attr->next) {
+		if (attr->type == SDP_ATTR_FRAMERATE) {
+			attributes[i].type.video.fps =
+				attr->value.framerate.frame_rate;
+		}
+	}
+	return 0;
+}
+
 int extract_stream_params(struct sdp_extractor *e, int npackets)
 {
 	struct sdp_session *session = e->session;
 	struct sdp_media *media;
-	int ret = 0;
+	int ret = -2;
 	int i;
 
 	for (media = session->media, i = 0; media && (i < e->stream_num);
 			media = media->next, i++) {
-		if (media->m.fmt.sub_type == SMPTE_2110_SUB_TYPE_20) {
-			ret = extract_2110_20_params(session, media,
-				e->attributes, i, npackets);
-		} else if (media->m.fmt.sub_type == SMPTE_2110_SUB_TYPE_30) {
-			ret = extract_2110_30_params(session, media,
-				e->attributes, i);
-		} else if (media->m.fmt.sub_type == SMPTE_2110_SUB_TYPE_40) {
-			ret = extract_2110_40_params(session, media,
-				e->attributes, i);
-		} else {
-			sdp_extractor_err("unsupported media format");
-			ret = -1;
+		if (e->parser == smpte2110) {
+			if (media->m.fmt.sub_type == SMPTE_2110_SUB_TYPE_20) {
+				ret = extract_2110_20_params(session, media,
+					e->attributes, i, npackets);
+			} else if (media->m.fmt.sub_type ==
+					SMPTE_2110_SUB_TYPE_30) {
+				ret = extract_2110_30_params(session, media,
+					e->attributes, i);
+			} else if (media->m.fmt.sub_type ==
+					SMPTE_2110_SUB_TYPE_40) {
+				ret = extract_2110_40_params(session, media,
+					e->attributes, i);
+			} else {
+				sdp_extractor_err("unsupported media format");
+				ret = -1;
+			}
+		} else if (e->parser == smpte2022) {
+			if (media->m.fmt.sub_type == SMPTE_2022_SUB_TYPE_6)
+				ret = extract_2022_6_params(session, media,
+					e->attributes, i);
 		}
 	}
 
+	if (ret == -2)
+		sdp_extractor_err("unsupported media format");
 	return ret;
 }
 
 static int sdp_parse(struct sdp_extractor *e, void *sdp,
 		enum sdp_stream_type type)
 {
-	enum sdp_parse_err err;
+	struct sdp_session *session;
+	static struct sdp_specific *supported_parsers[2];
+	struct sdp_specific *parser;
+	int i;
 
-	e->session = sdp_parser_init(type, sdp);
-	if (!e->session) {
-		sdp_extractor_err("failed to parse sdp session");
-		return -1;
+	supported_parsers[0] = smpte2110;
+	supported_parsers[1] = smpte2022;
+
+	for (i = 0; i < ARRAY_SIZE(supported_parsers); i++) {
+		session = sdp_parser_init(type, sdp);
+		if (!session) {
+			sdp_extractor_err("failed to parse sdp session");
+			return -1;
+		}
+
+		parser = supported_parsers[i];
+		if (sdp_session_parse(session, parser) == SDP_PARSE_OK)
+			break;
+
+		sdp_parser_uninit(session);
 	}
 
-	err = sdp_session_parse(e->session, smpte2110);
-	if (err != SDP_PARSE_OK) {
+	if (i == ARRAY_SIZE(supported_parsers)) {
 		sdp_extractor_err("sdp parsing failed");
 		return -1;
 	}
+
+	e->session = session;
+	e->parser = parser;
 
 	/* extract number of dup sessions */
 	e->stream_num = extract_dup_num(e);
