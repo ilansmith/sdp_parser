@@ -882,21 +882,17 @@ static enum sdp_parse_err smpte2110_parse_fmtp_params(
 
 static enum sdp_parse_err smpte2110_validate_media(struct sdp_media *media)
 {
-	if (!sdp_validate_sub_types(media)) {
-		sdperr("no valid smpte 2110 sub type");
+	if (!sdp_validate_sub_types(media))
 		return SDP_PARSE_NOT_SUPPORTED;
-	}
 
-	if (!sdp_validate_required_attributes(media,
-			get_required_attr_mask)) {
-		sdperr("smpte 2110 format is missing required attribute(s)");
+	if (!sdp_validate_required_attributes(media, get_required_attr_mask))
 		return SDP_PARSE_ERROR;
-	}
 	return SDP_PARSE_OK;
 }
 
 static struct sdp_specific smpte2110_specific =
 {
+	"smpte2110",
 	smpte2110_sdp_parse_group,
 	smpte2110_parse_fmtp_params,
 	smpte2110_parse_rtpmap_encoding_name,

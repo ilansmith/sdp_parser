@@ -659,12 +659,11 @@ static enum sdp_parse_err sdp_parse_attr_ptime(struct sdp_media *media,
 	NOT_IN_USE(media);
 	NOT_IN_USE(params);
 	NOT_IN_USE(specific);
-	if (sdp_parse_float(&ptime->packet_time, value) != SDP_PARSE_OK) {
+
+	if (sdp_parse_float(&ptime->packet_time, value) != SDP_PARSE_OK)
 		return SDP_PARSE_ERROR;
-	}
-	if (ptime->packet_time == 0.0) {
+	if (ptime->packet_time == 0.0)
 		return sdprerr("invalid packet-time: %s", value);
-	}
 	return SDP_PARSE_OK;
 }
 
@@ -685,21 +684,12 @@ static enum sdp_parse_err sdp_parse_attr_mid(struct sdp_media *media,
 		struct sdp_specific *specific)
 {
 	struct sdp_attr_value_mid *mid = &attr->value.mid;
-	char *identification_tag;
-	NOT_IN_USE(params);
 	NOT_IN_USE(media);
+	NOT_IN_USE(params);
 	NOT_IN_USE(specific);
 
-	identification_tag = value;
-	if (!identification_tag) {
-		return SDP_PARSE_ERROR;
-	}
-
-	mid->identification_tag = strdup(value);
-	if (!mid->identification_tag) {
-		return sdprerr("failed to allocate memory for "
-			"identification_tag: %s", value);
-	}
+	if (sdp_parse_str(&mid->identification_tag, value) != SDP_PARSE_OK)
+		return sdprerr("parsing field: identification_tag");
 	return SDP_PARSE_OK;
 }
 
@@ -1020,7 +1010,8 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 			if (specific->validator) {
 				err = specific->validator(media);
 				if (err != SDP_PARSE_OK) {
-					sdperr("media validation failed");
+					sdperr("media validation failed for %s",
+							specific->name);
 					goto exit;
 				}
 			}

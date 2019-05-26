@@ -30,19 +30,16 @@ static enum sdp_parse_err smpte2022_parse_rtpmap_encoding_name(
 static enum sdp_parse_err smpte2022_validate_media(struct sdp_media *media)
 {
 
-	if (!sdp_validate_sub_types(media)) {
-		sdperr("no valid smpte 2022 sub type recognized");
+	if (!sdp_validate_sub_types(media))
 		return SDP_PARSE_NOT_SUPPORTED;
-	}
-	if (!sdp_validate_required_attributes(media, get_required_attr_mask)) {
-		sdperr("smpte 2022 format is missing required attribute(s)");
+	if (!sdp_validate_required_attributes(media, get_required_attr_mask))
 		return SDP_PARSE_ERROR;
-	}
 	return SDP_PARSE_OK;
 }
 
 static struct sdp_specific smpte2022_specific =
 {
+	"smpte2022",
 	NULL,
 	NULL,
 	smpte2022_parse_rtpmap_encoding_name,

@@ -2,15 +2,16 @@
 #include "sdp_parser.h"
 #include "sdp_field.h"
 
-static struct sdp_specific empty_specific = SDP_SPECIFIC_INIT;
+static struct sdp_specific empty_specific = SDP_SPECIFIC_INIT("no specific");
 
 struct sdp_specific *no_specific = &empty_specific;
 
-enum sdp_parse_err sdp_parse_type_verify(char *endptr, const char *input,
-	const char *expected_name)
+static enum sdp_parse_err sdp_parse_type_verify(char *endptr,
+		const char *input, const char *expected_name)
 {
 	if (*endptr) {
-		sdperr("invalid value '%s'. %s is expected.", input, expected_name);
+		sdperr("invalid value '%s'. %s is expected", input,
+				expected_name);
 		return SDP_PARSE_ERROR;
 	}
 	return SDP_PARSE_OK;
@@ -19,11 +20,11 @@ enum sdp_parse_err sdp_parse_type_verify(char *endptr, const char *input,
 enum sdp_parse_err sdp_parse_str(char **result, const char *input)
 {
 	if (!input)
-		return sdprerr("no value specified.");
+		return sdprerr("no value specified");
 	*result = strdup(input);
 	return (*result) ?
 		SDP_PARSE_OK :
-		sdprerr("memory allocation failed.");
+		sdprerr("memory allocation failed");
 }
 
 enum sdp_parse_err sdp_parse_int(int *result, const char *input)
@@ -31,7 +32,7 @@ enum sdp_parse_err sdp_parse_int(int *result, const char *input)
 	char *endptr;
 
 	if (!input)
-		return sdprerr("no value specified.");
+		return sdprerr("no value specified");
 	*result = strtol(input, &endptr, 10);
 	return sdp_parse_type_verify(endptr, input, "Integer");
 }
@@ -41,7 +42,7 @@ enum sdp_parse_err sdp_parse_long(long *result, const char *input)
 	char *endptr;
 
 	if (!input)
-		return sdprerr("no value specified.");
+		return sdprerr("no value specified");
 	*result = strtol(input, &endptr, 10);
 	return sdp_parse_type_verify(endptr, input, "Integer");
 }
@@ -51,7 +52,7 @@ enum sdp_parse_err sdp_parse_long_long(long long *result, const char *input)
 	char *endptr;
 
 	if (!input)
-		return sdprerr("no value specified.");
+		return sdprerr("no value specified");
 	*result = strtoll(input, &endptr, 10);
 	return sdp_parse_type_verify(endptr, input, "Integer");
 }
@@ -61,7 +62,7 @@ enum sdp_parse_err sdp_parse_float(float *result, const char *input)
 	char *endptr;
 
 	if (!input)
-		return sdprerr("no value specified.");
+		return sdprerr("no value specified");
 	*result = strtof(input, &endptr);
 	return sdp_parse_type_verify(endptr, input, "Number");
 }
@@ -71,7 +72,7 @@ enum sdp_parse_err sdp_parse_double(double *result, const char *input)
 	char *endptr;
 
 	if (!input)
-		return sdprerr("no value specified.");
+		return sdprerr("no value specified");
 	*result = strtod(input, &endptr);
 	return sdp_parse_type_verify(endptr, input, "Number");
 }
@@ -159,7 +160,7 @@ enum sdp_parse_err sdp_parse_field_default(struct interpretable *field,
 		char *input)
 {
 	if (!input) {
- 		field->as.as_ptr = NULL;
+		field->as.as_str = "";
 		return SDP_PARSE_OK;
  	}
 	field->dtor = free;
@@ -174,7 +175,6 @@ enum sdp_parse_err sdp_parse_field(struct sdp_media *media,
 	 * If a specific interpreter is used, pass the input as is.
 	 * Allow specific default value for NULL input (optional field).
 	 */
-	field->dtor = NULL;
 	if (specific_field_interpreter)
 		return specific_field_interpreter(media, attr, field, input);
 	return sdp_parse_field_default(field, input);

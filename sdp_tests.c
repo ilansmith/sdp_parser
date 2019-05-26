@@ -55,12 +55,26 @@ static int missing_required_fmtp_param(enum smpte_2110_attr_param_err missing)
 /******************************************************************************
                               Validator Functions
 ******************************************************************************/
+#define MAX_NUM_DID_SDIDS 10
+
+struct smpte2110_40_did_sdid_validator_info
+{
+	int code_1;
+	int code_2;
+};
+
+struct smpte2110_40_fmtp_validator_info
+{
+	struct smpte2110_40_did_sdid_validator_info dids[MAX_NUM_DID_SDIDS];
+	int vpid_code;
+};
+
 static int no_specific_fmtp(const struct sdp_attr *attr,
 		long long fmt, const char *params)
 {
 	return ASSERT_INT(attr->type, SDP_ATTR_FMTP) &&
-			ASSERT_INT(attr->value.fmtp.fmt->id, fmt) &&
-			ASSERT_STR(attr->value.fmtp.params.as.as_str, params);
+		ASSERT_INT(attr->value.fmtp.fmt->id, fmt) &&
+		ASSERT_STR(attr->value.fmtp.params.as.as_str, params);
 }
 
 static int no_specific_rtpmap(const struct sdp_attr *attr,
@@ -68,31 +82,52 @@ static int no_specific_rtpmap(const struct sdp_attr *attr,
 		long long clock_rate, const char *encoding_parameters)
 {
 	return ASSERT_INT(attr->type, SDP_ATTR_RTPMAP) &&
-			ASSERT_INT(attr->value.rtpmap.fmt->id, payload_type) &&
-			ASSERT_STR(attr->value.rtpmap.encoding_name.as.as_str,
-					encoding_name) &&
-			ASSERT_INT(attr->value.rtpmap.clock_rate, clock_rate) &&
-			ASSERT_STR(attr->value.rtpmap.encoding_parameters.as.as_str,
-					encoding_parameters);
+		ASSERT_INT(attr->value.rtpmap.fmt->id, payload_type) &&
+		ASSERT_STR(attr->value.rtpmap.encoding_name.as.as_str,
+				encoding_name) &&
+		ASSERT_INT(attr->value.rtpmap.clock_rate, clock_rate) &&
+		ASSERT_STR(attr->value.rtpmap.encoding_parameters.as.as_str,
+				encoding_parameters);
 }
 
 static inline int no_specific_ptime(const struct sdp_attr *attr,
 		double packet_time)
 {
 	return ASSERT_INT(attr->type, SDP_ATTR_PTIME) &&
-			ASSERT_FLT(attr->value.ptime.packet_time, packet_time);
+		ASSERT_FLT(attr->value.ptime.packet_time, packet_time);
 }
 
 static inline int smpte2110_rtpmap(const struct sdp_attr *attr,
-		long long payload_type, long long bit_width, long long clock_rate,
-		long long num_channels)
+		long long payload_type, long long bit_width,
+		long long clock_rate, long long num_channels)
 {
 	return ASSERT_INT(attr->type, SDP_ATTR_RTPMAP) &&
-			ASSERT_INT(attr->value.rtpmap.fmt->id, payload_type) &&
-			ASSERT_INT(attr->value.rtpmap.encoding_name.as.as_ll, bit_width) &&
-			ASSERT_INT(attr->value.rtpmap.clock_rate, clock_rate) &&
-			ASSERT_INT(attr->value.rtpmap.encoding_parameters.as.as_ll,
-					num_channels);
+		ASSERT_INT(attr->value.rtpmap.fmt->id, payload_type) &&
+		ASSERT_INT(attr->value.rtpmap.encoding_name.as.as_ll,
+				bit_width) &&
+		ASSERT_INT(attr->value.rtpmap.clock_rate, clock_rate) &&
+		ASSERT_INT(attr->value.rtpmap.encoding_parameters.as.as_ll,
+				num_channels);
+}
+
+static inline int smpte2110_40_fmtp(const struct sdp_attr *attr,
+		struct smpte2110_40_fmtp_validator_info *fv)
+{
+	struct smpte2110_40_fmtp_params *params =
+			(struct smpte2110_40_fmtp_params *)
+					attr->value.fmtp.params.as.as_ptr;
+	struct smpte2110_40_DID_SDID *did;
+	struct smpte2110_40_did_sdid_validator_info *dv;
+	int res = 1;
+	int d_cnt = 0;
+
+	for (did = params->DIDs; did; did = did->next) {
+		dv = &fv->dids[d_cnt++];
+		res &= ASSERT_INT(did->code_1, dv->code_1);
+		res &= ASSERT_INT(did->code_2, dv->code_2);
+	}
+	res &= ASSERT_INT(params->VPID_code, fv->vpid_code);
+	return res;
 }
 
 static inline int no_specific_framerate(const struct sdp_attr *attr,
@@ -114,6 +149,8 @@ int num_args(sdp_attr_func_ptr func) {
 		num_args = 1;
 	else if (func == (sdp_attr_func_ptr)smpte2110_rtpmap)
 		num_args = 4;
+	else if (func == (sdp_attr_func_ptr)smpte2110_40_fmtp)
+		num_args = 1;
 	return num_args;
 }
 
@@ -142,6 +179,8 @@ void set_attr_vinfo(int m_id, int a_id, sdp_attr_func_ptr func, int num_args, ..
 		av->args[1].as.as_ll = va_arg(vl, int);
 		av->args[2].as.as_ll = va_arg(vl, int);
 		av->args[3].as.as_ll = va_arg(vl, int);
+	} else if (func == (sdp_attr_func_ptr)smpte2110_40_fmtp) {
+		av->args[0].as.as_ptr = va_arg(vl, void*);
 	}
 	va_end(vl);
 }
@@ -152,19 +191,28 @@ int assert_attr(struct sdp_attr *attr, struct attr_validator_info *av)
 	if (av->func ==  NULL) {
 		res = 1;
 	} else if (av->func == (sdp_attr_func_ptr)no_specific_fmtp) {
-		res = no_specific_fmtp(attr, av->args[0].as.as_ll, av->args[1].as.as_str);
+		res = no_specific_fmtp(attr, av->args[0].as.as_ll,
+			av->args[1].as.as_str);
 	} else if (av->func == (sdp_attr_func_ptr)no_specific_rtpmap) {
-		res = no_specific_rtpmap(attr, av->args[0].as.as_ll, av->args[1].as.as_str,
-				av->args[2].as.as_ll, av->args[3].as.as_str);
+		res = no_specific_rtpmap(attr, av->args[0].as.as_ll,
+			av->args[1].as.as_str, av->args[2].as.as_ll,
+			av->args[3].as.as_str);
 	} else if (av->func == (sdp_attr_func_ptr)no_specific_ptime) {
 		res = no_specific_ptime(attr, av->args[0].as.as_d);
 	} else if (av->func == (sdp_attr_func_ptr)no_specific_framerate) {
 		res = no_specific_framerate(attr, av->args[0].as.as_d);
+	} else if (av->func == (sdp_attr_func_ptr)no_specific_framerate) {
+		res = no_specific_framerate(attr, av->args[0].as.as_d);
 	} else if (av->func == (sdp_attr_func_ptr)smpte2110_rtpmap) {
-		res = smpte2110_rtpmap(attr, av->args[0].as.as_ll, av->args[1].as.as_ll,
-				av->args[2].as.as_ll, av->args[3].as.as_ll);
+		res = smpte2110_rtpmap(attr, av->args[0].as.as_ll,
+			av->args[1].as.as_ll, av->args[2].as.as_ll,
+			av->args[3].as.as_ll);
+	} else if (av->func == (sdp_attr_func_ptr)smpte2110_40_fmtp) {
+		res = smpte2110_40_fmtp(attr,
+			(struct smpte2110_40_fmtp_validator_info*)av->args[0].as.as_ptr);
 	} else {
-		res = assert_error("Unsupported assertion function %p.\n", av->func);
+		res = assert_error("Unsupported assertion function %p.\n",
+			av->func);
 	}
 	return res;
 }
@@ -911,12 +959,12 @@ REG_TEST(test025, "PASS - SDP with no specific interpretation/restrictions")
 	init_session_validator();
 	validator_info.media_count = 2;
 	validator_info.medias[0].attr_count = 4;
-	SET_ATTR_VINFO(0, 0, no_specific_rtpmap, 100, "something", 10000, NULL);
+	SET_ATTR_VINFO(0, 0, no_specific_rtpmap, 100, "something", 10000, "");
 	SET_ATTR_VINFO(0, 1, no_specific_rtpmap, 101, "something", 20000, "params");
 	SET_ATTR_VINFO(0, 2, no_specific_fmtp,   102, "something else");
 	SET_ATTR_VINFO(0, 3, no_specific_fmtp,   103, "something else");
 	validator_info.medias[1].attr_count = 4;
-	SET_ATTR_VINFO(1, 0, no_specific_rtpmap, 200, "something", 10000, NULL);
+	SET_ATTR_VINFO(1, 0, no_specific_rtpmap, 200, "something", 10000, "");
 	SET_ATTR_VINFO(1, 1, no_specific_rtpmap, 201, "something", 20000, "params");
 	SET_ATTR_VINFO(1, 2, no_specific_fmtp,   202, "something else");
 	SET_ATTR_VINFO(1, 3, no_specific_fmtp,   203, "something else");
@@ -1345,6 +1393,18 @@ REG_TEST(test_framerate_4, "PASS - smpte2110 framerate double.")
 }
 
 /******************************************************************************
+                                 Mid & groups
+******************************************************************************/
+REG_TEST(test_mid_1, "FAIL - smpte2110 mid missing value.")
+{
+	char *content =
+		"v=0\nt=0 0\n"
+		"m=audio 50000 RTP/AVP 100\n"
+		"a=mid:\n";
+	return test_generic(content, SDP_PARSE_ERROR, NULL, no_specific);
+}
+
+/******************************************************************************
                                 Smpte2110-40
 ******************************************************************************/
 REG_TEST(test_smpte_40_1, "PASS - smpte2110 no fmtp.")
@@ -1431,8 +1491,12 @@ REG_TEST(test_smpte_40_7, "PASS - smpte2110-40 one DID_SDID valid.")
 		"m=video 50000 RTP/AVP 100\n"
 		"a=rtpmap:100 smpte291/90000\n"
 		"a=fmtp:100 DID_SDID={0x12,0xfF}\n";
-	/* TODO: (eladw) Validate DID_SDID */
-	return test_generic(content, SDP_PARSE_OK, NULL, smpte2110);
+
+	struct smpte2110_40_fmtp_validator_info fv1 = { { { 0x12, 0xff } }, 0 };
+	init_session_validator();
+	SET_ATTR_VINFO(0, 0, no_specific_rtpmap, 100, "smpte291", 90000, "");
+	SET_ATTR_VINFO(0, 1, smpte2110_40_fmtp, &fv1);
+	return test_generic(content, SDP_PARSE_OK, assert_session_x, smpte2110);
 }
 REG_TEST(test_smpte_40_8, "PASS - smpte2110 multiple DID_SDID, mixed spaces.")
 {
@@ -1448,8 +1512,14 @@ REG_TEST(test_smpte_40_8, "PASS - smpte2110 multiple DID_SDID, mixed spaces.")
 			"DID_SDID={0xcc,0xCC}   ;"
 			"DID_SDID={0xdd,0xDD}  ;  "
 			"DID_SDID={0xee,0xEE};; ;\n";
-	/* TODO: (eladw) Validate DID_SDID */
-	return test_generic(content, SDP_PARSE_OK, NULL, smpte2110);
+
+	struct smpte2110_40_fmtp_validator_info fv1 = { { { 0xaa, 0xaa },
+			{ 0xbb, 0xbb }, { 0xcc, 0xcc }, { 0xdd, 0xdd },
+			{ 0xee, 0xee } }, 0 };
+	init_session_validator();
+	SET_ATTR_VINFO(0, 0, no_specific_rtpmap, 100, "smpte291", 90000, "");
+	SET_ATTR_VINFO(0, 1, smpte2110_40_fmtp, &fv1);
+	return test_generic(content, SDP_PARSE_OK, assert_session_x, smpte2110);
 }
 
 REG_TEST(test_smpte_40_9, "FAIL - smpte2110 one VPID_Code bad format 1.")
@@ -1476,7 +1546,6 @@ REG_TEST(test_smpte_40_10, "FAIL - smpte2110 one VPID_Code bad format 2.")
 	return test_generic(content, SDP_PARSE_ERROR, NULL, smpte2110);
 }
 
-
 REG_TEST(test_smpte_40_11, "FAIL - smpte2110 one VPID_Code bad format 3.")
 {
 	char *content =
@@ -1501,8 +1570,13 @@ REG_TEST(test_smpte_40_12, "PASS - smpte2110 one VPID_Code valid.")
 			"DID_SDID={0xaa,0xAA};"
 			"VPID_Code=123;"
 			"DID_SDID={0xaa,0xAA};\n";
-	/* TODO: (eladw) Validate DID_SDID, VPID_Code */
-	return test_generic(content, SDP_PARSE_OK, NULL, smpte2110);
+
+	struct smpte2110_40_fmtp_validator_info fv1 = { { { 0xaa, 0xaa },
+			{ 0xaa, 0xaa } }, 123 };
+	init_session_validator();
+	SET_ATTR_VINFO(0, 0, no_specific_rtpmap, 100, "smpte291", 90000, "");
+	SET_ATTR_VINFO(0, 1, smpte2110_40_fmtp, &fv1);
+	return test_generic(content, SDP_PARSE_OK, assert_session_x, smpte2110);
 }
 
 REG_TEST(test_smpte_40_13, "FAIL - smpte2110 multiple VPID_Codes.")
@@ -1547,7 +1621,7 @@ REG_TEST(test_smpte_2022_6_2, "PASS - smpte2022-6.")
 	init_session_validator();
 	validator_info.medias[0].formats[0].id = 100;
 	validator_info.medias[0].formats[0].sub_type = SMPTE_2022_SUB_TYPE_6;
-	SET_ATTR_VINFO(0, 0, no_specific_rtpmap, 100, "smpte2022-6", 90000, NULL);
+	SET_ATTR_VINFO(0, 0, no_specific_rtpmap, 100, "smpte2022-6", 90000, "");
 	SET_ATTR_VINFO(0, 1, no_specific_framerate, 99.99);
 	return test_generic(content, SDP_PARSE_OK, assert_session_x, smpte2022);
 }
@@ -1612,6 +1686,7 @@ void init_tests()
 	ADD_TEST(test_framerate_2);
 	ADD_TEST(test_framerate_3);
 	ADD_TEST(test_framerate_4);
+	ADD_TEST(test_mid_1);
 	ADD_TEST(test_smpte_40_1);
 	ADD_TEST(test_smpte_40_2);
 	ADD_TEST(test_smpte_40_3);
