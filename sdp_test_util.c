@@ -318,7 +318,7 @@ int assert_int(const char *left_name, long long left,
 	return 1;
 }
 
-inline int assert_flt(const char *left_name, double left,
+int assert_flt(const char *left_name, double left,
 		const char *right_name, double right)
 {
 	static const double epsilon = 0.00001;

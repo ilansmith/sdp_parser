@@ -426,10 +426,10 @@ static enum sdp_parse_err sdp_parse_attr(sdp_stream_t sdp, char **line,
 		ptr = *line + 2;
 
 		attr = strtok_r(ptr, ":", &tmp);
-		if (*tmp)
+		if (attr)
 			value = strtok_r(NULL, " ", &tmp);
-		if (*tmp)
-			params = tmp;
+		if (value)
+			params = strtok_r(NULL, "", &tmp);
 
 		*a = (struct sdp_attr*)calloc(1, sizeof(struct sdp_attr));
 		if (!*a)

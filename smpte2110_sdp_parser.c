@@ -86,10 +86,13 @@ static enum sdp_parse_err sdp_parse_params(void *result,
 		char *input, struct param_parse_info *attribute_param_list,
 		size_t list_size, uint32_t required_params)
 {
-	enum sdp_parse_err err;
+	uint32_t err;
 	char *token;
-	struct param_parse_info *param;
+	struct param_parse_info *param = NULL;
 	size_t i;
+
+	if (!input)
+		input = "";
 
 	while ((token = strtok(input, ";"))) {
 		/* skip the white space(s) peceding the current token */
@@ -697,13 +700,16 @@ void smpte2110_40_free_fmtp_param(void *ptr)
 {
 	struct smpte2110_40_fmtp_params *params =
 			(struct smpte2110_40_fmtp_params*)ptr;
+	struct smpte2110_40_DID_SDID *did = params->DIDs, *tmp;
 
-	struct smpte2110_40_DID_SDID *did;
 	if (!params)
 		return;
 
-	for (did = params->DIDs; did; did = did->next)
+	while (did) {
+		tmp = did->next;
 		free(did);
+		did = tmp;
+	}
 	free(params);
 }
 
