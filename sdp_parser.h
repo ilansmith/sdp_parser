@@ -109,11 +109,12 @@ struct sdp_attr_value_group {
 	int num_tags;
 };
 
-/* a=rtpmap:<val> <subytype>/<clock> */
+/* a=rtpmap:<val> <subytype>/<clock>/<channel> */
 struct sdp_attr_value_rtpmap {
 	int fmt;
 	char media_subtype[64];
 	int clock_rate;
+    int num_channel;
 };
 
 /* a=fmtp:<val> <params> */

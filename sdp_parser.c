@@ -348,6 +348,64 @@ static enum sdp_parse_err sdp_parse_media_video(struct sdp_media_m *m,
 
 	return SDP_PARSE_OK;
 }
+static enum sdp_parse_err sdp_parse_media_audio(struct sdp_media_m *m,
+    char **tmp)
+{
+    m->type = SDP_MEDIA_TYPE_AUDIO;
+    char* slash = strchr(*tmp, '/');
+    char* endptr;
+    int port = strtol(strtok_r(NULL, " /", tmp), &endptr, 10);
+    if (*endptr) {
+        sdperr("bad media descriptor - port");
+        return SDP_PARSE_ERROR;
+    }
+    int num_ports;
+    if (slash + 1 == *tmp) {
+        num_ports = strtol(strtok_r(NULL, " ", tmp), &endptr, 10);
+        if (*endptr) {
+            sdperr("bad media descriptor - num_ports");
+            return SDP_PARSE_ERROR;
+        }
+    }
+    else {
+        num_ports = 1;
+    }
+    char *proto = strtok_r(NULL, " ", tmp);
+    int fmt = strtol(strtok_r(NULL, " ", tmp), &endptr, 10);
+    if (*endptr) {
+        sdperr("bad media descriptor - fmt");
+        return SDP_PARSE_ERROR;
+    }
+
+    if (!strncmp(proto, "RTP/AVP", strlen("RTP/AVP"))) {
+        m->proto = SDP_MEDIA_PROTO_RTP_AVP;
+    }
+    else {
+        sdperr("media protocol not supported: %s", proto);
+        m->proto = SDP_MEDIA_PROTO_NOT_SUPPORTED;
+        return SDP_PARSE_NOT_SUPPORTED;
+    }
+    m->port = port;
+    m->num_ports = num_ports;
+    m->fmt.id = fmt;
+    struct sdp_media_fmt **smf = &m->fmt.next;
+    while (*tmp && **tmp) {
+        if (!(*smf = (struct sdp_media_fmt*)calloc(1,
+            sizeof(struct sdp_media_fmt)))) {
+            sdperr("memory acllocation");
+            return SDP_PARSE_ERROR;
+        }
+
+        fmt = strtol(strtok_r(NULL, " ", tmp), &endptr, 10);
+        if (*endptr) {
+            sdperr("bad media descriptor - fmt");
+            return SDP_PARSE_ERROR;
+        }
+        (*smf)->id = fmt;
+        smf = &(*smf)->next;
+    }
+    return SDP_PARSE_OK;
+}
 
 static enum sdp_parse_err sdp_parse_media_not_supported(struct sdp_media_m *m,
 		char *type)
@@ -380,7 +438,12 @@ static enum sdp_parse_err sdp_parse_media(sdp_stream_t sdp, char **line,
 
 	if (!strncmp(type, "video", strlen("video"))) {
 		err = sdp_parse_media_video(m, &tmp);
-	} else {
+	} 
+    else if(!strncmp(type, "audio", strlen("audio")))
+    {
+        err = sdp_parse_media_audio(m, &tmp);
+    }
+    else {
 		err = sdp_parse_media_not_supported(m, type);
 	}
 
@@ -664,7 +727,19 @@ static enum sdp_parse_err parse_attr_media(struct sdp_media *media,
 			sdperr("attribute bad format - %s (clock_rate)", attr);
 			return SDP_PARSE_ERROR;
 		}
-
+        char* channel_count = strtok_r(NULL, "/", &tmp); // for audio
+        if (channel_count)
+        {
+            rtpmap->num_channel = strtol(channel_count, &endptr, 10);
+            if (*endptr) {
+                sdperr("attribute bad channel count - %s", attr);
+                return SDP_PARSE_ERROR;
+            }
+        }
+        else
+        {
+            rtpmap->num_channel = 1;
+        }
 		/* encoding parameters are not supported */
 
 		rtpmap->fmt = strtol(value, &endptr, 10);
