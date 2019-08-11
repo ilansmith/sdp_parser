@@ -92,6 +92,81 @@ static size_t sdp_getline(char **line, size_t *len, sdp_stream_t sdp)
 	return ret;
 }
 
+static void media_fmt_free(struct sdp_media_fmt *fmt)
+{
+	while (fmt) {
+		struct sdp_media_fmt *tmp;
+
+		tmp = fmt;
+		fmt = fmt->next;
+		free(tmp);
+	}
+}
+
+static void sdp_attr_free(struct sdp_attr *attr)
+{
+	while (attr) {
+		struct sdp_attr *tmp;
+
+		tmp = attr;
+		attr = attr->next;
+
+		switch (tmp->type) {
+		case SDP_ATTR_GROUP:
+		{
+			struct group_identification_tag *tag;
+
+			while ((tag = tmp->value.group.tag)) {
+				tmp->value.group.tag =
+					tmp->value.group.tag->next;
+
+				free(tag->identification_tag);
+				free(tag);
+			}
+
+			free(tmp->value.group.semantic);
+		}
+		break;
+		case SDP_ATTR_RTPMAP:
+			sdp_free_field(&tmp->value.rtpmap.encoding_name);
+			sdp_free_field(&tmp->value.rtpmap.encoding_parameters);
+			break;
+		case SDP_ATTR_FMTP:
+			sdp_free_field(&tmp->value.fmtp.params);
+			break;
+		case SDP_ATTR_SOURCE_FILTER:
+			free(tmp->value.source_filter.spec.src_list.next);
+			break;
+		case SDP_ATTR_MID:
+			free(tmp->value.mid.identification_tag);
+			break;
+		case SDP_ATTR_SPECIFIC:
+			free(tmp->value.specific);
+			break;
+		case SDP_ATTR_NOT_SUPPORTED:
+		default:
+			break;
+		}
+
+		free(tmp);
+	}
+}
+
+static void media_free(struct sdp_media *media)
+{
+	while (media) {
+		struct sdp_media *tmp;
+
+		tmp = media;
+		media = media->next;
+
+		media_fmt_free(tmp->m.fmt.next);
+		sdp_attr_free(tmp->a);
+
+		free(tmp);
+	}
+}
+
 static char sdp_parse_descriptor_type(char *line)
 {
 	char descriptor;
@@ -510,10 +585,10 @@ static enum sdp_parse_err sdp_parse_attr(sdp_stream_t sdp, char **line,
 		for (supported_attr = attr_level; *supported_attr &&
 			strcmp(*supported_attr, attr); supported_attr++);
 		if (*supported_attr) {
-			err = parse_level(media, *a, *supported_attr, value, params,
-					specific);
+			err = parse_level(media, *a, *supported_attr, value,
+				params, specific);
 			if (err == SDP_PARSE_ERROR) {
-				free(*a);
+				sdp_attr_free(*a);
 				*a = NULL;
 				return sdprerr("parsing attribute: %s", attr);
 			}
@@ -543,7 +618,7 @@ static enum sdp_parse_err parse_attr_session(struct sdp_media *media,
 	if (!strncmp(attr, "group", strlen("group"))) {
 		a->type = SDP_ATTR_GROUP;
 		return sdp_parse_attr_group(&a->value.group, value, params,
-				specific);
+			specific);
 	} else {
 		a->type = SDP_ATTR_NOT_SUPPORTED;
 		return SDP_PARSE_NOT_SUPPORTED;
@@ -739,16 +814,16 @@ static enum sdp_parse_err sdp_parse_attr_mid(struct sdp_media *media,
 	NOT_IN_USE(params);
 	NOT_IN_USE(specific);
 
-	if (sdp_parse_str(&mid->identification_tag, value) != SDP_PARSE_OK)
-		return sdprerr("parsing field: identification_tag");
-
 	if (media->mid) {
 		return sdprerr("media cannot have more than one mid field. "
 			"Previous was: '%s'. Current: '%s'",
 			media->mid->identification_tag, value);
 	}
-	media->mid = mid;
 
+	if (sdp_parse_str(&mid->identification_tag, value) != SDP_PARSE_OK)
+		return sdprerr("parsing field: identification_tag");
+
+	media->mid = mid;
 	return SDP_PARSE_OK;
 }
 
@@ -823,81 +898,6 @@ static enum sdp_parse_err sdp_parse_media_level_attr(sdp_stream_t sdp,
 
 	return sdp_parse_attr(sdp, line, len, media, a, media_level_attr,
 		parse_attr_media, specific);
-}
-
-static void media_fmt_free(struct sdp_media_fmt *fmt)
-{
-	while (fmt) {
-		struct sdp_media_fmt *tmp;
-
-		tmp = fmt;
-		fmt = fmt->next;
-		free(tmp);
-	}
-}
-
-static void sdp_attr_free(struct sdp_attr *attr)
-{
-	while (attr) {
-		struct sdp_attr *tmp;
-
-		tmp = attr;
-		attr = attr->next;
-
-		switch (tmp->type) {
-		case SDP_ATTR_GROUP:
-		{
-			struct group_identification_tag *tag;
-
-			while ((tag = tmp->value.group.tag)) {
-				tmp->value.group.tag =
-					tmp->value.group.tag->next;
-
-				free(tag->identification_tag);
-				free(tag);
-			}
-
-			free(tmp->value.group.semantic);
-		}
-		break;
-		case SDP_ATTR_RTPMAP:
-			sdp_free_field(&tmp->value.rtpmap.encoding_name);
-			sdp_free_field(&tmp->value.rtpmap.encoding_parameters);
-			break;
-		case SDP_ATTR_FMTP:
-			sdp_free_field(&tmp->value.fmtp.params);
-			break;
-		case SDP_ATTR_SOURCE_FILTER:
-			free(tmp->value.source_filter.spec.src_list.next);
-			break;
-		case SDP_ATTR_MID:
-			free(tmp->value.mid.identification_tag);
-			break;
-		case SDP_ATTR_SPECIFIC:
-			free(tmp->value.specific);
-			break;
-		case SDP_ATTR_NOT_SUPPORTED:
-		default:
-			break;
-		}
-
-		free(tmp);
-	}
-}
-
-static void media_free(struct sdp_media *media)
-{
-	while (media) {
-		struct sdp_media *tmp;
-
-		tmp = media;
-		media = media->next;
-
-		media_fmt_free(tmp->m.fmt.next);
-		sdp_attr_free(tmp->a);
-
-		free(tmp);
-	}
 }
 
 struct sdp_session *sdp_parser_init(enum sdp_stream_type type, void *ctx)
