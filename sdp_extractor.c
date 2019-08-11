@@ -105,6 +105,7 @@ static void sdp_extractor_out(char *level, char *fmt, va_list va)
 }
 
 SDP_EXTRACTOR_OUT(err, "error")
+SDP_EXTRACTOR_OUT(info, "info")
 
 static int extract_dup_num(struct sdp_extractor *e)
 {
@@ -479,11 +480,12 @@ static int sdp_parse(struct sdp_extractor *e, void *sdp,
 	for (i = 0; i < ARRAY_SIZE(supported_parsers); i++) {
 		session = sdp_parser_init(type, sdp);
 		if (!session) {
-			sdp_extractor_err("failed to parse sdp session");
+			sdp_extractor_err("failed to initialize sdp parser");
 			return -1;
 		}
 
 		parser = supported_parsers[i];
+		sdp_extractor_info("trying to parse using %s...", parser->name);
 		if (sdp_session_parse(session, parser) == SDP_PARSE_OK)
 			break;
 
@@ -497,6 +499,7 @@ static int sdp_parse(struct sdp_extractor *e, void *sdp,
 
 	e->session = session;
 	e->parser = parser;
+	sdp_extractor_info("sdp parsed successfully");
 
 	/* extract number of dup sessions */
 	e->stream_num = extract_dup_num(e);
