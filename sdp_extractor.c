@@ -314,12 +314,43 @@ static int extract_packet_info(
 	return 0;
 }
 
+static int check_required_attributes(const char *spec_name, uint32_t found,
+		uint32_t required)
+{
+	int missing = required & ~found;
+	int attr = 0;
+	char msg[512];
+	int len;
+	int is_first = 1;
+
+	if (!missing)
+		return 0;
+
+	len = snprintf(msg, sizeof(msg), "%s is missing some required "
+		"attributes:", spec_name);
+	while (missing > 0) {
+		if (missing & 0x1) {
+			len += snprintf(msg + len, sizeof(msg) - len,
+				"%s (%d) %s", is_first ? "" : ",", attr,
+				sdp_get_attr_type_name(
+					(enum sdp_attr_type)attr));
+			is_first = 0;
+		}
+		missing >>= 1;
+		attr += 1;
+	}
+
+	sdp_extractor_err("%s", msg);
+	return -1;
+}
+
 static int extract_2110_20_params(struct sdp_session *session,
 		struct sdp_media *media, struct media_attribute *attributes,
 		int i, int npackets)
 {
 	struct sdp_attr *attr;
 	struct sdp_connection_information *c;
+	uint32_t found_attributes = 0;
 
 	c = get_connection_information(session, media);
 	if (!c) {
@@ -329,6 +360,8 @@ static int extract_2110_20_params(struct sdp_session *session,
 
 	attributes[i].media_type = RM_MEDIA_TYPE_VIDEO_2110_20;
 	for (attr = media->a; attr; attr = attr->next) {
+		found_attributes  |= (1 << attr->type);
+
 		if (attr->type == SDP_ATTR_FMTP) {
 			struct smpte2110_media_attr_fmtp_params *fmtp_params =
 				(struct smpte2110_media_attr_fmtp_params*)
@@ -365,7 +398,9 @@ static int extract_2110_20_params(struct sdp_session *session,
 			attributes[i].type.video.signal = fmtp_params->signal;
 		}
 	}
-	return 0;
+
+	return check_required_attributes("2110_20", found_attributes,
+		(1 << SDP_ATTR_FMTP));
 }
 
 static int extract_2110_30_params(struct sdp_session *session,
@@ -373,11 +408,14 @@ static int extract_2110_30_params(struct sdp_session *session,
 		int i)
 {
 	struct sdp_attr *attr;
+	uint32_t found_attributes = 0;
 
 	NOT_IN_USE(session);
 
 	attributes[i].media_type = RM_MEDIA_TYPE_AUDIO;
 	for (attr = media->a; attr; attr = attr->next) {
+		found_attributes |= (1 << attr->type);
+
 		if (attr->type == SDP_ATTR_RTPMAP) {
 			attributes[i].clock_rate =
 				attr->value.rtpmap.clock_rate;
@@ -390,18 +428,23 @@ static int extract_2110_30_params(struct sdp_session *session,
 				attr->value.ptime.packet_time;
 		}
 	}
-	return 0;
+
+	return check_required_attributes("2110_30", found_attributes,
+		(1 << SDP_ATTR_PTIME));
 }
 
 int extract_2110_40_params(struct sdp_session *session, struct sdp_media *media,
 		struct media_attribute *attributes, int i)
 {
 	struct sdp_attr *attr;
+	uint32_t found_attributes = 0;
 
 	NOT_IN_USE(session);
 
 	attributes[i].media_type = RM_MEDIA_TYPE_ANCILLARY;
 	for (attr = media->a; attr; attr = attr->next) {
+		found_attributes |= (1 << attr->type);
+
 		if (attr->type == SDP_ATTR_RTPMAP) {
 			attributes[i].clock_rate =
 				attr->value.rtpmap.clock_rate;
@@ -409,24 +452,29 @@ int extract_2110_40_params(struct sdp_session *session, struct sdp_media *media,
 			// TODO: DID_SDID / VPID_Code
 		}
 	}
-	return 0;
+
+	return check_required_attributes("2110_40", found_attributes, 0);
 }
 
 int extract_2022_6_params(struct sdp_session *session, struct sdp_media *media,
 		struct media_attribute *attributes, int i)
 {
 	struct sdp_attr *attr;
+	uint32_t found_attributes = 0;
 
 	NOT_IN_USE(session);
 
 	attributes[i].media_type = RM_MEDIA_TYPE_VIDEO_2022_06;
 	for (attr = media->a; attr; attr = attr->next) {
+		found_attributes |= (1 << attr->type);
+
 		if (attr->type == SDP_ATTR_FRAMERATE) {
 			attributes[i].type.video.fps =
 				attr->value.framerate.frame_rate;
 		}
 	}
-	return 0;
+
+	return check_required_attributes("2022_6", found_attributes, (1 << SDP_ATTR_FRAMERATE));
 }
 
 int extract_stream_params(struct sdp_extractor *e, int npackets)
