@@ -90,14 +90,14 @@ static int no_specific_rtpmap(const struct sdp_attr *attr,
 				encoding_parameters);
 }
 
-static inline int no_specific_ptime(const struct sdp_attr *attr,
+static int no_specific_ptime(const struct sdp_attr *attr,
 		double packet_time)
 {
 	return ASSERT_INT(attr->type, SDP_ATTR_PTIME) &&
 		ASSERT_FLT(attr->value.ptime.packet_time, packet_time);
 }
 
-static inline int smpte2110_rtpmap(const struct sdp_attr *attr,
+static int smpte2110_rtpmap(const struct sdp_attr *attr,
 		long long payload_type, long long bit_width,
 		long long clock_rate, long long num_channels)
 {
@@ -110,27 +110,27 @@ static inline int smpte2110_rtpmap(const struct sdp_attr *attr,
 				num_channels);
 }
 
-static inline int smpte2110_40_fmtp(const struct sdp_attr *attr,
+static int smpte2110_40_fmtp(const struct sdp_attr *attr,
 		struct smpte2110_40_fmtp_validator_info *fv)
 {
 	struct smpte2110_40_fmtp_params *params =
 			(struct smpte2110_40_fmtp_params *)
 					attr->value.fmtp.params.as.as_ptr;
-	struct smpte2110_40_DID_SDID *did;
+	struct smpte2110_40_did_sdid *did;
 	struct smpte2110_40_did_sdid_validator_info *dv;
 	int res = 1;
 	int d_cnt = 0;
 
-	for (did = params->DIDs; did; did = did->next) {
+	for (did = params->dids; did; did = did->next) {
 		dv = &fv->dids[d_cnt++];
 		res &= ASSERT_INT(did->code_1, dv->code_1);
 		res &= ASSERT_INT(did->code_2, dv->code_2);
 	}
-	res &= ASSERT_INT(params->VPID_code, fv->vpid_code);
+	res &= ASSERT_INT(params->vpid_code, fv->vpid_code);
 	return res;
 }
 
-static inline int no_specific_framerate(const struct sdp_attr *attr,
+static int no_specific_framerate(const struct sdp_attr *attr,
 		double frame_rate)
 {
 	return ASSERT_INT(attr->type, SDP_ATTR_FRAMERATE) &&
@@ -557,15 +557,15 @@ static int assert_source_filter(struct sdp_session *session)
 		}
 
 		if (cnt_a != 1) {
-			test_log("%s() Wrong number of source-filter attributes: "
-				"%d\n", __func__, cnt_a);
+			test_log("%s() Wrong number of source-filter "
+				"attributes: %d\n", __func__, cnt_a);
 			return -1;
 		}
 	}
 
 	if (cnt_m != 2) {
-		test_log("%s() Wrong number of media clauses: %d\n", __func__,
-			cnt_m);
+		test_log("%s() Wrong number of media clauses: %d\n",
+			__func__, cnt_m);
 		return -1;
 	}
 
@@ -671,8 +671,8 @@ static int assert_mid(struct sdp_session *session)
 	}
 
 	if (cnt_m != 2) {
-		test_log("%s() Wrong number of media clauses: %d\n", __func__,
-			cnt_m);
+		test_log("%s() Wrong number of media clauses: %d\n",
+			__func__, cnt_m);
 		return -1;
 	}
 
@@ -774,8 +774,8 @@ static int assert_group(struct sdp_session *session)
 
 		/* assert that there are no excess tags */
 		if (tag) {
-			test_log("%s(): last group identification tag points to "
-				"dangling location: %p", __func__, tag);
+			test_log("%s(): last group identification tag points to"
+				" dangling location: %p\n", __func__, tag);
 			return -1;
 		}
 	}
@@ -796,8 +796,8 @@ static int assert_no_group(struct sdp_session *session)
 
 	attr = sdp_session_attr_get(session, SDP_ATTR_GROUP);
 	if (attr) {
-		test_log("%s(): found non existing media group identification\n",
-			__func__);
+		test_log("%s(): found non existing media group"
+			" identification\n", __func__);
 		return -1;
 	}
 
@@ -1006,15 +1006,17 @@ REG_TEST(test025, "PASS - SDP with no specific interpretation/restrictions")
 	validator_info.media_count = 2;
 	validator_info.medias[0].attr_count = 4;
 	SET_ATTR_VINFO(0, 0, no_specific_rtpmap, 100, "something", 10000, "");
-	SET_ATTR_VINFO(0, 1, no_specific_rtpmap, 101, "something", 20000, "params");
+	SET_ATTR_VINFO(0, 1, no_specific_rtpmap, 101, "something", 20000,
+			"params");
 	SET_ATTR_VINFO(0, 2, no_specific_fmtp,   102, "something else");
 	SET_ATTR_VINFO(0, 3, no_specific_fmtp,   103, "something else");
 	validator_info.medias[1].attr_count = 4;
 	SET_ATTR_VINFO(1, 0, no_specific_rtpmap, 200, "something", 10000, "");
-	SET_ATTR_VINFO(1, 1, no_specific_rtpmap, 201, "something", 20000, "params");
+	SET_ATTR_VINFO(1, 1, no_specific_rtpmap, 201, "something", 20000,
+			"params");
 	SET_ATTR_VINFO(1, 2, no_specific_fmtp,   202, "something else");
 	SET_ATTR_VINFO(1, 3, no_specific_fmtp,   203, "something else");
-	return test_generic(no_specific_content, SDP_PARSE_OK, assert_session_x,
+	return test_generic(no_specific_content, SDP_PARSE_OK, assert_session,
 			no_specific);
 }
 
@@ -1100,7 +1102,7 @@ REG_TEST(smpte2110_sub_types_5,
 	validator_info.medias[1].formats[0].sub_type = SMPTE_2110_SUB_TYPE_30;
 	validator_info.medias[1].formats[1].id = 101;
 	validator_info.medias[1].formats[1].sub_type = SMPTE_2110_SUB_TYPE_30;
-	return test_generic(content, SDP_PARSE_OK, assert_session_x, smpte2110);
+	return test_generic(content, SDP_PARSE_OK, assert_session, smpte2110);
 }
 
 /******************************************************************************
@@ -1292,7 +1294,7 @@ REG_TEST(test_rtpmap_num_channels_3,
 
 	init_session_validator();
 	SET_ATTR_VINFO(0, 0, smpte2110_rtpmap, 100, 24, 10000, 1);
-	return test_generic(content, SDP_PARSE_OK, assert_session_x, smpte2110);
+	return test_generic(content, SDP_PARSE_OK, assert_session, smpte2110);
 }
 
 REG_TEST(test_rtpmap_num_channels_4,
@@ -1371,7 +1373,7 @@ REG_TEST(test_ptime_4, "PASS - smpte2110 ptime int.")
 		"a=ptime:100\n";
 	init_session_validator();
 	SET_ATTR_VINFO(0, 0, no_specific_ptime, 100.0);
-	return test_generic(content, SDP_PARSE_OK, assert_session_x, no_specific);
+	return test_generic(content, SDP_PARSE_OK, assert_session, no_specific);
 }
 
 REG_TEST(test_ptime_5, "PASS - smpte2110 ptime double.")
@@ -1384,7 +1386,7 @@ REG_TEST(test_ptime_5, "PASS - smpte2110 ptime double.")
 		"a=ptime:99.5123\n";
 	init_session_validator();
 	SET_ATTR_VINFO(0, 0, no_specific_ptime, 99.5123);
-	return test_generic(content, SDP_PARSE_OK, assert_session_x, no_specific);
+	return test_generic(content, SDP_PARSE_OK, assert_session, no_specific);
 }
 
 /******************************************************************************
@@ -1422,7 +1424,7 @@ REG_TEST(test_framerate_3, "PASS - smpte2110 framerate int.")
 		"a=framerate:100\n";
 	init_session_validator();
 	SET_ATTR_VINFO(0, 0, no_specific_framerate, 100.0);
-	return test_generic(content, SDP_PARSE_OK, assert_session_x, no_specific);
+	return test_generic(content, SDP_PARSE_OK, assert_session, no_specific);
 }
 
 REG_TEST(test_framerate_4, "PASS - smpte2110 framerate double.")
@@ -1435,7 +1437,7 @@ REG_TEST(test_framerate_4, "PASS - smpte2110 framerate double.")
 		"a=framerate:99.5123\n";
 	init_session_validator();
 	SET_ATTR_VINFO(0, 0, no_specific_framerate, 99.5123);
-	return test_generic(content, SDP_PARSE_OK, assert_session_x, no_specific);
+	return test_generic(content, SDP_PARSE_OK, assert_session, no_specific);
 }
 
 /******************************************************************************
@@ -1530,7 +1532,7 @@ REG_TEST(test_smpte_40_7, "PASS - smpte2110-40 one DID_SDID valid.")
 	init_session_validator();
 	SET_ATTR_VINFO(0, 0, no_specific_rtpmap, 100, "smpte291", 90000, "");
 	SET_ATTR_VINFO(0, 1, smpte2110_40_fmtp, &fv1);
-	return test_generic(content, SDP_PARSE_OK, assert_session_x, smpte2110);
+	return test_generic(content, SDP_PARSE_OK, assert_session, smpte2110);
 }
 REG_TEST(test_smpte_40_8, "PASS - smpte2110 multiple DID_SDID, mixed spaces.")
 {
@@ -1553,7 +1555,7 @@ REG_TEST(test_smpte_40_8, "PASS - smpte2110 multiple DID_SDID, mixed spaces.")
 	init_session_validator();
 	SET_ATTR_VINFO(0, 0, no_specific_rtpmap, 100, "smpte291", 90000, "");
 	SET_ATTR_VINFO(0, 1, smpte2110_40_fmtp, &fv1);
-	return test_generic(content, SDP_PARSE_OK, assert_session_x, smpte2110);
+	return test_generic(content, SDP_PARSE_OK, assert_session, smpte2110);
 }
 
 REG_TEST(test_smpte_40_9, "FAIL - smpte2110 one VPID_Code bad format 1.")
@@ -1610,7 +1612,7 @@ REG_TEST(test_smpte_40_12, "PASS - smpte2110 one VPID_Code valid.")
 	init_session_validator();
 	SET_ATTR_VINFO(0, 0, no_specific_rtpmap, 100, "smpte291", 90000, "");
 	SET_ATTR_VINFO(0, 1, smpte2110_40_fmtp, &fv1);
-	return test_generic(content, SDP_PARSE_OK, assert_session_x, smpte2110);
+	return test_generic(content, SDP_PARSE_OK, assert_session, smpte2110);
 }
 
 REG_TEST(test_smpte_40_13, "FAIL - smpte2110 multiple VPID_Codes.")
@@ -1718,8 +1720,7 @@ REG_TEST(test_groups_5, "PASS - group with some met medias but not all.")
 
 	init_session_validator();
 	SET_ATTR_VINFO(-1, 0, no_specific_group, &gvi0);
-	return test_generic(content, SDP_PARSE_OK, assert_session_x,
-			no_specific);
+	return test_generic(content, SDP_PARSE_OK, assert_session, no_specific);
 }
 
 REG_TEST(test_groups_6, "FAIL - 2 groups, medias already used.")
@@ -1744,8 +1745,7 @@ REG_TEST(test_groups_6, "FAIL - 2 groups, medias already used.")
 	init_session_validator();
 	SET_ATTR_VINFO(-1, 0, no_specific_group, &gvi0);
 	SET_ATTR_VINFO(-1, 1, no_specific_group, &gvi1);
-	return test_generic(content, SDP_PARSE_OK, assert_session_x,
-			no_specific);
+	return test_generic(content, SDP_PARSE_OK, assert_session, no_specific);
 }
 
 REG_TEST(test_groups_7, "FAIL - 2 groups, medias already used (2).")
@@ -1769,8 +1769,7 @@ REG_TEST(test_groups_7, "FAIL - 2 groups, medias already used (2).")
 	init_session_validator();
 	SET_ATTR_VINFO(-1, 0, no_specific_group, &gvi0);
 	SET_ATTR_VINFO(-1, 1, no_specific_group, &gvi1);
-	return test_generic(content, SDP_PARSE_OK, assert_session_x,
-			no_specific);
+	return test_generic(content, SDP_PARSE_OK, assert_session, no_specific);
 }
 
 REG_TEST(test_groups_8, "PASS - medias right after groups.")
@@ -1805,8 +1804,7 @@ REG_TEST(test_groups_8, "PASS - medias right after groups.")
 	SET_ATTR_VINFO(-1, 1, no_specific_group, &gvi1);
 	SET_ATTR_VINFO(-1, 2, no_specific_group, &gvi2);
 	SET_ATTR_VINFO(-1, 3, no_specific_group, &gvi3);
-	return test_generic(content, SDP_PARSE_OK, assert_session_x,
-			no_specific);
+	return test_generic(content, SDP_PARSE_OK, assert_session, no_specific);
 }
 
 REG_TEST(test_groups_9, "PASS - groups before medias.")
@@ -1841,8 +1839,7 @@ REG_TEST(test_groups_9, "PASS - groups before medias.")
 	SET_ATTR_VINFO(-1, 1, no_specific_group, &gvi1);
 	SET_ATTR_VINFO(-1, 2, no_specific_group, &gvi2);
 	SET_ATTR_VINFO(-1, 3, no_specific_group, &gvi3);
-	return test_generic(content, SDP_PARSE_OK, assert_session_x,
-			no_specific);
+	return test_generic(content, SDP_PARSE_OK, assert_session, no_specific);
 }
 
 REG_TEST(test_groups_10, "PASS - groups after medias.")
@@ -1877,7 +1874,7 @@ REG_TEST(test_groups_10, "PASS - groups after medias.")
 	SET_ATTR_VINFO(-1, 1, no_specific_group, &gvi1);
 	SET_ATTR_VINFO(-1, 2, no_specific_group, &gvi2);
 	SET_ATTR_VINFO(-1, 3, no_specific_group, &gvi3);
-	return test_generic(content, SDP_PARSE_OK, assert_session_x, no_specific);
+	return test_generic(content, SDP_PARSE_OK, assert_session, no_specific);
 }
 
 REG_TEST(test_groups_11, "PASS - groups swap.")
@@ -1912,7 +1909,7 @@ REG_TEST(test_groups_11, "PASS - groups swap.")
 	SET_ATTR_VINFO(-1, 1, no_specific_group, &gvi1);
 	SET_ATTR_VINFO(-1, 2, no_specific_group, &gvi2);
 	SET_ATTR_VINFO(-1, 3, no_specific_group, &gvi3);
-	return test_generic(content, SDP_PARSE_OK, assert_session_x, no_specific);
+	return test_generic(content, SDP_PARSE_OK, assert_session, no_specific);
 }
 
 REG_TEST(test_groups_12, "PASS - all combined.")
@@ -1979,8 +1976,7 @@ REG_TEST(test_groups_12, "PASS - all combined.")
 	SET_ATTR_VINFO(-1, 1, no_specific_group, &gvi1);
 	SET_ATTR_VINFO(-1, 2, no_specific_group, &gvi2);
 	SET_ATTR_VINFO(-1, 3, no_specific_group, &gvi3);
-	return test_generic(content, SDP_PARSE_OK, assert_session_x,
-			no_specific);
+	return test_generic(content, SDP_PARSE_OK, assert_session, no_specific);
 }
 
 /******************************************************************************
@@ -2011,7 +2007,7 @@ REG_TEST(test_smpte_2022_6_2, "PASS - smpte2022-6.")
 	validator_info.medias[0].formats[0].sub_type = SMPTE_2022_SUB_TYPE_6;
 	SET_ATTR_VINFO(0, 0, no_specific_rtpmap, 100, "smpte2022-6", 90000, "");
 	SET_ATTR_VINFO(0, 1, no_specific_framerate, 99.99);
-	return test_generic(content, SDP_PARSE_OK, assert_session_x, smpte2022);
+	return test_generic(content, SDP_PARSE_OK, assert_session, smpte2022);
 }
 
 /******************************************************************************

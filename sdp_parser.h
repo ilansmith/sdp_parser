@@ -15,7 +15,6 @@ extern "C" {
 #endif
 
 #define IS_WHITESPACE(_char_) ((_char_) == ' ' || (_char_) == '\t')
-#define SDP_SPECIFIC_INIT(_name_) { _name_, NULL, NULL, NULL, NULL }
 
 enum sdp_parse_err {
 	SDP_PARSE_OK,
@@ -127,7 +126,8 @@ struct sdp_attr_value_group {
 	int num_tags;
 };
 
-/* a=rtpmap:<payload type> <encoding name>/<clock rate> [/<encoding parameters> */
+/* a=rtpmap:<payload type> <encoding name>/<clock rate> [/<encoding parameters>
+ */
 struct sdp_attr_value_rtpmap {
 	struct sdp_media_fmt *fmt; /* payload-type */
 	struct interpretable encoding_name;

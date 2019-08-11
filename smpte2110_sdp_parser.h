@@ -148,16 +148,16 @@ struct smpte2110_media_attr_fmtp {
 	uint32_t err;
 };
 
-struct smpte2110_40_DID_SDID {
+struct smpte2110_40_did_sdid {
 	uint8_t code_1;
 	uint8_t code_2;
-	struct smpte2110_40_DID_SDID *next;
+	struct smpte2110_40_did_sdid *next;
 };
 
 struct smpte2110_40_fmtp_params {
-	struct smpte2110_40_DID_SDID *DIDs;
-	struct smpte2110_40_DID_SDID *last_DID;
-	uint32_t VPID_code;
+	struct smpte2110_40_did_sdid *dids;
+	struct smpte2110_40_did_sdid *last_did;
+	uint32_t vpid_code;
 };
 
 /* 2110 specific interpreter */

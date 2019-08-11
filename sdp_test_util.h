@@ -38,7 +38,7 @@ struct single_test
 };
 
 #define MAX_NUM_TESTS 300
-extern struct single_test tests[300];
+extern struct single_test tests[MAX_NUM_TESTS];
 extern int num_tests;
 
 int test_log(const char *format, ...);
@@ -128,20 +128,20 @@ int assert_res(int res, const char *name, const char *file, int line);
 	assert_res(_res_, #_res_, __FILE__, __LINE__)
 #define ASSERT_STR(_left_, _right_) \
 	assert_res(assert_str(#_left_, _left_, #_right_, _right_), \
-			"ASSERT_STR(" #_left_ ", " #_right_ ")", __FILE__, __LINE__)
+		"ASSERT_STR(" #_left_ ", " #_right_ ")", __FILE__, __LINE__)
 #define ASSERT_INT(_left_, _right_) \
 	assert_res(assert_int(#_left_, _left_, #_right_, _right_), \
-			"ASSERT_INT(" #_left_ ", " #_right_ ")", __FILE__, __LINE__)
+		"ASSERT_INT(" #_left_ ", " #_right_ ")", __FILE__, __LINE__)
 #define ASSERT_FLT(_left_, _right_) \
 	assert_res(assert_flt(#_left_, _left_, #_right_, _right_), \
-			"ASSERT_FLT(" #_left_ ", " #_right_ ")", __FILE__, __LINE__)
+		"ASSERT_FLT(" #_left_ ", " #_right_ ")", __FILE__, __LINE__)
 #define ASSERT_PTR(_left_, _right_) \
 	assert_res(assert_ptr(#_left_,_left_, #_right_, _right_), \
-			"ASSERT_PTR(" #_left_ ", " #_right_ ")", __FILE__, __LINE__)
+		"ASSERT_PTR(" #_left_ ", " #_right_ ")", __FILE__, __LINE__)
 
 int assert_attr(struct sdp_session*, struct sdp_attr *attr,
 		struct attr_validator_info *av);
-int assert_session_x(struct sdp_session *session);
+int assert_session(struct sdp_session *session);
 int test_generic(const char *content, enum sdp_parse_err expected,
 		int (*verifier)(struct sdp_session *session),
 		struct sdp_specific *specific);

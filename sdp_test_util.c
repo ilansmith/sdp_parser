@@ -1,6 +1,7 @@
 #include <string.h>
 
 #include "sdp_test_util.h"
+#include "sdp_field.h"
 
 #define C_RED    "\033[00;31m"
 #define C_GREEN  "\033[00;32m"
@@ -232,6 +233,10 @@ exit:
 void add_test(test_func func, const char *name, const char *description)
 {
 	int id = num_tests++;
+	if (id > MAX_NUM_TESTS) {
+		test_log("fatal: too many tests. Increase table size\n");
+		exit(1);
+	}
 	tests[id].name = name;
 	tests[id].description = description;
 	tests[id].func = func;
@@ -301,20 +306,30 @@ int assert_str(const char *left_name, const char *left,
 {
 	if ((!left) && (!right))
 		return 1;
-	if (!left)
-		return assert_error("Assertion failed: %s is NULL.\n", left_name);
-	if (!right)
-		return assert_error("Assertion failed: %s is NULL.\n", right_name);
-	if (strcmp(left, right) != 0)
-		return assert_error("Assertion failed: %s ('%s') != %s ('%s').\n", left_name, left, right_name, right);
+	if (!left) {
+		return assert_error(
+			"Assertion failed: %s is NULL.\n", left_name);
+	}
+	if (!right) {
+		return assert_error(
+			"Assertion failed: %s is NULL.\n", right_name);
+	}
+	if (strcmp(left, right) != 0) {
+		return assert_error(
+			"Assertion failed: %s ('%s') != %s ('%s').\n",
+			left_name, left, right_name, right);
+	}
 	return 1;
 }
 
 int assert_int(const char *left_name, long long left,
 		const char *right_name, long long right)
 {
-	if (left != right)
-		return assert_error("Assertion failed: %s ('%lld') != %s ('%lld').\n", left_name, left, right_name, right);
+	if (left != right) {
+		return assert_error(
+			"Assertion failed: %s ('%lld') != %s ('%lld').\n",
+			left_name, left, right_name, right);
+	}
 	return 1;
 }
 
@@ -322,16 +337,22 @@ int assert_flt(const char *left_name, double left,
 		const char *right_name, double right)
 {
 	static const double epsilon = 0.00001;
-	if (fabs(left - right) > epsilon)
-		return assert_error("Assertion failed: %s ('%lf') != %s ('%lf').\n", left_name, left, right_name, right);
+	if (fabs(left - right) > epsilon) {
+		return assert_error(
+			"Assertion failed: %s ('%lf') != %s ('%lf').\n",
+			left_name, left, right_name, right);
+	}
 	return 1;
 }
 
 int assert_ptr(const char *left_name, void *left,
 		const char *right_name, void *right)
 {
-	if (left != right)
-		return assert_error("Assertion failed: %s ('%p') != %s ('%p').\n", left_name, left, right_name, right);
+	if (left != right) {
+		return assert_error(
+			"Assertion failed: %s ('%p') != %s ('%p').\n",
+			left_name, left, right_name, right);
+	}
 	return 1;
 }
 
@@ -365,7 +386,7 @@ void init_session_validator(void)
 	}
 }
 
-int assert_session_x(struct sdp_session *session)
+int assert_session(struct sdp_session *session)
 {
 	struct sdp_media *media;
 	struct sdp_attr *attr;
@@ -411,24 +432,23 @@ int assert_session_x(struct sdp_session *session)
 /******************************************************************************
                                     Main
 ******************************************************************************/
-int main(void)
+int main(int argc, const char *argv[])
 {
 	int i, res;
 	struct single_test *test;
 
+	NOT_IN_USE(argc);
+	NOT_IN_USE(argv);
+
 	init_tests();
-	for (i = 0; i < num_tests; ++i)
-	{
+	for (i = 0; i < num_tests; ++i) {
 		test = &tests[i];
 		print_title("Running test #%u: %s - %s",
 			i + 1, test->name, test->description);
 		res = test->func();
-		if (res == 0)
-		{
+		if (res == 0) {
 			test_log(C_GREEN "Success" C_NORMAL "\n");
-		}
-		else
-		{
+		} else {
 			test_log(C_RED "Failure" C_NORMAL "\n");
 			return 1;
 		}

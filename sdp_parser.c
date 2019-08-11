@@ -269,8 +269,8 @@ static enum sdp_parse_err sdp_parse_connection_information(sdp_stream_t sdp,
 
 	if (!strncmp(addrtype, "IP4", strlen("IP4"))) {
 		if (!is_ttl_set && is_multicast_addr(SDP_CI_ADDRTYPE_IPV4, addr))
-			return sdprerr("connection information with an IP4 multicast "
-				"address requires a TTL value");
+			return sdprerr("connection information with an IP4 "
+				" multicast address requires a TTL value");
 
 		c->addrtype = SDP_CI_ADDRTYPE_IPV4;
 	} else if (!strncmp(nettype, "IP6", strlen("IP6"))) {
@@ -470,7 +470,8 @@ static enum sdp_parse_err sdp_parse_attr(sdp_stream_t sdp, char **line,
 		params = NULL;
 		ptr = *line + 2;
 
-		/* Special case - a=group breaks media blocks (not RFC standard) */
+		/* Special case - a=group breaks media blocks (not RFC standard)
+		 */
 		if (media && !strncmp(ptr, "group", 5)) {
 			sdpwarn("got a=group. Ending the media-block");
 			break;
@@ -491,8 +492,8 @@ static enum sdp_parse_err sdp_parse_attr(sdp_stream_t sdp, char **line,
 		for (supported_attr = common_level_attr; *supported_attr &&
 			strcmp(*supported_attr, attr); supported_attr++);
 		if (*supported_attr) {
-			err = parse_attr_common(*a, *supported_attr, value, params,
-					specific);
+			err = parse_attr_common(*a, *supported_attr, value,
+					params, specific);
 			if (err == SDP_PARSE_ERROR) {
 				free(*a);
 				*a = NULL;
@@ -691,8 +692,8 @@ static enum sdp_parse_err parse_attr_rtpmap(struct sdp_media *media,
 	if (sdp_parse_int(&rtpmap->clock_rate, clock_rate) != SDP_PARSE_OK)
 		return sdprerr("parsing field: clock_rate");
 	if (sdp_parse_field(media, attr, &rtpmap->encoding_parameters,
-			encoding_parameters, specific->rtpmap_encoding_parameters)
-			!= SDP_PARSE_OK)
+			encoding_parameters,
+			specific->rtpmap_encoding_parameters) != SDP_PARSE_OK)
 		return sdprerr("parsing field: encoding_parameters");
 	if (rtpmap->clock_rate == 0)
 		return sdprerr("invalid clock-rate: %s", clock_rate);
@@ -704,6 +705,7 @@ static enum sdp_parse_err sdp_parse_attr_ptime(struct sdp_media *media,
 		struct sdp_specific *specific)
 {
 	struct sdp_attr_value_ptime *ptime = &attr->value.ptime;
+
 	NOT_IN_USE(media);
 	NOT_IN_USE(params);
 	NOT_IN_USE(specific);
@@ -732,6 +734,7 @@ static enum sdp_parse_err sdp_parse_attr_mid(struct sdp_media *media,
 		struct sdp_specific *specific)
 {
 	struct sdp_attr_value_mid *mid = &attr->value.mid;
+
 	NOT_IN_USE(media);
 	NOT_IN_USE(params);
 	NOT_IN_USE(specific);
@@ -754,6 +757,7 @@ static enum sdp_parse_err sdp_parse_attr_framerate(struct sdp_media *media,
 		struct sdp_specific *specific)
 {
 	struct sdp_attr_value_framerate *framerate = &attr->value.framerate;
+
 	NOT_IN_USE(media);
 	NOT_IN_USE(params);
 	NOT_IN_USE(specific);
@@ -782,13 +786,15 @@ static enum sdp_parse_err parse_attr_media(struct sdp_media *media,
 		err = sdp_parse_attr_fmtp(media, a, value, params, specific);
 	} else if (!strncmp(attr, "source-filter", strlen("source-filter"))) {
 		a->type = SDP_ATTR_SOURCE_FILTER;
-		err = sdp_parse_attr_source_filter(media, a, value, params, specific);
+		err = sdp_parse_attr_source_filter(media, a, value, params,
+				specific);
 	} else if (!strncmp(attr, "mid", strlen("mid"))) {
 		a->type = SDP_ATTR_MID;
 		err = sdp_parse_attr_mid(media, a, value, params, specific);
 	} else if (!strncmp(attr, "framerate", strlen("framerate"))) {
 		a->type = SDP_ATTR_FRAMERATE;
-		err = sdp_parse_attr_framerate(media, a, value, params, specific);
+		err = sdp_parse_attr_framerate(media, a, value, params,
+				specific);
 	} else {
 		a->type = SDP_ATTR_NOT_SUPPORTED;
 		err = SDP_PARSE_NOT_SUPPORTED;
@@ -1205,3 +1211,12 @@ struct sdp_attr *sdp_attr_get_next(struct sdp_attr *attr)
 	return sdp_attr_locate(attr->next, attr->type);
 }
 
+static struct sdp_specific empty_specific = {
+	"no specific",
+	NULL,
+	NULL,
+	NULL,
+	NULL
+};
+
+struct sdp_specific *no_specific = &empty_specific;

@@ -2,10 +2,6 @@
 #include "sdp_parser.h"
 #include "sdp_field.h"
 
-static struct sdp_specific empty_specific = SDP_SPECIFIC_INIT("no specific");
-
-struct sdp_specific *no_specific = &empty_specific;
-
 static enum sdp_parse_err sdp_parse_type_verify(char *endptr,
 		const char *input, const char *expected_name)
 {
@@ -116,10 +112,12 @@ static int validate_fmt_required_attributes(struct sdp_media* media,
 
 	if (required_attr_mask != 0) {
 		enum sdp_attr_type attr = 0;
-		sdperr("media format %u is missing required attributes:", fmt->id);
+		sdperr("media format %u is missing required attributes:",
+				fmt->id);
 		while (required_attr_mask > 0) {
 			if (required_attr_mask & 0x1)
-				sdperr("   (%02u) %s", attr, get_attr_type_name(attr));
+				sdperr("   (%02u) %s", attr,
+						get_attr_type_name(attr));
 			required_attr_mask >>= 1;
 			attr += 1;
 		}
@@ -163,8 +161,10 @@ enum sdp_parse_err sdp_parse_field_default(struct interpretable *field,
 		field->as.as_str = "";
 		return SDP_PARSE_OK;
  	}
+	if (sdp_parse_str(&field->as.as_str, input) != SDP_PARSE_OK)
+		return SDP_PARSE_ERROR;
 	field->dtor = free;
-	return sdp_parse_str(&field->as.as_str, input);
+	return SDP_PARSE_OK;
 }
 
 enum sdp_parse_err sdp_parse_field(struct sdp_media *media,
