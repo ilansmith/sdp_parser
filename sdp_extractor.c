@@ -559,7 +559,6 @@ static int sdp_parse(struct sdp_extractor *e, void *sdp, int media_block_index,
 		}
 
 		parser = supported_parsers[i];
-		sdp_extractor_info("trying to parse using %s...", parser->name);
 		if (sdp_session_parse(session, parser) == SDP_PARSE_OK)
 			break;
 
@@ -573,7 +572,6 @@ static int sdp_parse(struct sdp_extractor *e, void *sdp, int media_block_index,
 
 	e->session = session;
 	e->parser = parser;
-	sdp_extractor_info("sdp parsed successfully");
 
 	media = find_media_block(e, media_block_index);
 	if (!media)
