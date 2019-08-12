@@ -343,10 +343,11 @@ static enum sdp_parse_err sdp_parse_connection_information(sdp_stream_t sdp,
 		c->nettype = SDP_CI_NETTYPE_NOT_SUPPORTED;
 
 	if (!strncmp(addrtype, "IP4", strlen("IP4"))) {
-		if (!is_ttl_set && is_multicast_addr(SDP_CI_ADDRTYPE_IPV4, addr))
+		if (!is_ttl_set && is_multicast_addr(SDP_CI_ADDRTYPE_IPV4,
+				addr)) {
 			return sdprerr("connection information with an IP4 "
 				" multicast address requires a TTL value");
-
+		}
 		c->addrtype = SDP_CI_ADDRTYPE_IPV4;
 	} else if (!strncmp(nettype, "IP6", strlen("IP6"))) {
 		c->addrtype = SDP_CI_ADDRTYPE_IPV6;
@@ -469,7 +470,6 @@ static enum sdp_parse_err sdp_parse_attr_group(
 
 	if (!params)
 		return sdprerr("a group must have at least one id tag");
-
 
 	do {
 		char *cur = strtok_r(params, " ", &tmp);
@@ -925,7 +925,7 @@ void sdp_parser_uninit(struct sdp_session *session)
 	free(session);
 }
 
-enum sdp_parse_err validate_media_blocks(struct sdp_session *session,
+static enum sdp_parse_err validate_media_blocks(struct sdp_session *session,
 		struct sdp_specific *specific)
 {
 	struct sdp_media *media;
@@ -945,7 +945,7 @@ enum sdp_parse_err validate_media_blocks(struct sdp_session *session,
 	return SDP_PARSE_OK;
 }
 
-enum sdp_parse_err connect_medias_to_group(struct sdp_session *session,
+static enum sdp_parse_err connect_medias_to_group(struct sdp_session *session,
 		struct sdp_attr_value_group *group)
 {
 	struct sdp_media *media;
@@ -985,8 +985,7 @@ enum sdp_parse_err connect_medias_to_group(struct sdp_session *session,
 	return SDP_PARSE_OK;
 }
 
-
-enum sdp_parse_err connect_media_groups(struct sdp_session *session)
+static enum sdp_parse_err connect_media_groups(struct sdp_session *session)
 {
 	struct sdp_attr *attr;
 	enum sdp_parse_err err;
@@ -1066,8 +1065,8 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 		goto exit;
 	}
 
-	if (sdp_parse_session_level_attr(sdp, &line, &len, &session->a, specific)
-			== SDP_PARSE_ERROR) {
+	if (sdp_parse_session_level_attr(sdp, &line, &len, &session->a,
+			specific) == SDP_PARSE_ERROR) {
 		goto exit;
 	}
 
@@ -1134,8 +1133,8 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 			break;
 
 		/* parse media-level a=* */
-		if (sdp_parse_media_level_attr(sdp, &line, &len, media, &media->a,
-				specific) == SDP_PARSE_ERROR) {
+		if (sdp_parse_media_level_attr(sdp, &line, &len, media,
+				&media->a, specific) == SDP_PARSE_ERROR) {
 			goto exit;
 		}
 
@@ -1147,7 +1146,6 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 			goto exit;
 		}
 	}
-
 
 	if ((err = validate_media_blocks(session, specific)) != SDP_PARSE_OK)
 		goto exit;
@@ -1237,3 +1235,4 @@ static struct sdp_specific empty_specific = {
 };
 
 struct sdp_specific *no_specific = &empty_specific;
+
