@@ -34,7 +34,7 @@
 #define STANDARD_UDP_SIZE_LIMIT_JUMBO 8960
 #define FPS_NON_INT_DEMONINATOR 1001
 
-#define MAX_STRMS_PER_RING 2
+#define MAX_STRMS_PER_DUP 2
 #define IPV4_MAX_HDR_LEN 60
 #define IP_MAX_HDR_LEN IPV4_MAX_HDR_LEN
 
@@ -94,7 +94,7 @@ struct sdp_extractor {
 
 	int stream_num;
 	struct sdp_specific *parser;
-	struct media_attribute attributes[MAX_STRMS_PER_RING];
+	struct media_attribute attributes[MAX_STRMS_PER_DUP];
 };
 
 static void sdp_extractor_out(char *level, char *fmt, va_list va)
@@ -584,15 +584,15 @@ static int sdp_parse(struct sdp_extractor *e, void *sdp, int media_block_index,
 	if (!medias)
 		return -1;
 	e->stream_num = vec_size(medias);
-	if (e->stream_num < 1 || MAX_STRMS_PER_RING < e->stream_num) {
+	if (e->stream_num < 1 || MAX_STRMS_PER_DUP < e->stream_num) {
 		sdp_extractor_err("bad number of dup sessions: %d",
 			e->stream_num);
 		ret = -1;
 		goto exit;
 	}
-	if (MAX_STRMS_PER_RING < e->stream_num) {
+	if (MAX_STRMS_PER_DUP < e->stream_num) {
 		sdp_extractor_err("sdp extractor is limited to %d media "
-			"sections", MAX_STRMS_PER_RING);
+			"sections", MAX_STRMS_PER_DUP);
 		ret = -1;
 		goto exit;
 	}
