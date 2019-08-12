@@ -24,10 +24,12 @@ double sdp_extractor_get_fps(sdp_extractor_t sdp_extractor, int dup);
 int sdp_extractor_get_type(sdp_extractor_t sdp_extractor, int dup);
 int sdp_extractor_get_signal(sdp_extractor_t sdp_extractor, int dup);
 
-int sdp_extractor_set_npackets(sdp_extractor_t sdp_extractor, int npackets);
+int sdp_extractor_set_npackets(sdp_extractor_t sdp_extractor, int npackets,
+	int media_block_index);
 
 void sdp_extractor_uninit(sdp_extractor_t sdp_extractor);
-sdp_extractor_t sdp_extractor_init(void *sdp, enum sdp_stream_type type);
+sdp_extractor_t sdp_extractor_init(void *sdp, int media_block_index,
+	enum sdp_stream_type type);
 
 #endif /* _SDP_EXTRACTOR_H_ */
 

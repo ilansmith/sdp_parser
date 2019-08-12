@@ -315,11 +315,11 @@ int main(int argc, char **argv)
 	if (dump_sdp(sdp_path))
 		abort_printf("Cannot read SDP: %s", sdp_path);
 
-	sdp_extractor = sdp_extractor_init(sdp_path, SDP_STREAM_TYPE_FILE);
+	sdp_extractor = sdp_extractor_init(sdp_path, 0, SDP_STREAM_TYPE_FILE);
 	if (!sdp_extractor)
 		abort_printf("Unsupported SDP: %s", sdp_path);
 
-	if (npackets && sdp_extractor_set_npackets(sdp_extractor, npackets))
+	if (npackets && sdp_extractor_set_npackets(sdp_extractor, npackets, 0))
 		return -1;
 
 	stream_num = sdp_extractor_get_stream_num(sdp_extractor);
