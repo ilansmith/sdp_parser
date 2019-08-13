@@ -749,10 +749,12 @@ static enum sdp_parse_err smpte2110_parse_rtpmap_encoding_name(
 	int *sub_type = &attr->value.rtpmap.fmt->sub_type;
 
 	if (media->m.type == SDP_MEDIA_TYPE_VIDEO) {
-		if (!strcmp(input, "raw"))
+		if (!strcmp(input, "raw")) {
 			*sub_type = SMPTE_2110_SUB_TYPE_20;
-		else if (!strcmp(input, "smpte291"))
+		} else if (!strcmp(input, "smpte291")) {
 			*sub_type = SMPTE_2110_SUB_TYPE_40;
+			media->m.type = SDP_MEDIA_TYPE_TEXT;
+		}
 	} else if (media->m.type == SDP_MEDIA_TYPE_AUDIO) {
 		if (!strncmp(input, "L16", strlen("L16")) ||
 		    !strncmp(input, "L24", strlen("L24"))) {
