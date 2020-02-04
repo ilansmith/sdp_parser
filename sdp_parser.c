@@ -456,7 +456,7 @@ static enum sdp_parse_err sdp_parse_media(sdp_stream_t sdp, char **line,
 	return err;
 }
 
-static enum sdp_parse_err sdp_parse_attr_group( /* XXX */
+static enum sdp_parse_err sdp_parse_attr_group(
 		struct sdp_attr_value_group *group, char *value, char *params,
 		struct sdp_specific *specific)
 {
@@ -473,6 +473,8 @@ static enum sdp_parse_err sdp_parse_attr_group( /* XXX */
 
 	do {
 		char *cur = strtok_r(params, " ", &tmp);
+		struct group_member *m;
+
 
 		*member = (struct group_member*)calloc(1,
 			sizeof(struct group_member));
@@ -480,6 +482,15 @@ static enum sdp_parse_err sdp_parse_attr_group( /* XXX */
 				strdup(cur))) {
 			sdperr("memory allocation");
 			goto fail;
+		}
+
+		for (m = group->member; m != *member; m = m->next) {
+			if (!strcmp((*member)->identification_tag,
+					m->identification_tag)) {
+				sdprerr("non unique group identification "
+					"tag: %s", m->identification_tag);
+				goto fail;
+			}
 		}
 
 		group->num_tags++;
@@ -926,6 +937,66 @@ void sdp_parser_uninit(struct sdp_session *session)
 	free(session);
 }
 
+static void delete_single_group(struct sdp_attr **s_attr)
+{
+	struct sdp_attr *tmp_sattr;
+	struct group_member *member;
+
+	tmp_sattr = *s_attr;
+	*s_attr = tmp_sattr->next;
+
+	member = tmp_sattr->value.group.member;
+	while (member) {
+		struct group_member *tmp_member;
+		struct sdp_media *media;
+
+		tmp_member = member;
+		member = member->next;
+
+		media = tmp_member->media;
+		if (media) {
+			struct sdp_attr **m_attr = &media->a;
+			while (*m_attr) {
+				struct sdp_attr *tmp_mattr;
+
+				if ((*m_attr)->type != SDP_ATTR_MID) {
+					m_attr = &(*m_attr)->next;
+					continue;
+				}
+
+				tmp_mattr = *m_attr;
+				*m_attr = (*m_attr)->next;
+
+				free(tmp_mattr->value.mid.identification_tag);
+				free(tmp_mattr);
+			}
+
+			media->mid = NULL;
+		}
+
+		free(tmp_member->identification_tag);
+		free(tmp_member);
+	}
+
+	free(tmp_sattr->value.group.semantic);
+	free(tmp_sattr);
+}
+
+static void delete_all_groups(struct sdp_session *session)
+{
+	struct sdp_attr **attr;
+
+	attr = &session->a;
+	while (*attr) {
+		if ((*attr)->type != SDP_ATTR_GROUP) {
+			attr = &(*attr)->next;
+			continue;
+		}
+
+		delete_single_group(attr);
+	}
+}
+
 static enum sdp_parse_err validate_media_blocks(struct sdp_session *session,
 		struct sdp_specific *specific)
 {
@@ -943,6 +1014,62 @@ static enum sdp_parse_err validate_media_blocks(struct sdp_session *session,
 			return err;
 		}
 	}
+	return SDP_PARSE_OK;
+}
+
+static enum sdp_parse_err validate_session_groups(struct sdp_session *session)
+{
+	struct sdp_attr *attr_grp;
+	struct sdp_media *media;
+	int i;
+
+	attr_grp = sdp_session_attr_get(session, SDP_ATTR_GROUP);
+	if (!attr_grp)
+		return SDP_PARSE_OK;
+
+	/* verify all media blocks contain a=mid */
+	for (media = session->media, i = 0; media &&
+		sdp_media_attr_get(media, SDP_ATTR_MID);
+		media = media->next, i++);
+	if (media) {
+		sdpwarn("meida line %d does not contain an a=mid attribute. "
+			"Ignoring all grouping...", i);
+		delete_all_groups(session);
+		return SDP_PARSE_OK;
+	}
+
+	/* verify all identification tags are unique */
+	do { /* current group tested */
+		struct group_member *m_grp;
+
+		/* traverse current group's members */
+		for (m_grp = attr_grp->value.group.member;
+				m_grp; m_grp = m_grp->next) {
+			struct sdp_attr *tmp;
+
+			/* traverse all previous groups */
+			for (tmp = sdp_session_attr_get(session,
+						SDP_ATTR_GROUP);
+					tmp != attr_grp;
+					tmp = sdp_attr_get_next(tmp)) {
+				struct group_member *m_tmp;
+
+				/* traverse each group's members */
+				for (m_tmp = tmp->value.group.member;
+						m_tmp; m_tmp = m_tmp->next) {
+					if (!strcmp(m_tmp->identification_tag,
+						m_grp->identification_tag)) {
+						return sdprerr("non unique "
+							"group identification "
+							"tag: %s",
+							m_grp->identification_tag);
+					}
+				}
+			}
+		}
+
+	} while ((attr_grp = sdp_attr_get_next(attr_grp)));
+
 	return SDP_PARSE_OK;
 }
 
@@ -971,16 +1098,12 @@ static enum sdp_parse_err connect_medias_to_group(struct sdp_session *session,
 		if (!member->media) {
 			sdpwarn("group '%s' tag '%s' does not have a"
 					" matching media with 'mid=%s'"
-					" defined.", group->semantic,
-					tag->identification_tag,
-					tag->identification_tag);
-			/*
-			sdpwarn("note that the current SDP implementation does"
-					" not support multiple groups per"
-					" media, so it is possible that a"
-					" matching media exists, but already"
-					" belongs to another group.");
-					*/
+					" defined. Ignoring it...",
+					group->semantic,
+					member->identification_tag,
+					member->identification_tag);
+
+			return SDP_PARSE_IGNORE_GROUP;
 		}
 	}
 	return SDP_PARSE_OK;
@@ -988,16 +1111,27 @@ static enum sdp_parse_err connect_medias_to_group(struct sdp_session *session,
 
 static enum sdp_parse_err connect_media_groups(struct sdp_session *session)
 {
-	struct sdp_attr *attr;
+	struct sdp_attr **attr;
 	enum sdp_parse_err err;
 
-	for (attr = sdp_session_attr_get(session, SDP_ATTR_GROUP); attr;
-			attr = sdp_attr_get_next(attr))
-	{
-		err = connect_medias_to_group(session, &attr->value.group);
-		if (err != SDP_PARSE_OK)
-			return err;
+	attr = &session->a;
+	while (*attr) {
+		if ((*attr)->type != SDP_ATTR_GROUP) {
+			attr = &(*attr)->next;
+			continue;
+		}
+
+		err = connect_medias_to_group(session, &(*attr)->value.group);
+		if (err == SDP_PARSE_IGNORE_GROUP) {
+			delete_single_group(attr);
+		} else {
+			if (err != SDP_PARSE_OK)
+				return err;
+
+			attr = &(*attr)->next;
+		}
 	}
+
 	return SDP_PARSE_OK;
 }
 
@@ -1149,6 +1283,9 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 	}
 
 	if ((err = validate_media_blocks(session, specific)) != SDP_PARSE_OK)
+		goto exit;
+
+	if ((err = validate_session_groups(session)) != SDP_PARSE_OK)
 		goto exit;
 
 	if ((err = connect_media_groups(session)) != SDP_PARSE_OK)

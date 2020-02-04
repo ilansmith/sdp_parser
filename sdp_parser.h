@@ -18,6 +18,7 @@ extern "C" {
 
 enum sdp_parse_err {
 	SDP_PARSE_OK,
+	SDP_PARSE_IGNORE_GROUP,
 	SDP_PARSE_NOT_SUPPORTED,
 	SDP_PARSE_ERROR,
 };
