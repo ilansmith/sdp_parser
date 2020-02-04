@@ -175,8 +175,15 @@ static int no_specific_group(struct sdp_session *session,
 	return res;
 }
 
-int num_args(sdp_attr_func_ptr func) {
-	int num_args = 0;
+static int no_attr(struct sdp_attr *attr, int type)
+{
+	return attr->type != type;
+}
+
+static int num_args(sdp_attr_func_ptr func)
+{
+	int num_args;
+
 	if (func == (sdp_attr_func_ptr)no_specific_fmtp)
 		num_args = 2;
 	else if (func == (sdp_attr_func_ptr)no_specific_rtpmap)
@@ -191,6 +198,11 @@ int num_args(sdp_attr_func_ptr func) {
 		num_args = 4;
 	else if (func == (sdp_attr_func_ptr)smpte2110_40_fmtp)
 		num_args = 1;
+	else if (func == (sdp_attr_func_ptr)no_attr)
+		num_args = 1;
+	else
+		num_args = 0;
+
 	return num_args;
 }
 
@@ -198,9 +210,15 @@ void set_attr_vinfo(int m_id, int a_id, sdp_attr_func_ptr func,
 		int num_args, ...)
 {
 	va_list vl;
-	struct attr_validator_info *av = (m_id == -1) ?
-			&validator_info.attributes[a_id] :
-			&validator_info.medias[m_id].attributes[a_id];
+	struct attr_validator_info *av;
+	
+	if (m_id == SESSION_ATTR) {
+		if (func != (sdp_attr_func_ptr)no_attr)
+			validator_info.session_attr_count++;
+		av = &validator_info.attributes[a_id];
+	} else {
+		av = &validator_info.medias[m_id].attributes[a_id];
+	}
 
 	av->func = func;
 	va_start(vl, num_args);
@@ -225,6 +243,8 @@ void set_attr_vinfo(int m_id, int a_id, sdp_attr_func_ptr func,
 		av->args[3].as.as_ll = va_arg(vl, int);
 	} else if (func == (sdp_attr_func_ptr)smpte2110_40_fmtp) {
 		av->args[0].as.as_ptr = va_arg(vl, void*);
+	} else if (func == (sdp_attr_func_ptr)no_attr) {
+		av->args[0].as.as_ll = va_arg(vl, int);
 	}
 	va_end(vl);
 }
@@ -233,7 +253,8 @@ int assert_attr(struct sdp_session *session,
 		struct sdp_attr *attr, struct attr_validator_info *av)
 {
 	int res = 0;
-	if (av->func ==  NULL) {
+
+	if (!av->func) {
 		res = 1;
 	} else if (av->func == (sdp_attr_func_ptr)no_specific_fmtp) {
 		res = no_specific_fmtp(attr, av->args[0].as.as_ll,
@@ -258,6 +279,8 @@ int assert_attr(struct sdp_session *session,
 	} else if (av->func == (sdp_attr_func_ptr)no_specific_group) {
 		res = no_specific_group(session, attr,
 			(struct group_validator_info*)av->args[0].as.as_ptr);
+	} else if (av->func == (sdp_attr_func_ptr)no_attr) {
+		res = no_attr(attr, av->args[0].as.as_ll);
 	} else {
 		res = assert_error("Unsupported assertion function %p.\n",
 			av->func);
@@ -1658,7 +1681,7 @@ REG_TEST(test_groups_1, "FAIL - group with no tags.")
 }
 
 REG_TEST(test_groups_2,
-		"PASS - group exits, but some medias have no mids.")
+		"PASS - group ignored, since some medias have no mids.")
 {
 	char *content =
 		"v=0\n"
@@ -1670,7 +1693,10 @@ REG_TEST(test_groups_2,
 		"m=audio 50000 RTP/AVP 0\n"
 		"a=mid:2\n"
 		"m=audio 50000 RTP/AVP 0\n";
-	return test_generic(content, SDP_PARSE_OK, NULL, no_specific);
+
+	init_session_validator();
+	SET_ATTR_VINFO(SESSION_ATTR, 0, no_attr, SDP_ATTR_GROUP);
+	return test_generic(content, SDP_PARSE_OK, assert_session, no_specific);
 }
 
 REG_TEST(test_groups_3, "PASS - group with no found medias (warning).")
@@ -1716,16 +1742,13 @@ REG_TEST(test_groups_5, "PASS - group with some met medias but not all.")
 		"a=mid:3\n"
 		"m=audio 50000 RTP/AVP 0\n"
 		"a=mid:1\n";
-	struct group_validator_info gvi0 =
-		{ "DUP", 4, { { "1", 3 }, { "2", 1 }, { "3", 2 },
-		{ "4", -1 } } };
 
 	init_session_validator();
-	SET_ATTR_VINFO(-1, 0, no_specific_group, &gvi0);
+	SET_ATTR_VINFO(SESSION_ATTR, 0, no_attr, SDP_ATTR_GROUP);
 	return test_generic(content, SDP_PARSE_OK, assert_session, no_specific);
 }
 
-REG_TEST(test_groups_6, "FAIL - 2 groups, medias already used.")
+REG_TEST(test_groups_6, "FAIL - 2 groups, non unique identification tags.")
 {
 	char *content =
 		"v=0\n"
@@ -1733,45 +1756,36 @@ REG_TEST(test_groups_6, "FAIL - 2 groups, medias already used.")
 		"t=0 0\n"
 		"a=group:DUPA 1 2 3 4\n"
 		"a=group:DUPB 1 2 3 4\n"
-		"m=audio 50000 RTP/AVP 0\na=mid:4\n"
-		"m=audio 50000 RTP/AVP 0\na=mid:3\n"
-		"m=audio 50000 RTP/AVP 0\na=mid:2\n"
-		"m=audio 50000 RTP/AVP 0\na=mid:1\n";
-	struct group_validator_info gvi0 =
-		{ "DUPA", 4, { { "1", 3 }, { "2", 2 }, { "3", 1 },
-		{ "4", 0 } } };
-	struct group_validator_info gvi1 =
-		{ "DUPB", 4, { { "1", -1 }, { "2", -1 }, { "3", -1 },
-		{ "4", -1 } } };
+		"m=audio 50000 RTP/AVP 0\n"
+		"a=mid:4\n"
+		"m=audio 50000 RTP/AVP 0\n"
+		"a=mid:3\n"
+		"m=audio 50000 RTP/AVP 0\n"
+		"a=mid:2\n"
+		"m=audio 50000 RTP/AVP 0\n"
+		"a=mid:1\n";
 
-	init_session_validator();
-	SET_ATTR_VINFO(-1, 0, no_specific_group, &gvi0);
-	SET_ATTR_VINFO(-1, 1, no_specific_group, &gvi1);
-	return test_generic(content, SDP_PARSE_OK, assert_session, no_specific);
+	return test_generic(content, SDP_PARSE_ERROR, NULL, no_specific);
 }
 
-REG_TEST(test_groups_7, "FAIL - 2 groups, medias already used (2).")
+REG_TEST(test_groups_7, "FAIL - 2 groups, non unique identification tags.")
 {
 	char *content =
 		"v=0\n"
 		"s=SDP test: test groups 7\n"
 		"t=0 0\n"
 		"a=group:DUP 1 2 3 4\n"
-		"m=audio 50000 RTP/AVP 0\na=mid:4\n"
-		"m=audio 50000 RTP/AVP 0\na=mid:3\n"
+		"m=audio 50000 RTP/AVP 0\n"
+		"a=mid:4\n"
+		"m=audio 50000 RTP/AVP 0\n"
+		"a=mid:3\n"
 		"a=group:DUP 1 2\n"
-		"m=audio 50000 RTP/AVP 0\na=mid:2\n"
-		"m=audio 50000 RTP/AVP 0\na=mid:1\n";
-	struct group_validator_info gvi0 =
-		{ "DUP", 4, { { "1", 3 }, { "2", 2 }, { "3", 1 },
-		{ "4", 0 } } };
-	struct group_validator_info gvi1 =
-		{ "DUP", 2, { { "1", -1 }, { "2", -1 } } };
+		"m=audio 50000 RTP/AVP 0\n"
+		"a=mid:2\n"
+		"m=audio 50000 RTP/AVP 0\n"
+		"a=mid:1\n";
 
-	init_session_validator();
-	SET_ATTR_VINFO(-1, 0, no_specific_group, &gvi0);
-	SET_ATTR_VINFO(-1, 1, no_specific_group, &gvi1);
-	return test_generic(content, SDP_PARSE_OK, assert_session, no_specific);
+	return test_generic(content, SDP_PARSE_ERROR, NULL, no_specific);
 }
 
 REG_TEST(test_groups_8, "PASS - medias right after groups.")
@@ -1781,31 +1795,40 @@ REG_TEST(test_groups_8, "PASS - medias right after groups.")
 		"s=SDP test: test groups 8\n"
 		"t=0 0\n"
 		"a=group:DUPA 1 2\n"
-		"m=audio 50000 RTP/AVP 0\na=mid:1\n"
-		"m=audio 50000 RTP/AVP 0\na=mid:2\n"
-		"a=group:DUPB 1 2\n"
-		"m=audio 50000 RTP/AVP 0\na=mid:1\n"
-		"m=audio 50000 RTP/AVP 0\na=mid:2\n"
-		"a=group:DUPC 1 2\n"
-		"m=audio 50000 RTP/AVP 0\na=mid:1\n"
-		"m=audio 50000 RTP/AVP 0\na=mid:2\n"
-		"a=group:DUPD 1 2\n"
-		"m=audio 50000 RTP/AVP 0\na=mid:1\n"
-		"m=audio 50000 RTP/AVP 0\na=mid:2\n";
+		"m=audio 50000 RTP/AVP 0\n"
+		"a=mid:1\n"
+		"m=audio 50000 RTP/AVP 0\n"
+		"a=mid:2\n"
+		"a=group:DUPB 3 4\n"
+		"m=audio 50000 RTP/AVP 0\n"
+		"a=mid:3\n"
+		"m=audio 50000 RTP/AVP 0\n"
+		"a=mid:4\n"
+		"a=group:DUPC 5 6\n"
+		"m=audio 50000 RTP/AVP 0\n"
+		"a=mid:5\n"
+		"m=audio 50000 RTP/AVP 0\n"
+		"a=mid:6\n"
+		"a=group:DUPD 7 8\n"
+		"m=audio 50000 RTP/AVP 0\n"
+		"a=mid:7\n"
+		"m=audio 50000 RTP/AVP 0\n"
+		"a=mid:8\n";
+
 	struct group_validator_info gvi0 =
 		{ "DUPA", 2, { { "1", 0 }, { "2", 1 } } };
 	struct group_validator_info gvi1 =
-		{ "DUPB", 2, { { "1", 2 }, { "2", 3 } } };
+		{ "DUPB", 2, { { "3", 2 }, { "4", 3 } } };
 	struct group_validator_info gvi2 =
-		{ "DUPC", 2, { { "1", 4 }, { "2", 5 } } };
+		{ "DUPC", 2, { { "5", 4 }, { "6", 5 } } };
 	struct group_validator_info gvi3 =
-		{ "DUPD", 2, { { "1", 6 }, { "2", 7 } } };
+		{ "DUPD", 2, { { "7", 6 }, { "8", 7 } } };
 
 	init_session_validator();
-	SET_ATTR_VINFO(-1, 0, no_specific_group, &gvi0);
-	SET_ATTR_VINFO(-1, 1, no_specific_group, &gvi1);
-	SET_ATTR_VINFO(-1, 2, no_specific_group, &gvi2);
-	SET_ATTR_VINFO(-1, 3, no_specific_group, &gvi3);
+	SET_ATTR_VINFO(SESSION_ATTR, 0, no_specific_group, &gvi0);
+	SET_ATTR_VINFO(SESSION_ATTR, 1, no_specific_group, &gvi1);
+	SET_ATTR_VINFO(SESSION_ATTR, 2, no_specific_group, &gvi2);
+	SET_ATTR_VINFO(SESSION_ATTR, 3, no_specific_group, &gvi3);
 	return test_generic(content, SDP_PARSE_OK, assert_session, no_specific);
 }
 
@@ -1815,32 +1838,41 @@ REG_TEST(test_groups_9, "PASS - groups before medias.")
 		"v=0\n"
 		"s=SDP test: test groups 9\n"
 		"t=0 0\n"
-		"a=group:DUPA 3 4\n"
+		"a=group:DUPA 1 2\n"
 		"a=group:DUPB 3 4\n"
-		"a=group:DUPC 3 4\n"
-		"a=group:DUPD 3 4\n"
-		"m=audio 50000 RTP/AVP 0\na=mid:3\n"
-		"m=audio 50000 RTP/AVP 0\na=mid:4\n"
-		"m=audio 50000 RTP/AVP 0\na=mid:3\n"
-		"m=audio 50000 RTP/AVP 0\na=mid:4\n"
-		"m=audio 50000 RTP/AVP 0\na=mid:3\n"
-		"m=audio 50000 RTP/AVP 0\na=mid:4\n"
-		"m=audio 50000 RTP/AVP 0\na=mid:3\n"
-		"m=audio 50000 RTP/AVP 0\na=mid:4\n";
+		"a=group:DUPC 5 6\n"
+		"a=group:DUPD 7 8\n"
+		"m=audio 50000 RTP/AVP 0\n"
+		"a=mid:1\n"
+		"m=audio 50000 RTP/AVP 0\n"
+		"a=mid:2\n"
+		"m=audio 50000 RTP/AVP 0\n"
+		"a=mid:3\n"
+		"m=audio 50000 RTP/AVP 0\n"
+		"a=mid:4\n"
+		"m=audio 50000 RTP/AVP 0\n"
+		"a=mid:5\n"
+		"m=audio 50000 RTP/AVP 0\n"
+		"a=mid:6\n"
+		"m=audio 50000 RTP/AVP 0\n"
+		"a=mid:7\n"
+		"m=audio 50000 RTP/AVP 0\n"
+		"a=mid:8\n";
+
 	struct group_validator_info gvi0 =
-		{ "DUPA", 2, { { "3", 0 }, { "4", 1 } } };
+		{ "DUPA", 2, { { "1", 0 }, { "2", 1 } } };
 	struct group_validator_info gvi1 =
 		{ "DUPB", 2, { { "3", 2 }, { "4", 3 } } };
 	struct group_validator_info gvi2 =
-		{ "DUPC", 2, { { "3", 4 }, { "4", 5 } } };
+		{ "DUPC", 2, { { "5", 4 }, { "6", 5 } } };
 	struct group_validator_info gvi3 =
-		{ "DUPD", 2, { { "3", 6 }, { "4", 7 } } };
+		{ "DUPD", 2, { { "7", 6 }, { "8", 7 } } };
 
 	init_session_validator();
-	SET_ATTR_VINFO(-1, 0, no_specific_group, &gvi0);
-	SET_ATTR_VINFO(-1, 1, no_specific_group, &gvi1);
-	SET_ATTR_VINFO(-1, 2, no_specific_group, &gvi2);
-	SET_ATTR_VINFO(-1, 3, no_specific_group, &gvi3);
+	SET_ATTR_VINFO(SESSION_ATTR, 0, no_specific_group, &gvi0);
+	SET_ATTR_VINFO(SESSION_ATTR, 1, no_specific_group, &gvi1);
+	SET_ATTR_VINFO(SESSION_ATTR, 2, no_specific_group, &gvi2);
+	SET_ATTR_VINFO(SESSION_ATTR, 3, no_specific_group, &gvi3);
 	return test_generic(content, SDP_PARSE_OK, assert_session, no_specific);
 }
 
@@ -1851,39 +1883,40 @@ REG_TEST(test_groups_10, "PASS - groups after medias.")
 		"s=SDP test: test groups 10\n"
 		"t=0 0\n"
 		"m=audio 50000 RTP/AVP 0\n"
-		"a=mid:5\n"
+		"a=mid:1\n"
 		"m=audio 50000 RTP/AVP 0\n"
-		"a=mid:6\n"
+		"a=mid:2\n"
 		"m=audio 50000 RTP/AVP 0\n"
-		"a=mid:5\n"
+		"a=mid:3\n"
 		"m=audio 50000 RTP/AVP 0\n"
-		"a=mid:6\n"
-		"m=audio 50000 RTP/AVP 0\n"
-		"a=mid:5\n"
-		"m=audio 50000 RTP/AVP 0\n"
-		"a=mid:6\n"
+		"a=mid:4\n"
 		"m=audio 50000 RTP/AVP 0\n"
 		"a=mid:5\n"
 		"m=audio 50000 RTP/AVP 0\n"
 		"a=mid:6\n"
-		"a=group:DUPA 5 6\n"
-		"a=group:DUPB 5 6\n"
+		"m=audio 50000 RTP/AVP 0\n"
+		"a=mid:7\n"
+		"m=audio 50000 RTP/AVP 0\n"
+		"a=mid:8\n"
+		"a=group:DUPA 1 2\n"
+		"a=group:DUPB 3 4\n"
 		"a=group:DUPC 5 6\n"
-		"a=group:DUPD 5 6\n";
+		"a=group:DUPD 7 8\n";
+
 	struct group_validator_info gvi0 =
-		{ "DUPA", 2, { { "5", 0 }, { "6", 1 } } };
+		{ "DUPA", 2, { { "1", 0 }, { "2", 1 } } };
 	struct group_validator_info gvi1 =
-		{ "DUPB", 2, { { "5", 2 }, { "6", 3 } } };
+		{ "DUPB", 2, { { "3", 2 }, { "4", 3 } } };
 	struct group_validator_info gvi2 =
 		{ "DUPC", 2, { { "5", 4 }, { "6", 5 } } };
 	struct group_validator_info gvi3 =
-		{ "DUPD", 2, { { "5", 6 }, { "6", 7 } } };
+		{ "DUPD", 2, { { "7", 6 }, { "8", 7 } } };
 
 	init_session_validator();
-	SET_ATTR_VINFO(-1, 0, no_specific_group, &gvi0);
-	SET_ATTR_VINFO(-1, 1, no_specific_group, &gvi1);
-	SET_ATTR_VINFO(-1, 2, no_specific_group, &gvi2);
-	SET_ATTR_VINFO(-1, 3, no_specific_group, &gvi3);
+	SET_ATTR_VINFO(SESSION_ATTR, 0, no_specific_group, &gvi0);
+	SET_ATTR_VINFO(SESSION_ATTR, 1, no_specific_group, &gvi1);
+	SET_ATTR_VINFO(SESSION_ATTR, 2, no_specific_group, &gvi2);
+	SET_ATTR_VINFO(SESSION_ATTR, 3, no_specific_group, &gvi3);
 	return test_generic(content, SDP_PARSE_OK, assert_session, no_specific);
 }
 
@@ -1923,10 +1956,10 @@ REG_TEST(test_groups_11, "PASS - groups swap.")
 		{ "DUPD", 2, { { "13", 1 }, { "14", 0 } } };
 
 	init_session_validator();
-	SET_ATTR_VINFO(-1, 0, no_specific_group, &gvi0);
-	SET_ATTR_VINFO(-1, 1, no_specific_group, &gvi1);
-	SET_ATTR_VINFO(-1, 2, no_specific_group, &gvi2);
-	SET_ATTR_VINFO(-1, 3, no_specific_group, &gvi3);
+	SET_ATTR_VINFO(SESSION_ATTR, 0, no_specific_group, &gvi0);
+	SET_ATTR_VINFO(SESSION_ATTR, 1, no_specific_group, &gvi1);
+	SET_ATTR_VINFO(SESSION_ATTR, 2, no_specific_group, &gvi2);
+	SET_ATTR_VINFO(SESSION_ATTR, 3, no_specific_group, &gvi3);
 	return test_generic(content, SDP_PARSE_OK, assert_session, no_specific);
 }
 
@@ -1941,95 +1974,184 @@ REG_TEST(test_groups_12, "PASS - all combined.")
 		"m=audio 50000 RTP/AVP 0\n"
 		"a=mid:6\n" /*  1 - A */
 		"m=audio 50000 RTP/AVP 0\n"
-		"a=mid:5\n" /*  2 - B */
+		"a=mid:13\n" /*  2 - B */
 		"m=audio 50000 RTP/AVP 0\n"
-		"a=mid:6\n" /*  3 - B */
+		"a=mid:14\n" /*  3 - B */
 		"m=audio 50000 RTP/AVP 0\n"
-		"a=mid:5\n" /*  4 - C */
+		"a=mid:21\n" /*  4 - C */
 		"m=audio 50000 RTP/AVP 0\n"
-		"a=mid:6\n" /*  5 - C */
+		"a=mid:22\n" /*  5 - C */
 		"m=audio 50000 RTP/AVP 0\n"
-		"a=mid:5\n" /*  6 - D */
+		"a=mid:29\n" /*  6 - D */
 		"m=audio 50000 RTP/AVP 0\n"
-		"a=mid:6\n" /*  7 - D */
-		"a=group:DUPA 1 2 3 4 5 6 7 8\n" /* Medias: 10 11 24 25 0 1 
-						    21 20 */
+		"a=mid:30\n" /*  7 - D */
+		"a=group:DUPA 1 2 3 4 5 6 7 8\n" /* Medias: 10 11 24 25
+						            0 1 21 20 */
 		"m=audio 50000 RTP/AVP 0\n"
-		"a=mid:14\n" /*  8 - D */
+		"a=mid:32\n" /*  8 - D */
 		"m=audio 50000 RTP/AVP 0\n"
-		"a=mid:13\n" /*  9 - D */
+		"a=mid:31\n" /*  9 - D */
 		"m=audio 50000 RTP/AVP 0\n"
 		"a=mid:1\n" /*  10 - A */
 		"m=audio 50000 RTP/AVP 0\n"
 		"a=mid:2\n" /*  11 - A */
-		"a=group:DUPB 1 2 3 4 5 6 9 10\n" /* Medias: 14 15 26 27 2 3 17
-						     16 */
+		"a=group:DUPB 9 10 11 12 13 14 15 16\n" /* Medias: 14 15 26 27
+							           2 3 17 16 */
 		"m=audio 50000 RTP/AVP 0\n"
-		"a=mid:12\n" /* 12 - C */
+		"a=mid:24\n" /* 12 - C */
 		"m=audio 50000 RTP/AVP 0\n"
-		"a=mid:11\n" /* 13 - C */
+		"a=mid:23\n" /* 13 - C */
 		"m=audio 50000 RTP/AVP 0\n"
-		"a=mid:1\n" /*  14 - B */
+		"a=mid:9\n" /*  14 - B */
 		"m=audio 50000 RTP/AVP 0\n"
-		"a=mid:2\n" /*  15 - B */
-		"a=group:DUPC 1 2 3 4 5 6 11 12\n" /* Medias: 18 19 28 29 4 5 13
-						      12 */
+		"a=mid:10\n" /*  15 - B */
+		"a=group:DUPC 17 18 19 20 21 22 23 24\n" /* Medias: 18 19 28 29
+							            4 5 13 12 */
 		"m=audio 50000 RTP/AVP 0\n"
-		"a=mid:10\n" /* 16 - B */
+		"a=mid:16\n" /* 16 - B */
 		"m=audio 50000 RTP/AVP 0\n"
-		"a=mid:9\n" /*  17 - B */
+		"a=mid:15\n" /*  17 - B */
 		"m=audio 50000 RTP/AVP 0\n"
-		"a=mid:1\n" /*  18 - C */
+		"a=mid:17\n" /*  18 - C */
 		"m=audio 50000 RTP/AVP 0\n"
-		"a=mid:2\n" /*  19 - C */
-		"a=group:DUPD 1 2 3 4 5 6 13 14\n" /* Medias: 22 23 30 31 6 7 9
-						      8 */
+		"a=mid:18\n" /*  19 - C */
+		"a=group:DUPD 25 26 27 28 29 30 31 32\n" /* Medias: 22 23 30 31
+							            6 7 9 8 */
 		"m=audio 50000 RTP/AVP 0\n"
 		"a=mid:8\n" /*  20 - A */
 		"m=audio 50000 RTP/AVP 0\n"
 		"a=mid:7\n" /*  21 - A */
 		"m=audio 50000 RTP/AVP 0\n"
-		"a=mid:1\n" /*  22 - D */
+		"a=mid:25\n" /*  22 - D */
 		"m=audio 50000 RTP/AVP 0\n"
-		"a=mid:2\n" /*  23 - D */
+		"a=mid:26\n" /*  23 - D */
 		"m=audio 50000 RTP/AVP 0\n"
 		"a=mid:3\n" /* 24 - A */
 		"m=audio 50000 RTP/AVP 0\n"
 		"a=mid:4\n" /* 25 - A */
 		"m=audio 50000 RTP/AVP 0\n"
-		"a=mid:3\n" /* 26 - B */
+		"a=mid:11\n" /* 26 - B */
 		"m=audio 50000 RTP/AVP 0\n"
-		"a=mid:4\n" /* 27 - B */
+		"a=mid:12\n" /* 27 - B */
 		"m=audio 50000 RTP/AVP 0\n"
-		"a=mid:3\n" /* 28 - C */
+		"a=mid:19\n" /* 28 - C */
 		"m=audio 50000 RTP/AVP 0\n"
-		"a=mid:4\n" /* 29 - C */
+		"a=mid:20\n" /* 29 - C */
 		"m=audio 50000 RTP/AVP 0\n"
-		"a=mid:3\n" /* 30 - D */
+		"a=mid:27\n" /* 30 - D */
 		"m=audio 50000 RTP/AVP 0\n"
-		"a=mid:4\n" /* 31 - D */;
+		"a=mid:28\n" /* 31 - D */;
+
 	/* Medias: 10 11 27 26 0 1 21 20 */
 	struct group_validator_info gvi0 = { "DUPA", 8,
 		{ { "1", 10 }, { "2", 11 }, { "3", 24 }, { "4", 25 },
 		{ "5", 0  }, { "6", 1  }, { "7", 21 }, { "8", 20 } } };
 	/* Medias: 14 15 29 28 2 3 17 16 */
 	struct group_validator_info gvi1 = { "DUPB", 8,
-		{ { "1", 14 }, { "2", 15 }, { "3", 26 }, { "4", 27 },
-		{ "5", 2  }, { "6", 3  }, { "9", 17 }, { "10",16 } } };
+		{ { "9", 14 }, { "10", 15 }, { "11", 26 }, { "12", 27 },
+		{ "13", 2  }, { "14", 3  }, { "15", 17 }, { "16",16 } } };
 	/* Medias: 18 19 31 30 4 5 13 12 */
 	struct group_validator_info gvi2 = { "DUPC", 8,
-		{ { "1", 18 }, { "2", 19 }, { "3", 28 }, { "4", 29 },
-		{ "5", 4  }, { "6", 5  }, { "11",13 }, { "12",12 } } };
+		{ { "17", 18 }, { "18", 19 }, { "19", 28 }, { "20", 29 },
+		{ "21", 4  }, { "22", 5  }, { "23",13 }, { "24",12 } } };
 	/* Medias: 22 23 25 24 6 7 9 8 */
 	struct group_validator_info gvi3 = { "DUPD", 8,
-		{ { "1", 22 }, { "2", 23 }, { "3", 30 }, { "4", 31 },
-		{ "5", 6  }, { "6", 7  }, { "13",9  }, { "14",8  } } };
+		{ { "25", 22 }, { "26", 23 }, { "27", 30 }, { "28", 31 },
+		{ "29", 6  }, { "30", 7  }, { "31",9  }, { "32",8  } } };
 
 	init_session_validator();
-	SET_ATTR_VINFO(-1, 0, no_specific_group, &gvi0);
-	SET_ATTR_VINFO(-1, 1, no_specific_group, &gvi1);
-	SET_ATTR_VINFO(-1, 2, no_specific_group, &gvi2);
-	SET_ATTR_VINFO(-1, 3, no_specific_group, &gvi3);
+	SET_ATTR_VINFO(SESSION_ATTR, 0, no_specific_group, &gvi0);
+	SET_ATTR_VINFO(SESSION_ATTR, 1, no_specific_group, &gvi1);
+	SET_ATTR_VINFO(SESSION_ATTR, 2, no_specific_group, &gvi2);
+	SET_ATTR_VINFO(SESSION_ATTR, 3, no_specific_group, &gvi3);
+	return test_generic(content, SDP_PARSE_OK, assert_session, no_specific);
+}
+
+REG_TEST(test_groups_13,
+		"PASS - grouping ignored, since some medias have no mids.")
+{
+	char *content =
+		"v=0\n"
+		"s=SDP test: test groups 2\n"
+		"t=0 0\n"
+		"a=group:DUP 1 2\n"
+		"m=audio 50000 RTP/AVP 0\n"
+		"a=mid:1\n"
+		"m=audio 50001 RTP/AVP 0\n";
+
+	init_session_validator();
+	SET_ATTR_VINFO(SESSION_ATTR, 0, no_attr, SDP_ATTR_GROUP);
+	return test_generic(content, SDP_PARSE_OK, assert_session, no_specific);
+}
+
+REG_TEST(test_groups_14,
+		"PASS - group ingored, since some of its tags aren't used.")
+{
+	char *content =
+		"v=0\n"
+		"s=SDP test: test groups 2\n"
+		"t=0 0\n"
+		"a=group:DUP 1 2 3\n"
+		"m=audio 50000 RTP/AVP 0\n"
+		"a=mid:1\n"
+		"m=audio 50001 RTP/AVP 0\n"
+		"a=mid:2\n";
+
+	init_session_validator();
+	SET_ATTR_VINFO(SESSION_ATTR, 0, no_attr, SDP_ATTR_GROUP);
+	return test_generic(content, SDP_PARSE_OK, assert_session, no_specific);
+}
+
+REG_TEST(test_groups_15,
+		"PASS - grouping ignored, since some medias have no mids.")
+{
+	char *content =
+		"v=0\n"
+		"s=SDP test: test groups 2\n"
+		"t=0 0\n"
+		"a=group:DUPA 1 2\n"
+		"a=group:DUPB 3 4\n"
+		"m=audio 50000 RTP/AVP 0\n"
+		"a=mid:1\n"
+		"m=audio 50001 RTP/AVP 0\n"
+		"a=mid:2\n"
+		"m=video 50003 RTP/AVP 100\n"
+		"a=mid:3\n"
+		"m=video 50004 RTP/AVP 101\n"
+		"a=mid:4\n"
+		"m=video 50005 RTP/AVP 102\n";
+
+	init_session_validator();
+	SET_ATTR_VINFO(SESSION_ATTR, 0, no_attr, SDP_ATTR_GROUP);
+	SET_ATTR_VINFO(SESSION_ATTR, 1, no_attr, SDP_ATTR_GROUP);
+	return test_generic(content, SDP_PARSE_OK, assert_session, no_specific);
+}
+
+REG_TEST(test_groups_16,
+		"PASS - group ingored, since some of its tags aren't used.")
+{
+	char *content =
+		"v=0\n"
+		"s=SDP test: test groups 2\n"
+		"t=0 0\n"
+		"a=group:DUPA 1 2 3\n"
+		"a=group:DUPB 4 5 6\n"
+		"m=audio 50000 RTP/AVP 0\n"
+		"a=mid:1\n"
+		"m=audio 50001 RTP/AVP 0\n"
+		"a=mid:2\n"
+		"m=video 50003 RTP/AVP 100\n"
+		"a=mid:4\n"
+		"m=video 50004 RTP/AVP 101\n"
+		"a=mid:5\n"
+		"m=video 50005 RTP/AVP 102\n"
+		"a=mid:6\n";
+
+	struct group_validator_info gvi1 = { "DUPB", 3,
+		{ { "4", 2 }, { "5", 3 }, { "6", 4 } } };
+
+	init_session_validator();
+	SET_ATTR_VINFO(SESSION_ATTR, 1, no_specific_group, &gvi1);
 	return test_generic(content, SDP_PARSE_OK, assert_session, no_specific);
 }
 
@@ -2153,5 +2275,9 @@ void init_tests()
 	ADD_TEST(test_groups_10);
 	ADD_TEST(test_groups_11);
 	ADD_TEST(test_groups_12);
+	ADD_TEST(test_groups_13);
+	ADD_TEST(test_groups_14);
+	ADD_TEST(test_groups_15);
+	ADD_TEST(test_groups_16);
 }
 

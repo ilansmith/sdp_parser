@@ -376,10 +376,10 @@ void init_session_validator(void)
 	int m_id, f_id;
 	memset(&validator_info, 0, sizeof(validator_info));
 	validator_info.media_count = -1;
-	for (m_id = 0; m_id < MAX_NUM_MEDIAS; ++m_id) {
+	for (m_id = 0; m_id < ARRAY_SZ(validator_info.medias); ++m_id) {
 		mv = &validator_info.medias[m_id];
 		mv->fmt_count = IGNORE_VALUE;
-		for (f_id = 0; f_id < MAX_NUM_MEDIA_FORMATS; ++f_id)
+		for (f_id = 0; f_id < ARRAY_SZ(mv->formats); ++f_id)
 			mv->formats[f_id].id = IGNORE_VALUE;
 		mv->attr_count = IGNORE_VALUE;
 	}
@@ -402,6 +402,9 @@ int assert_session(struct sdp_session *session)
 		res &= ASSERT_RES(assert_attr(session, attr, av));
 		++a_cnt;
 	}
+
+	if (validator_info.session_attr_count != a_cnt)
+		return -1;
 
 	/* Media attributes: */
 	for (media = session->media; media; media = media->next) {

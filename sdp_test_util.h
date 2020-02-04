@@ -55,6 +55,7 @@ void init_tests();
                                 Validator Info
 ******************************************************************************/
 #define IGNORE_VALUE -1
+#define SESSION_ATTR -1
 #define MAX_NUM_MEDIAS 40
 #define MAX_NUM_SESSION_ATTRIBUTES 20
 #define MAX_NUM_MEDIA_ATTRIBUTES 20
@@ -102,7 +103,6 @@ struct session_validator_info {
 extern struct session_validator_info validator_info;
 
 void init_session_validator(void);
-int num_args(sdp_attr_func_ptr func);
 
 /******************************************************************************
                               Common Validators
