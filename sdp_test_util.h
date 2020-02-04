@@ -62,14 +62,12 @@ void init_tests();
 #define MAX_NUM_MEDIA_FORMATS 10
 #define MAX_NUM_GROUP_TAGS 10
 
-struct tag_validator_info
-{
+struct tag_validator_info {
 	const char *name;
 	int media_id;
 };
 
-struct group_validator_info
-{
+struct group_validator_info {
 	const char *semantic;
 	int tag_count;
 	struct tag_validator_info tags[MAX_NUM_GROUP_TAGS];
@@ -77,28 +75,24 @@ struct group_validator_info
 
 typedef void (*sdp_attr_func_ptr)(void);
 
-struct fmt_validator_info
-{
+struct fmt_validator_info {
 	int id;
 	int sub_type;
 };
 
-struct attr_validator_info
-{
+struct attr_validator_info {
 	sdp_attr_func_ptr func; /* Indicates validator type */
 	struct interpretable args[MAX_NUM_ATTRIBUTE_FIELDS];
 };
 
-struct media_validator_info
-{
+struct media_validator_info {
 	int fmt_count;
 	struct fmt_validator_info formats[MAX_NUM_MEDIA_FORMATS];
 	int attr_count;
 	struct attr_validator_info attributes[MAX_NUM_MEDIA_ATTRIBUTES];
 };
 
-struct session_validator_info
-{
+struct session_validator_info {
 	int media_count;
 	int session_attr_count;
 	struct attr_validator_info attributes[MAX_NUM_SESSION_ATTRIBUTES];
