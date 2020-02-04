@@ -114,14 +114,14 @@ static void sdp_attr_free(struct sdp_attr *attr)
 		switch (tmp->type) {
 		case SDP_ATTR_GROUP:
 		{
-			struct group_identification_tag *tag;
+			struct group_member *member;
 
-			while ((tag = tmp->value.group.tag)) {
-				tmp->value.group.tag =
-					tmp->value.group.tag->next;
+			while ((member = tmp->value.group.member)) {
+				tmp->value.group.member =
+					tmp->value.group.member->next;
 
-				free(tag->identification_tag);
-				free(tag);
+				free(member->identification_tag);
+				free(member);
 			}
 
 			free(tmp->value.group.semantic);
@@ -456,12 +456,12 @@ static enum sdp_parse_err sdp_parse_media(sdp_stream_t sdp, char **line,
 	return err;
 }
 
-static enum sdp_parse_err sdp_parse_attr_group(
+static enum sdp_parse_err sdp_parse_attr_group( /* XXX */
 		struct sdp_attr_value_group *group, char *value, char *params,
 		struct sdp_specific *specific)
 {
 	char *tmp;
-	struct group_identification_tag **tag = &group->tag;
+	struct group_member **member = &group->member;
 
 	NOT_IN_USE(specific);
 
@@ -474,25 +474,26 @@ static enum sdp_parse_err sdp_parse_attr_group(
 	do {
 		char *cur = strtok_r(params, " ", &tmp);
 
-		*tag = (struct group_identification_tag*)calloc(1,
-			sizeof(struct group_identification_tag));
-		if (!*tag || !((*tag)->identification_tag = strdup(cur))) {
+		*member = (struct group_member*)calloc(1,
+			sizeof(struct group_member));
+		if (!*member || !((*member)->identification_tag =
+				strdup(cur))) {
 			sdperr("memory allocation");
 			goto fail;
 		}
 
 		group->num_tags++;
-		tag = &(*tag)->next;
+		member = &(*member)->next;
 		params = NULL;
 	} while (*tmp);
 	return SDP_PARSE_OK;
 
 fail:
-	tag = &group->tag;
-	while (*tag) {
-		struct group_identification_tag *tmp = *tag;
+	member = &group->member;
+	while (*member) {
+		struct group_member *tmp = *member;
 
-		tag = &(*tag)->next;
+		member = &(*member)->next;
 		free(tmp->identification_tag);
 		free(tmp);
 	}
@@ -949,25 +950,25 @@ static enum sdp_parse_err connect_medias_to_group(struct sdp_session *session,
 		struct sdp_attr_value_group *group)
 {
 	struct sdp_media *media;
-	struct group_identification_tag *tag;
+	struct group_member *member;
 
-	for (tag = group->tag; tag; tag = tag->next) {
-		if (tag->media)
+	for (member = group->member; member; member = member->next) {
+		if (member->media)
 			continue;
 
 		for (media = session->media; media; media = media->next) {
-			if (media->group || !media->mid)
+			if (media->group)
 				continue;
 
 			if (!strcmp(media->mid->identification_tag,
-					tag->identification_tag)) {
+					member->identification_tag)) {
 				media->group = group;
-				tag->media = media;
+				member->media = media;
 				break;
 			}
 		}
 
-		if (!tag->media) {
+		if (!member->media) {
 			sdpwarn("group '%s' tag '%s' does not have a"
 					" matching media with 'mid=%s'"
 					" defined.", group->semantic,

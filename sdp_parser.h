@@ -113,16 +113,16 @@ struct interpretable{
 	void (*dtor)(void *params);
 };
 
-struct group_identification_tag {
+struct group_member {
 	char *identification_tag;
 	struct sdp_media *media;
-	struct group_identification_tag *next;
+	struct group_member *next;
 };
 
 /* a=group:<semantic> *<SP identification-tag> */
 struct sdp_attr_value_group {
 	char *semantic;
-	struct group_identification_tag *tag;
+	struct group_member *member;
 	int num_tags;
 };
 

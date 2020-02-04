@@ -137,11 +137,11 @@ static int no_specific_framerate(const struct sdp_attr *attr,
 		ASSERT_FLT(attr->value.framerate.frame_rate, frame_rate);
 }
 
-static int no_specific_tag(const struct group_identification_tag *tag,
+static int no_specific_tag(const struct group_member *member,
 		const char *name, struct sdp_media *media)
 {
-	return ASSERT_STR(tag->identification_tag, name) &&
-		ASSERT_PTR(tag->media, media);
+	return ASSERT_STR(member->identification_tag, name) &&
+		ASSERT_PTR(member->media, media);
 }
 
 static int no_specific_group(struct sdp_session *session,
@@ -149,7 +149,7 @@ static int no_specific_group(struct sdp_session *session,
 {
 	struct sdp_media *media;
 	struct sdp_media *all_medias[MAX_NUM_MEDIAS];
-	struct group_identification_tag *tag;
+	struct group_member *member;
 	int m_cnt = 0, t_cnt = 0;
 	int res;
 
@@ -163,13 +163,14 @@ static int no_specific_group(struct sdp_session *session,
 	for (media = session->media; media; media = media->next)
 		all_medias[m_cnt++] = media;
 
-	for (tag = attr->value.group.tag; tag; tag = tag->next) {
+	for (member = attr->value.group.member; member; member = member->next) {
 		struct tag_validator_info *tv = &gvi->tags[t_cnt++];
 
 		media = (tv->media_id == -1) ? NULL : all_medias[tv->media_id];
-		if (tv->name)
-			res &= ASSERT_RES(no_specific_tag(tag, tv->name,
-					media));
+		if (tv->name) {
+			res &= ASSERT_RES(no_specific_tag(member, tv->name,
+				media));
+		}
 	}
 	return res;
 }
@@ -725,7 +726,7 @@ static int assert_group(struct sdp_session *session)
 	for (attr = sdp_session_attr_get(session, SDP_ATTR_GROUP), cnt_a = 0;
 			attr; attr = sdp_attr_get_next(attr), cnt_a++) {
 		struct sdp_attr_value_group *group;
-		struct group_identification_tag *tag;
+		struct group_member *member;
 		char *identification_tag[2] = {
 			"primary", "secondary"
 		};
@@ -761,22 +762,22 @@ static int assert_group(struct sdp_session *session)
 		}
 
 		/* assert group identification tags */
-		for (tag = group->tag, i = 0; tag && i < 2;
-				tag = tag->next, i++) {
-			if (strncmp(tag->identification_tag,
+		for (member = group->member, i = 0; member && i < 2;
+				member = member->next, i++) {
+			if (strncmp(member->identification_tag,
 					identification_tag[i],
 					strlen(identification_tag[i]))) {
 				test_log("%s(): bad group identification tag: "
 					"%s\n", __func__,
-					tag->identification_tag);
+					member->identification_tag);
 				return -1;
 			}
 		}
 
 		/* assert that there are no excess tags */
-		if (tag) {
-			test_log("%s(): last group identification tag points to"
-				" dangling location: %p\n", __func__, tag);
+		if (member) {
+			test_log("%s(): last group member points to dangling "
+				"location: %p\n", __func__, member);
 			return -1;
 		}
 	}

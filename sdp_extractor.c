@@ -524,11 +524,12 @@ static vector_t get_group_medias(struct sdp_media *media)
 		return NULL;
 
 	if (media->group) {
-		struct group_identification_tag *tag;
+		struct group_member *member;
 
-		for (tag = media->group->tag; tag; tag = tag->next) {
-			if (tag->media)
-				vec_push_back(result, tag->media);
+		for (member = media->group->member; member;
+				member = member->next) {
+			if (member->media)
+				vec_push_back(result, member->media);
 		}
 	} else {
 		vec_push_back(result, media);
