@@ -44,11 +44,11 @@ struct pgroup_info {
 };
 
 enum rm_media_type {
-	RM_MEDIA_TYPE_UNKNOWN,
-	RM_MEDIA_TYPE_VIDEO_2110_20,
-	RM_MEDIA_TYPE_VIDEO_2022_06,
-	RM_MEDIA_TYPE_AUDIO,
-	RM_MEDIA_TYPE_ANCILLARY
+	RM_MEDIA_TYPE_2110_20,
+	RM_MEDIA_TYPE_2110_30,
+	RM_MEDIA_TYPE_2110_40,
+	RM_MEDIA_TYPE_2022_06,
+	RM_MEDIA_TYPE_UNKNOWN
 };
 
 struct media_attribute_video {
@@ -351,7 +351,7 @@ static int extract_2110_20_params(struct sdp_session *session,
 		return -1;
 	}
 
-	attributes[i].media_type = RM_MEDIA_TYPE_VIDEO_2110_20;
+	attributes[i].media_type = RM_MEDIA_TYPE_2110_20;
 	for (attr = media->a; attr; attr = attr->next) {
 		found_attributes  |= (1 << attr->type);
 
@@ -405,7 +405,7 @@ static int extract_2110_30_params(struct sdp_session *session,
 
 	NOT_IN_USE(session);
 
-	attributes[i].media_type = RM_MEDIA_TYPE_AUDIO;
+	attributes[i].media_type = RM_MEDIA_TYPE_2110_30;
 	for (attr = media->a; attr; attr = attr->next) {
 		found_attributes |= (1 << attr->type);
 
@@ -435,7 +435,7 @@ static int extract_2110_40_params(struct sdp_session *session,
 
 	NOT_IN_USE(session);
 
-	attributes[i].media_type = RM_MEDIA_TYPE_ANCILLARY;
+	attributes[i].media_type = RM_MEDIA_TYPE_2110_40;
 	for (attr = media->a; attr; attr = attr->next) {
 		found_attributes |= (1 << attr->type);
 
@@ -459,7 +459,7 @@ static int extract_2022_6_params(struct sdp_session *session,
 
 	NOT_IN_USE(session);
 
-	attributes[i].media_type = RM_MEDIA_TYPE_VIDEO_2022_06;
+	attributes[i].media_type = RM_MEDIA_TYPE_2022_06;
 	for (attr = media->a; attr; attr = attr->next) {
 		found_attributes |= (1 << attr->type);
 
