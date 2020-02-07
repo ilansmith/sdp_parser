@@ -53,6 +53,9 @@ static void sdpout(char *level, char *fmt, va_list va)
 	fflush(stderr);
 }
 
+#ifdef CONFIG_DEBUG
+SDPOUT(debug, "debug")
+#endif
 SDPOUT(warn, "warning")
 SDPOUT(err, "error")
 
@@ -1009,8 +1012,8 @@ static enum sdp_parse_err validate_media_blocks(struct sdp_session *session,
 
 		err = specific->validator(media);
 		if (err != SDP_PARSE_OK) {
-			sdperr("media validation failed for %s",
-					specific->name);
+			sdpdebug("media validation failed for %s",
+				specific->name);
 			return err;
 		}
 	}
@@ -1080,6 +1083,8 @@ static enum sdp_parse_err connect_medias_to_group(struct sdp_session *session,
 	struct group_member *member;
 
 	for (member = group->member; member; member = member->next) {
+		int tag_used = 0;
+
 		if (member->media)
 			continue;
 
@@ -1091,7 +1096,13 @@ static enum sdp_parse_err connect_medias_to_group(struct sdp_session *session,
 					member->identification_tag)) {
 				media->group = group;
 				member->media = media;
-				break;
+				if (!tag_used)
+					tag_used = 1;
+				else {
+					sdperr("identification tag '%s' is "
+						"used by more than one stream");
+					return SDP_PARSE_ERROR;
+				}
 			}
 		}
 
@@ -1313,6 +1324,11 @@ struct sdp_media *sdp_media_get(struct sdp_session *session,
 		enum sdp_media_type type)
 {
 	return sdp_media_locate(session->media, type);
+}
+
+enum sdp_media_type sdp_media_get_type(struct sdp_media *media)
+{
+	return media->m.type;
 }
 
 struct sdp_media *sdp_media_get_next(struct sdp_media *media)

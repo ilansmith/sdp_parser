@@ -130,8 +130,8 @@ int sdp_validate_sub_types(struct sdp_media *media)
 
 	for (fmt = &media->m.fmt; fmt; fmt = fmt->next) {
 		if (fmt->sub_type == SDP_SUB_TYPE_UNKNOWN) {
-			sdperr("no valid sub type recognized for format %u",
-					fmt->id);
+			sdpdebug("no valid sub type recognized for format %u",
+				fmt->id);
 			return 0;
 		}
 	}

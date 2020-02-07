@@ -722,8 +722,34 @@ static enum sdp_parse_err smpte2110_30_parse_num_channels(
 static enum sdp_parse_err smpte2110_30_parse_channel_order(
 		struct interpretable *field, char *input)
 {
-	NOT_IN_USE(field);
-	NOT_IN_USE(input);
+	char *token;
+	size_t co_len = strlen("channel-order");
+
+	if (!input) {
+		field->as.as_str = NULL;
+		return SDP_PARSE_OK;
+	}
+	/* check channel-order= */
+	token = strtok(input, "=");
+	if (!token) {
+		field->as.as_str = NULL;
+		return SDP_PARSE_ERROR;
+	}
+	if (strncasecmp("channel-order", token, co_len)) {
+		field->as.as_str = NULL;
+		return SDP_PARSE_ERROR;
+	}
+	token += co_len + 1;
+	if (!token) {
+		field->as.as_str = NULL;
+		return SDP_PARSE_ERROR;
+	}
+	if (sdp_parse_str(&field->as.as_str, token) != SDP_PARSE_OK)
+		return sdprerr("invalid channel-order '%s'", token);
+	if (*field->as.as_str == 0)
+		return sdprerr("invalid channel_order: 0");
+	else 
+		field->dtor = free;
 
 	return SDP_PARSE_OK;
 }

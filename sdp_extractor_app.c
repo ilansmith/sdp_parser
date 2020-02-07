@@ -60,9 +60,8 @@ static void abort_printf(const char *format, ...)
 	exit(-1);
 }
 
-static int stream_printf(char *tital, char *flag, ...)
+static int vstream_printf(char *tital, char *flag, va_list va)
 {
-	va_list va;
 	char format[256];
 	char tital_colon[100];
 	int ret = 0;
@@ -70,7 +69,7 @@ static int stream_printf(char *tital, char *flag, ...)
 	snprintf(tital_colon, sizeof(tital_colon), "%s:", tital);
 	snprintf(format, sizeof(format), "  %s%%-25s%s ",
 		C_HIGHLIGHT, C_NORMAL);
-	va_start(va, flag);
+
 	switch (*flag) {
 	case 's':
 		strcat(format, "%s\n");
@@ -95,6 +94,32 @@ static int stream_printf(char *tital, char *flag, ...)
 		ret = -1;
 		break;
 	}
+
+	return ret;
+}
+
+static int stream_printf(char *tital, char *flag, ...)
+{
+	int ret;
+	va_list va;
+
+	va_start(va, flag);
+	ret = vstream_printf(tital, flag, va);
+	va_end(va);
+
+	return ret;
+}
+
+static int stream_printf_ind(char *tital, char *flag, ...)
+{
+	int ret;
+	char tital_ind[100];
+	va_list va;
+
+	snprintf(tital_ind, sizeof(tital_ind), "  %s", tital);
+
+	va_start(va, flag);
+	ret = vstream_printf(tital_ind, flag, va);
 	va_end(va);
 
 	return ret;
@@ -289,6 +314,15 @@ int main(int argc, char **argv)
 	int stream_num;
 	int i;
 	int pm;
+	int groups_num;
+	char *channel_order;
+	struct code2str specs_sub_types[] = {
+		{ SPEC_SUBTYPE_SMPTE_ST2022_6, "SMPTE 2022-6" },
+		{ SPEC_SUBTYPE_SMPTE_ST2110_20, "SMPTE 2110-20" },
+		{ SPEC_SUBTYPE_SMPTE_ST2110_30, "SMPTE 2110-30" },
+		{ SPEC_SUBTYPE_SMPTE_ST2110_40, "SMPTE 2110-40" },
+		{ -1, "Unknown" },
+	};
 	struct code2str types[] = {
 		{ TP_2110TPN, "Narrow" },
 		{ TP_2110TPNL, "Narrow Linear" },
@@ -315,12 +349,14 @@ int main(int argc, char **argv)
 	if (dump_sdp(sdp_path))
 		abort_printf("Cannot read SDP: %s", sdp_path);
 
-	sdp_extractor = sdp_extractor_init(sdp_path, 0, SDP_STREAM_TYPE_FILE);
+	sdp_extractor = sdp_extractor_init(sdp_path, SDP_STREAM_TYPE_FILE);
 	if (!sdp_extractor)
 		abort_printf("Unsupported SDP: %s", sdp_path);
 
-	if (npackets && sdp_extractor_set_npackets(sdp_extractor, npackets, 0))
+	if (npackets && sdp_extractor_set_2110_20_npackets(sdp_extractor,
+			npackets)) {
 		return -1;
+	}
 
 	stream_num = sdp_extractor_get_stream_num(sdp_extractor);
 	printf(C_HIGHLIGHT "Extraction:" C_NORMAL "\n");
@@ -328,46 +364,140 @@ int main(int argc, char **argv)
 		sdp_extractor_get_session_name(sdp_extractor));
 	printf("\n");
 
+	groups_num = sdp_extractor_get_group_num(sdp_extractor);
+	for (i = 0; i < groups_num; i++) {
+		int tag_num = sdp_extractor_get_group_tag_num(sdp_extractor, i);
+		int j;
+
+		stream_printf("group index", "i", i);
+		stream_printf_ind("semantic", "s",
+			sdp_extractor_get_group_semantic(sdp_extractor, i));
+		for (j = 0; j < tag_num; j++) {
+			stream_printf_ind("identification tag", "s",
+				sdp_extractor_get_group_tag(sdp_extractor, i,
+					j));
+		}
+
+		printf("\n");
+	}
+	if (groups_num)
+		printf("\n");
+
 	for (i = 0; i < stream_num; i++) {
-		pm = sdp_extractor_get_packaging_mode(sdp_extractor, i);
+		char resolution[20];
+		int g_idx;
+		enum sdp_extractor_spec_sub_type sub_type =
+			sdp_extractor_stream_sub_type(sdp_extractor, i);
 
-		stream_printf("stream", "i", i);
-		stream_printf("source ip", "s",
-			sdp_extractor_get_src_ip(sdp_extractor, i));
-		stream_printf("destination ip", "s",
-			sdp_extractor_get_dst_ip(sdp_extractor, i));
-		stream_printf("destination port", "i",
-			sdp_extractor_get_dst_port(sdp_extractor, i));
-		stream_printf("packaging mode", "s", code2str(pms, pm));
-		if (sdp_extractor_get_is_rate_integer(sdp_extractor, i)) {
-			stream_printf("frames per second", "i",
-				(int)sdp_extractor_get_fps(sdp_extractor, i));
-		} else {
-			stream_printf("frames per second", "d2",
-				sdp_extractor_get_fps(sdp_extractor, i));
+		stream_printf("stream index", "i", i);
+		stream_printf_ind("spec sub type", "s",
+			code2str(specs_sub_types, sub_type));
+		stream_printf_ind("source ip", "s",
+			sdp_extractor_get_src_ip_by_stream(sdp_extractor, i));
+		stream_printf_ind("destination ip", "s",
+			sdp_extractor_get_dst_ip_by_stream(sdp_extractor, i));
+		stream_printf_ind("destination port", "i",
+			sdp_extractor_get_dst_port_by_stream(sdp_extractor, i));
+
+		switch (sub_type) {
+		case SPEC_SUBTYPE_SMPTE_ST2022_6:
+			stream_printf_ind("frames per second", "i",
+				(int)sdp_extractor_get_2022_06_fps_by_stream(
+					sdp_extractor, i));
+			break;
+		case SPEC_SUBTYPE_SMPTE_ST2110_20:
+			if (sdp_extractor_get_2110_20_is_rate_integer_by_stream(
+					sdp_extractor, i)) {
+				stream_printf_ind("frames per second", "i",
+					(int)sdp_extractor_get_2110_20_fps_by_stream(
+						sdp_extractor, i));
+			} else {
+				stream_printf_ind("frames per second", "d2",
+					sdp_extractor_get_2110_20_fps_by_stream(
+						sdp_extractor, i));
+			}
+
+			snprintf(resolution, sizeof(resolution), "%ix%i",
+				sdp_extractor_get_2110_20_height_by_stream(
+					sdp_extractor, i),
+				sdp_extractor_get_2110_20_width_by_stream(
+					sdp_extractor, i));
+			stream_printf_ind("resolution", "s", resolution);
+
+			pm = sdp_extractor_get_2110_20_packaging_mode_by_stream(
+				sdp_extractor, i);
+			stream_printf_ind("packaging mode", "s",
+				code2str(pms, pm));
+
+			if (!npackets && pm == PM_2110BPM)
+				npackets =
+					sdp_extractor_get_2110_20_npackets_by_stream(
+					sdp_extractor, i);
+
+			if (npackets) {
+				stream_printf_ind("npackets", "i",
+					sdp_extractor_get_2110_20_npackets_by_stream(
+						sdp_extractor, i));
+				stream_printf_ind(pm == PM_2110BPM ?
+					"packet size" :
+					"approximate packet size", "i",
+					sdp_extractor_get_2110_20_packet_size_by_stream(
+						sdp_extractor, i));
+				stream_printf_ind(pm == PM_2110BPM ?
+					"rate (Gbps)" :
+					"approximate rate (Gbps)", "d9",
+					sdp_extractor_get_2110_20_rate_by_stream(
+						sdp_extractor, i) / 1000000000);
+			}
+
+			stream_printf_ind("sender type", "s", code2str(types,
+				sdp_extractor_get_2110_20_type_by_stream(
+					sdp_extractor, i)));
+			signal = code2str(scans,
+				sdp_extractor_get_2110_20_signal_by_stream(
+					sdp_extractor, i));
+			stream_printf_ind("scan", "s",
+				signal ? signal : "Unknown");
+			break;
+		case SPEC_SUBTYPE_SMPTE_ST2110_30:
+			stream_printf_ind("sampling rate", "i",
+				sdp_extractor_get_2110_30_sampling_rate_by_stream(
+					sdp_extractor, i));
+
+			stream_printf_ind("bit depth", "i",
+				sdp_extractor_get_2110_30_bit_depth_by_stream(
+					sdp_extractor, i));
+			stream_printf_ind("num channels", "i",
+				sdp_extractor_get_2110_30_num_channels_by_stream(
+					sdp_extractor, i));
+			stream_printf_ind("packet time", "d",
+				sdp_extractor_get_2110_30_ptime_by_stream(
+					sdp_extractor, i));
+			channel_order =
+				sdp_extractor_get_2110_30_channel_order_by_stream(
+					sdp_extractor, i);
+				stream_printf_ind("channel order", "s",
+					channel_order ? channel_order : "N/A");
+			break;
+		case SPEC_SUBTYPE_SMPTE_ST2110_40:
+			stream_printf_ind("dummy", "i",
+				sdp_extractor_get_2110_40_dummy_by_stream(
+					sdp_extractor, i));
+			break;
+		case SPEC_SUBTYPE_SUBTYPE_UNKNOWN:
+		default:
+			break;
 		}
 
-		if (!npackets && pm == PM_2110BPM)
-			npackets = sdp_extractor_get_npackets(sdp_extractor, i);
-
-		if (npackets) {
-			stream_printf("npackets", "i",
-				sdp_extractor_get_npackets(sdp_extractor, i));
-			stream_printf(pm == PM_2110BPM ?
-				"packet size" : "approximate packet size", "i",
-				sdp_extractor_get_packet_size(sdp_extractor,
-					i));
-			stream_printf(pm == PM_2110BPM ?
-				"rate (Gbps)" : "approximate rate (Gbps)", "d9",
-				sdp_extractor_get_rate(sdp_extractor, i) /
-				1000000000);
+		g_idx = sdp_extractor_get_group_index_by_stream(sdp_extractor,
+			i);
+		if (0 <= g_idx) {
+			stream_printf_ind("group", "s",
+				sdp_extractor_get_group_semantic(sdp_extractor,
+					g_idx));
+			stream_printf_ind("identification tag", "s",
+				sdp_extractor_stream_to_tag(sdp_extractor, i));
 		}
-
-		stream_printf("sender type", "s", code2str(types,
-			sdp_extractor_get_type(sdp_extractor, i)));
-		signal = code2str(scans, sdp_extractor_get_signal(sdp_extractor,
-			i));
-		stream_printf("scan", "s", signal ? signal : "Unknown");
 
 		printf("\n");
 	}

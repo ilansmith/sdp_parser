@@ -311,6 +311,13 @@ void sdp_parser_uninit(struct sdp_session *session);
 enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 		struct sdp_specific *specific);
 
+#ifdef CONFIG_DEBUG
+void sdpdebug(char *fmt, ...);
+#else
+static inline void sdpdebug(char *fmt, ...)
+{
+}
+#endif
 void sdpwarn(char *fmt, ...);
 void sdperr(char *fmt, ...);
 enum sdp_parse_err sdprerr(char *fmt, ...);
@@ -318,6 +325,8 @@ enum sdp_parse_err sdprerr(char *fmt, ...);
 /* Accessors */
 struct sdp_media *sdp_media_get(struct sdp_session *session,
 		enum sdp_media_type type);
+
+enum sdp_media_type sdp_media_get_type(struct sdp_media *media);
 
 struct sdp_media *sdp_media_get_next(struct sdp_media *media);
 

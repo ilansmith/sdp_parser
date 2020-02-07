@@ -19,6 +19,44 @@
 		va_end(va); \
 	}
 
+#define SDP_EXTRACTOR_GET_BY_STREAM(_type_, _err_, _name_, _field_) \
+_type_ sdp_extractor_get_ ## _name_ ## _by_stream( \
+		sdp_extractor_t sdp_extractor, int m_idx) \
+{ \
+	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor; \
+\
+	if (vec_size(e->medias) <= m_idx) \
+	 	return _err_; \
+\
+	return e->attributes[m_idx]._field_; \
+}
+
+#define SDP_EXTRACTOR_GET_BY_GROUP(_type_, _err_, _name_, _field_) \
+	_type_ sdp_extractor_get_ ## _name_ ## _by_group( \
+		sdp_extractor_t sdp_extractor, int g_idx, int t_idx) \
+	{ \
+		struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;\
+		struct group_member *member; \
+		struct sdp_media **media; \
+		int m_idx; \
+\
+		member = get_member(e, g_idx, t_idx); \
+		if (!member) \
+			return _err_; \
+\
+		m_idx = 0; \
+		VEC_FOREACH(e->medias, media) { \
+			if (*media == member->media) \
+				return e->attributes[m_idx]._field_; \
+			m_idx++; \
+		} \
+		return _err_; \
+	}
+
+#define SDP_EXTRACTOR_GET(_type_, _err_, _name_, _field_) \
+	SDP_EXTRACTOR_GET_BY_STREAM(_type_, _err_, _name_, _field_) \
+	SDP_EXTRACTOR_GET_BY_GROUP(_type_, _err_, _name_, _field_)
+
 #define ARRAY_SIZE(_arr_) (sizeof(_arr_) / sizeof(_arr_)[0])
 
 #define BYTE_SIZE 8
@@ -34,21 +72,12 @@
 #define STANDARD_UDP_SIZE_LIMIT_JUMBO 8960
 #define FPS_NON_INT_DEMONINATOR 1001
 
-#define MAX_STRMS_PER_DUP 2
 #define IPV4_MAX_HDR_LEN 60
 #define IP_MAX_HDR_LEN IPV4_MAX_HDR_LEN
 
 struct pgroup_info {
 	int size;
 	int coverage;
-};
-
-enum rm_media_type {
-	RM_MEDIA_TYPE_2110_20,
-	RM_MEDIA_TYPE_2110_30,
-	RM_MEDIA_TYPE_2110_40,
-	RM_MEDIA_TYPE_2022_06,
-	RM_MEDIA_TYPE_UNKNOWN
 };
 
 struct media_attribute_video {
@@ -68,7 +97,9 @@ struct media_attribute_video {
 struct media_attribute_audio {
 	int bit_depth;
 	int num_channels;
+	int sampling_rate;
 	double ptime;
+	char *channel_order;
 };
 
 struct media_attribute_ancillary {
@@ -81,7 +112,7 @@ struct media_attribute {
 	uint16_t port_dst;
 	uint8_t ttl;
 	uint32_t clock_rate;
-	enum rm_media_type media_type;
+	enum sdp_extractor_spec_sub_type media_type;
 	union {
 		struct media_attribute_video video;
 		struct media_attribute_audio audio;
@@ -92,9 +123,10 @@ struct media_attribute {
 struct sdp_extractor {
 	struct sdp_session *session;
 
-	int stream_num;
-	struct sdp_specific *parser;
-	struct media_attribute attributes[MAX_STRMS_PER_DUP];
+	enum sdp_extractor_spec spec;
+	vector_t groups;
+	vector_t medias;
+	struct media_attribute *attributes;
 };
 
 static void sdp_extractor_out(char *level, char *fmt, va_list va)
@@ -108,22 +140,6 @@ static void sdp_extractor_out(char *level, char *fmt, va_list va)
 SDP_EXTRACTOR_OUT(err, "error")
 SDP_EXTRACTOR_OUT(info, "info")
 
-static struct sdp_media *find_media_block(struct sdp_extractor *e, int index)
-{
-	struct sdp_session *session = e->session;
-	struct sdp_media *media;
-	int i;
-
-	for (media = session->media, i = 0; media; media = media->next, i++) {
-		if (i == index)
-			return media;
-	}
-
-	sdp_extractor_err("media block index %d exceeds the number of media "
-		"blocks %d", index, i);
-	return NULL;
-}
-
 static struct sdp_connection_information *get_connection_information(
 		struct sdp_session *session, struct sdp_media *media) {
 	if (media->c.count)
@@ -135,13 +151,13 @@ static struct sdp_connection_information *get_connection_information(
 	return NULL;
 }
 
-static int extract_networking_info(struct sdp_extractor *e, vector_t medias)
+static int extract_networking_info(struct sdp_extractor *e)
 {
 	struct sdp_session *session = e->session;
 	struct sdp_media **media;
 	int i = 0;
 
-	VEC_FOREACH(medias, media) {
+	VEC_FOREACH(e->medias, media) {
 		struct sdp_attr *source_filter_attr;
 		struct sdp_connection_information *c;
 
@@ -351,7 +367,7 @@ static int extract_2110_20_params(struct sdp_session *session,
 		return -1;
 	}
 
-	attributes[i].media_type = RM_MEDIA_TYPE_2110_20;
+	attributes[i].media_type = SPEC_SUBTYPE_SMPTE_ST2110_20;
 	for (attr = media->a; attr; attr = attr->next) {
 		found_attributes  |= (1 << attr->type);
 
@@ -369,7 +385,7 @@ static int extract_2110_20_params(struct sdp_session *session,
 			attributes[i].type.video.npackets = npackets;
 			if (extract_packet_info(fmtp_params, c,
 					&attributes[i].type.video.npackets,
-					&attributes[i].type.video.packet_size)) {
+					&attributes[i].type.video.packet_size)){
 				attributes[i].type.video.npackets = 0;
 				attributes[i].type.video.packet_size = 0;
 				return -1;
@@ -405,7 +421,7 @@ static int extract_2110_30_params(struct sdp_session *session,
 
 	NOT_IN_USE(session);
 
-	attributes[i].media_type = RM_MEDIA_TYPE_2110_30;
+	attributes[i].media_type = SPEC_SUBTYPE_SMPTE_ST2110_30;
 	for (attr = media->a; attr; attr = attr->next) {
 		found_attributes |= (1 << attr->type);
 
@@ -419,6 +435,9 @@ static int extract_2110_30_params(struct sdp_session *session,
 		} else if (attr->type == SDP_ATTR_PTIME) {
 			attributes[i].type.audio.ptime =
 				attr->value.ptime.packet_time;
+		} else if (attr->type == SDP_ATTR_FMTP) {
+			attributes[i].type.audio.channel_order =
+				attr->value.fmtp.params.as.as_str;
 		}
 	}
 
@@ -435,7 +454,7 @@ static int extract_2110_40_params(struct sdp_session *session,
 
 	NOT_IN_USE(session);
 
-	attributes[i].media_type = RM_MEDIA_TYPE_2110_40;
+	attributes[i].media_type = SPEC_SUBTYPE_SMPTE_ST2110_40;
 	for (attr = media->a; attr; attr = attr->next) {
 		found_attributes |= (1 << attr->type);
 
@@ -459,7 +478,7 @@ static int extract_2022_6_params(struct sdp_session *session,
 
 	NOT_IN_USE(session);
 
-	attributes[i].media_type = RM_MEDIA_TYPE_2022_06;
+	attributes[i].media_type = SPEC_SUBTYPE_SMPTE_ST2022_6;
 	for (attr = media->a; attr; attr = attr->next) {
 		found_attributes |= (1 << attr->type);
 
@@ -473,31 +492,30 @@ static int extract_2022_6_params(struct sdp_session *session,
 		(1 << SDP_ATTR_FRAMERATE));
 }
 
-static int extract_stream_params(struct sdp_extractor *e, vector_t medias,
-		int npackets)
+static int extract_stream_params(struct sdp_extractor *e, int npackets)
 {
 	struct sdp_session *session = e->session;
 	struct sdp_media **media;
 	int i = 0;
 
-	VEC_FOREACH(medias, media) {
+	VEC_FOREACH(e->medias, media) {
 		int ret = 1;
 
-		if (e->parser == smpte2110) {
+		if (e->spec == SPEC_SMPTE_ST2110) {
 			if ((*media)->m.fmt.sub_type ==
 					SMPTE_2110_SUB_TYPE_20) {
-				ret = extract_2110_20_params(session, *media,
-					e->attributes, i, npackets);
+			ret = extract_2110_20_params(session, *media,
+				e->attributes, i, npackets);
 			} else if ((*media)->m.fmt.sub_type ==
 					SMPTE_2110_SUB_TYPE_30) {
-				ret = extract_2110_30_params(session, *media,
-					e->attributes, i);
+			ret = extract_2110_30_params(session, *media,
+				e->attributes, i);
 			} else if ((*media)->m.fmt.sub_type ==
 					SMPTE_2110_SUB_TYPE_40) {
-				ret = extract_2110_40_params(session, *media,
-					e->attributes, i);
+			ret = extract_2110_40_params(session, *media,
+				e->attributes, i);
 			}
-		} else if (e->parser == smpte2022) {
+		} else if (e->spec == SPEC_SMPTE_ST2022) {
 			if ((*media)->m.fmt.sub_type == SMPTE_2022_SUB_TYPE_6) {
 				ret = extract_2022_6_params(session, *media,
 					e->attributes, i);
@@ -515,43 +533,68 @@ static int extract_stream_params(struct sdp_extractor *e, vector_t medias,
 	return 0;
 }
 
-static vector_t get_group_medias(struct sdp_media *media)
+static void vector_uninit(vector_t vector)
 {
-	vector_t result;
-	
-	result = vec_init(NULL);
-	if (!result)
-		return NULL;
+	vec_uninit(vector);
+}
 
-	if (media->group) {
-		struct group_member *member;
+static int media_vector_init(struct sdp_session *session, vector_t *medias)
+{
+	struct sdp_media *media;
 
-		for (member = media->group->member; member;
-				member = member->next) {
-			if (member->media)
-				vec_push_back(result, member->media);
-		}
-	} else {
-		vec_push_back(result, media);
+	*medias = vec_init(NULL);
+	if (!*medias)
+		return -1;
+
+	for (media = session->media; media; media = media->next)
+		vec_push_back(*medias, media);
+
+	return 0;
+}
+
+static void media_vector_uninit(vector_t medias)
+{
+	vector_uninit(medias);
+}
+
+static int group_vector_init(struct sdp_session *session, vector_t *groups)
+{
+	struct sdp_attr *attr;
+	vector_t tmp;
+
+	tmp = vec_init(NULL);
+	if (!tmp)
+		return -1;
+
+	for (attr = sdp_session_attr_get(session, SDP_ATTR_GROUP); attr;
+			attr = sdp_attr_get_next(attr)) {
+		vec_push_back(tmp, &attr->value.group);
 	}
 
-	return result;
+	*groups = tmp;
+	return 0;
 }
- 
-static int sdp_parse(struct sdp_extractor *e, void *sdp, int media_block_index,
+
+static void group_vector_uninit(vector_t groups)
+{
+	vector_uninit(groups);
+}
+
+static int sdp_parse(struct sdp_extractor *e, void *sdp,
 		enum sdp_stream_type type)
 {
 	struct sdp_session *session;
-	static struct sdp_specific *supported_parsers[2];
-	struct sdp_specific *parser;
-	struct sdp_media *media;
-	vector_t medias;
 	int i;
 	int ret;
+	static struct {
+		enum sdp_extractor_spec spec;
+		struct sdp_specific **parser;
+	} supported_parsers[2] = {
+		{ .spec = SPEC_SMPTE_ST2022, .parser = &smpte2022 },
+		{ .spec = SPEC_SMPTE_ST2110, .parser = &smpte2110 },
+	};
 
-	supported_parsers[0] = smpte2110;
-	supported_parsers[1] = smpte2022;
-
+	e->spec = SPEC_UNKNOWN;
 	for (i = 0; i < ARRAY_SIZE(supported_parsers); i++) {
 		session = sdp_parser_init(type, sdp);
 		if (!session) {
@@ -559,9 +602,11 @@ static int sdp_parse(struct sdp_extractor *e, void *sdp, int media_block_index,
 			return -1;
 		}
 
-		parser = supported_parsers[i];
-		if (sdp_session_parse(session, parser) == SDP_PARSE_OK)
+		if (sdp_session_parse(session, *supported_parsers[i].parser) ==
+				SDP_PARSE_OK) {
+			e->spec = supported_parsers[i].spec;
 			break;
+		}
 
 		sdp_parser_uninit(session);
 	}
@@ -572,49 +617,103 @@ static int sdp_parse(struct sdp_extractor *e, void *sdp, int media_block_index,
 	}
 
 	e->session = session;
-	e->parser = parser;
 
-	media = find_media_block(e, media_block_index);
-	if (!media)
-		return -1;
-
-	/* extract number of dup sessions */
-	medias = get_group_medias(media);
-	if (!medias)
-		return -1;
-	e->stream_num = vec_size(medias);
-	if (e->stream_num < 1 || MAX_STRMS_PER_DUP < e->stream_num) {
-		sdp_extractor_err("bad number of dup sessions: %d",
-			e->stream_num);
-		ret = -1;
-		goto exit;
+	ret = media_vector_init(session, &e->medias);
+	if (ret) {
+		sdp_extractor_err("failed to initialize medias vector");
+		goto fail;
 	}
-	if (MAX_STRMS_PER_DUP < e->stream_num) {
-		sdp_extractor_err("sdp extractor is limited to %d media "
-			"sections", MAX_STRMS_PER_DUP);
-		ret = -1;
-		goto exit;
+	if (!vec_size(e->medias)) {
+		sdp_extractor_err("no media blocks found");
+		goto fail;
+	}
+
+	ret = group_vector_init(session, &e->groups);
+	if (ret) {
+		sdp_extractor_err("failed to initialize medias vector");
+		goto fail;
+	}
+
+	e->attributes = calloc(vec_size(e->medias),
+		sizeof(struct media_attribute));
+	if (!e->attributes) {
+		sdp_extractor_err("failed to allocate extractor attributes");
+		goto fail;
 	}
 
 	/* extract source address and destination address/port */
-	if (extract_networking_info(e, medias)) {
+	if (extract_networking_info(e)) {
 		sdp_extractor_err("failed to parse networking info");
-		ret = -1;
-		goto exit;
+		goto fail;
 	}
 
 	/* extract packet size and rate */
-	if (extract_stream_params(e, medias, 0)) {
+	if (extract_stream_params(e, 0)) {
 		sdp_extractor_err("failed to parse stream parameters");
-		ret = -1;
-		goto exit;
+		goto fail;
 	}
 
-	ret = 0;
+	return 0;
 
-exit:
-	vec_uninit(medias);
-	return ret;
+fail:
+	vec_uninit(e->medias);
+	vec_uninit(e->groups);
+	free(e->attributes);
+	return -1;
+}
+
+static struct group_member *get_member(struct sdp_extractor *e, int g_idx,
+		int t_idx)
+{
+	struct sdp_attr_value_group *group;
+	struct group_member *member;
+
+	if (vec_size(e->groups) <= g_idx)
+		return NULL;
+
+	group = (struct sdp_attr_value_group*)vec_at(e->groups, g_idx);
+	if (group->num_tags <= t_idx)
+		return NULL;
+
+	for (member = group->member; t_idx; member = member->next, t_idx--);
+	return member;
+}
+
+/* API implementation - spec agnostic functions */
+void sdp_extractor_uninit(sdp_extractor_t sdp_extractor)
+{
+	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
+
+	group_vector_uninit(e->groups);
+	media_vector_uninit(e->medias);
+	free(e->attributes);
+	if (e->session)
+		sdp_parser_uninit(e->session);
+	memset(e, 0, sizeof(struct sdp_extractor));
+	free(e);
+}
+
+sdp_extractor_t sdp_extractor_init(void *sdp, enum sdp_stream_type type)
+{
+	struct sdp_extractor *e;
+
+	e = (struct sdp_extractor*)calloc(1, sizeof(struct sdp_extractor));
+	if (!e)
+		return NULL;
+
+	if (sdp_parse(e, sdp, type)) {
+		sdp_extractor_uninit((sdp_extractor_t)e);
+		return NULL;
+	}
+
+	return (sdp_extractor_t)e;
+}
+
+enum sdp_extractor_spec sdp_extractor_get_spec(sdp_extractor_t sdp_extractor)
+{
+	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
+
+	return e->spec;
 }
 
 char *sdp_extractor_get_session_name(sdp_extractor_t sdp_extractor)
@@ -628,162 +727,180 @@ int sdp_extractor_get_stream_num(sdp_extractor_t sdp_extractor)
 {
 	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
 
-	return e->stream_num;
+	return (int)vec_size(e->medias);
 }
 
-int sdp_extractor_get_packaging_mode(sdp_extractor_t sdp_extractor, int dup)
+int sdp_extractor_get_group_num(sdp_extractor_t sdp_extractor)
 {
 	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
 
-	if (e->stream_num < dup)
-		return -1;
-
-	return e->attributes[dup].type.video.pm;
+	return (int)vec_size(e->groups);
 }
 
-char *sdp_extractor_get_src_ip(sdp_extractor_t sdp_extractor, int dup)
+char *sdp_extractor_get_group_semantic(sdp_extractor_t sdp_extractor, int g_idx)
 {
 	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
+	struct sdp_attr_value_group *group;
 
-	if (e->stream_num < dup)
+	if (vec_size(e->groups) <= g_idx)
 		return NULL;
 
-	return *e->attributes[dup].addr_src ?
-		e->attributes[dup].addr_src : "N/A";
+	group = (struct sdp_attr_value_group*)vec_at(e->groups, g_idx);
+	return group->semantic;
 }
 
-char *sdp_extractor_get_dst_ip(sdp_extractor_t sdp_extractor, int dup)
+int sdp_extractor_get_group_tag_num(sdp_extractor_t sdp_extractor, int g_idx)
 {
 	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
+	struct sdp_attr_value_group *group;
 
-	if (e->stream_num < dup)
+	if (vec_size(e->groups) <= g_idx)
+		return -1;
+
+	group = (struct sdp_attr_value_group*)vec_at(e->groups, g_idx);
+	return group->num_tags;
+}
+
+char *sdp_extractor_get_group_tag(sdp_extractor_t sdp_extractor,
+		int g_idx, int t_idx)
+{
+	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
+	struct group_member *member;
+
+	member = get_member(e, g_idx, t_idx);
+	if (!member)
 		return NULL;
 
-	return e->attributes[dup].addr_dst;
+	return member->identification_tag;
 }
 
-uint16_t sdp_extractor_get_dst_port(sdp_extractor_t sdp_extractor, int dup)
-{
-	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
-
-	if (e->stream_num < dup)
-		return -1;
-
-	return e->attributes[dup].port_dst;
-}
-
-int sdp_extractor_get_packet_size(sdp_extractor_t sdp_extractor, int dup)
-{
-	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
-
-	if (e->stream_num < dup)
-		return -1;
-
-	return e->attributes[dup].type.video.packet_size;
-}
-
-double sdp_extractor_get_rate(sdp_extractor_t sdp_extractor, int dup)
-{
-	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
-
-	if (e->stream_num < dup)
-		return -1;
-
-	return e->attributes[dup].type.video.rate;
-}
-
-int sdp_extractor_get_is_rate_integer(sdp_extractor_t sdp_extractor, int dup)
-{
-	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
-
-	if (e->stream_num < dup)
-		return -1;
-
-	return e->attributes[dup].type.video.is_rate_integer;
-}
-
-int sdp_extractor_get_npackets(sdp_extractor_t sdp_extractor, int dup)
-{
-	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
-
-	if (e->stream_num < dup)
-		return -1;
-
-	return e->attributes[dup].type.video.npackets;
-}
-
-double sdp_extractor_get_fps(sdp_extractor_t sdp_extractor, int dup)
-{
-	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
-
-	if (e->stream_num < dup)
-		return -1;
-
-	return e->attributes[dup].type.video.fps;
-}
-
-int sdp_extractor_get_type(sdp_extractor_t sdp_extractor, int dup)
-{
-	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
-
-	if (e->stream_num < dup)
-		return -1;
-
-	return e->attributes[dup].type.video.type;
-}
-
-int sdp_extractor_get_signal(sdp_extractor_t sdp_extractor, int dup)
-{
-	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
-
-	if (e->stream_num < dup)
-		return -1;
-
-	return e->attributes[dup].type.video.signal;
-}
-
-int sdp_extractor_set_npackets(sdp_extractor_t sdp_extractor, int npackets,
-		int media_block_index)
+char *sdp_extractor_stream_to_tag(sdp_extractor_t sdp_extractor, int m_idx)
 {
 	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
 	struct sdp_media *media;
-	vector_t medias;
-	int ret;
-	
-	media = find_media_block(e, media_block_index);
-	if (!media)
-		return -1;
 
-	medias = get_group_medias(media);
-	ret = extract_stream_params(e, medias, npackets);
-	vec_uninit(medias);
-	return ret;
+	media = vec_at(e->medias, m_idx);
+	if (!media || !media->mid)
+		return NULL;
+
+	return media->mid->identification_tag;
 }
 
-void sdp_extractor_uninit(sdp_extractor_t sdp_extractor)
+enum sdp_extractor_spec_sub_type sdp_extractor_stream_sub_type(
+	sdp_extractor_t sdp_extractor, int m_idx)
 {
 	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
 
-	if (e->session)
-		sdp_parser_uninit(e->session);
-	memset(e, 0, sizeof(struct sdp_extractor));
-	free(e);
+	if (vec_size(e->medias) <= m_idx)
+		return SPEC_SUBTYPE_SUBTYPE_UNKNOWN;
+
+	return e->attributes[m_idx].media_type;
 }
 
-sdp_extractor_t sdp_extractor_init(void *sdp, int media_block_index,
-		enum sdp_stream_type type)
+int sdp_extractor_get_group_index_by_stream(sdp_extractor_t sdp_extractor,
+		int m_idx)
 {
-	struct sdp_extractor *e;
+	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
+	struct sdp_media *media;
+	struct sdp_attr_value_group **group;
+	int g_idx;
 
-	e = (struct sdp_extractor*)calloc(1, sizeof(struct sdp_extractor));
-	if (!e)
-		return NULL;
+	if (vec_size(e->medias) <= m_idx)
+		return -1;
 
-	if (sdp_parse(e, sdp, media_block_index, type)) {
-		sdp_extractor_uninit((sdp_extractor_t)e);
-		return NULL;
+	media = (struct sdp_media*)vec_at(e->medias, m_idx);
+	if (!media->group)
+		return -1;
+
+	g_idx = 0;
+	VEC_FOREACH(e->groups, group) {
+		if (media->group == *group)
+			break;
+		g_idx++;
 	}
 
-	return (sdp_extractor_t)e;
+	if (g_idx == vec_size(e->groups))
+		return -1;
+
+	return g_idx;
 }
+
+SDP_EXTRACTOR_GET(char *, NULL,  src_ip, addr_src)
+SDP_EXTRACTOR_GET(char *, NULL,  dst_ip, addr_dst)
+SDP_EXTRACTOR_GET(uint16_t, -1,  dst_port, port_dst)
+static SDP_EXTRACTOR_GET(double, -1,  fps, type.video.fps)
+
+/* API implementation - SMPTE ST2022-06 functions */
+double sdp_extractor_get_2022_06_fps_by_stream(sdp_extractor_t sdp_extractor,
+		int m_idx)
+{
+	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
+
+	if (e->spec != SPEC_SMPTE_ST2022)
+		return -1;
+
+	return sdp_extractor_get_fps_by_stream(e, m_idx);
+}
+
+double sdp_extractor_get_2022_06_fps_by_group(sdp_extractor_t sdp_extractor,
+		int g_idx, int t_idx)
+{
+	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
+
+	if (e->spec != SPEC_SMPTE_ST2022)
+		return -1;
+
+	return sdp_extractor_get_fps_by_group(e, g_idx, t_idx);
+}
+
+/* API implementation - SMPTE ST2110-20 functions */
+SDP_EXTRACTOR_GET(int, -1, 2110_20_packaging_mode, type.video.pm)
+SDP_EXTRACTOR_GET(int, -1, 2110_20_packet_size, type.video.packet_size)
+SDP_EXTRACTOR_GET(double, -1, 2110_20_rate, type.video.rate)
+SDP_EXTRACTOR_GET(int, -1, 2110_20_is_rate_integer, type.video.is_rate_integer)
+SDP_EXTRACTOR_GET(int, -1, 2110_20_npackets, type.video.npackets)
+SDP_EXTRACTOR_GET(int, -1, 2110_20_type, type.video.type)
+SDP_EXTRACTOR_GET(int, -1, 2110_20_signal, type.video.signal)
+SDP_EXTRACTOR_GET(int, -1, 2110_20_width, type.video.width)
+SDP_EXTRACTOR_GET(int, -1, 2110_20_height, type.video.height)
+
+double sdp_extractor_get_2110_20_fps_by_stream(sdp_extractor_t sdp_extractor,
+		int m_idx)
+{
+	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
+
+	if (e->spec != SPEC_SMPTE_ST2110)
+		return -1;
+
+	return sdp_extractor_get_fps_by_stream(e, m_idx);
+}
+
+double sdp_extractor_get_2110_20_fps_by_group(sdp_extractor_t sdp_extractor,
+		int g_idx, int t_idx)
+{
+	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
+
+	if (e->spec != SPEC_SMPTE_ST2110)
+		return -1;
+
+	return sdp_extractor_get_fps_by_group(e, g_idx, t_idx);
+}
+
+int sdp_extractor_set_2110_20_npackets(sdp_extractor_t sdp_extractor,
+		int npackets)
+{
+	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
+
+	return extract_stream_params(e, npackets);
+}
+
+/* API implementation - SMPTE ST2110-30 functions */
+SDP_EXTRACTOR_GET(int, -1, 2110_30_bit_depth, type.audio.bit_depth)
+SDP_EXTRACTOR_GET(uint32_t, (uint32_t)-1, 2110_30_sampling_rate, clock_rate)
+SDP_EXTRACTOR_GET(int, -1, 2110_30_num_channels, type.audio.num_channels)
+SDP_EXTRACTOR_GET(char*, NULL, 2110_30_channel_order, type.audio.channel_order)
+SDP_EXTRACTOR_GET(double, -1, 2110_30_ptime, type.audio.ptime)
+
+/* API implementation - SMPTE ST2110-40 functions */
+SDP_EXTRACTOR_GET(int, -1, 2110_40_dummy, type.anc.dummy)
 
