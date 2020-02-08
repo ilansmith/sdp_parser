@@ -73,7 +73,6 @@ enum sdp_parse_err sdp_parse_double(double *result, const char *input)
 	return sdp_parse_type_verify(endptr, input, "Number");
 }
 
-
 static int attr_is_of_format(struct sdp_attr *attr, int fmt_id)
 {
 	if (attr->type == SDP_ATTR_FMTP)
@@ -94,14 +93,15 @@ static int validate_fmt_required_attributes(struct sdp_media* media,
 	}
 
 	if (required_attr_mask != 0) {
-		enum sdp_attr_type atype = SDP_ATTR_NONE;
+		int atype = SDP_ATTR_NONE;
 
 		sdperr("media format %u is missing required attributes:",
 				fmt->id);
 		while (required_attr_mask > 0) {
 			if (required_attr_mask & 0x1)
 				sdperr("   (%02u) %s", atype,
-						sdp_get_attr_type_name(atype));
+					sdp_get_attr_type_name(
+						(enum sdp_attr_type)atype));
 			required_attr_mask >>= 1;
 			atype += 1;
 		}
@@ -169,3 +169,4 @@ void sdp_free_field(struct interpretable *field)
 	if (field->dtor)
 		field->dtor(field->as.as_ptr);
 }
+

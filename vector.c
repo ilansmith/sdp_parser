@@ -46,7 +46,7 @@ static inline void buf_realloc(struct vector *vec, unsigned int pos)
 	if (capacity_required <= vec->capacity)
 		return;
 
-	buf = realloc(vec->buf, capacity_required * sizeof(void*));
+	buf = (void**)realloc(vec->buf, capacity_required * sizeof(void*));
 	if (!buf)
 		return;
 
@@ -88,11 +88,11 @@ vector_t vec_init(vec_dtor dtor)
 {
 	struct vector *vec;
 
-	vec = malloc(sizeof(struct vector));
+	vec = (struct vector*)malloc(sizeof(struct vector));
 	if (!vec)
 		return NULL;
 
-	vec->buf = calloc(VEC_INIT_CAPACITY, sizeof(void*));
+	vec->buf = (void**)calloc(VEC_INIT_CAPACITY, sizeof(void*));
 	if (!vec->buf) {
 		vec_uninit(vec);
 		return NULL;

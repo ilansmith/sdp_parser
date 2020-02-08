@@ -113,19 +113,25 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="sdp_compat.c" />
+    <ClCompile Include="sdp_field.c" />
     <ClCompile Include="sdp_parser.c" />
     <ClCompile Include="sdp_stream.c" />
+    <ClCompile Include="smpte2022_sdp_parser.c" />
     <ClCompile Include="smpte2110_sdp_parser.c" />
     <ClCompile Include="test.c" />
     <ClCompile Include="util.c" />
+    <ClCompile Include="vector.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="code2x.h" />
     <ClInclude Include="sdp_compat.h" />
+    <ClInclude Include="sdp_field.h" />
     <ClInclude Include="sdp_parser.h" />
     <ClInclude Include="sdp_stream.h" />
+    <ClInclude Include="smpte2022_sdp_parser.h" />
     <ClInclude Include="smpte2110_sdp_parser.h" />
     <ClInclude Include="util.h" />
+    <ClInclude Include="vector.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
