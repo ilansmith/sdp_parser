@@ -1,72 +1,65 @@
-/* This code is public domain -- Will Hartung 4/9/09 */
-
 #include "sdp_compat.h"
 
-size_t getline(char **lineptr, size_t *n, FILE *stream) {
-    char *bufptr = NULL;
-    char *p = bufptr;
-    size_t size;
-    int c;
+ssize_t getline(char **lineptr, size_t *n, FILE *stream)
+{
+	char *bufptr;
+	char *p;
+	size_t size;
+	int c;
 
-    if (lineptr == NULL) {
-        return -1;
-    }
-    if (stream == NULL) {
-        return -1;
-    }
-    if (n == NULL) {
-        return -1;
-    }
-    bufptr = *lineptr;
-    size = *n;
+	if (!lineptr || !n || !stream)
+		return -1;
 
-    c = fgetc(stream);
-    if (c == EOF) {
-        return -1;
-    }
-    if (bufptr == NULL) {
-        bufptr = (char*)malloc(128);
-        if (bufptr == NULL) {
-            return -1;
-        }
-        size = 128;
-    }
-    p = bufptr;
-    while(c != EOF) {
-        if ((p - bufptr) > (int)(size - 1)) {
-            size = size + 128;
-            bufptr = (char*)realloc(bufptr, size);
-            if (bufptr == NULL) {
-                return -1;
-            }
-        }
-        *p++ = c;
-        if (c == '\n') {
-            break;
-        }
-        c = fgetc(stream);
-    }
+	if (!*lineptr) {
+		bufptr = (char*)malloc(INCREASE_BLOCK);
+		if (!bufptr)
+		return -1;
+		size = INCREASE_BLOCK;
+	} else {
+	bufptr = *lineptr;
+	size = *n;
+	}
 
-    *p++ = '\0';
-    *lineptr = bufptr;
-    *n = size;
+	p = bufptr;
+	while ((c = fgetc(stream) != EOF)) {
+		if ((p - bufptr) > (int)(size - sizeof('\0'))) {
+			char *new_bufptr;
 
-    return p - bufptr - 1;
+			size += INCREASE_BLOCK;
+			new_bufptr = (char*)realloc(bufptr, size);
+			if (!new_bufptr)
+				return -1;
+
+			p = new_bufptr + (p - bufptr);
+			bufptr = new_bufptr;
+			}
+		*p++ = (char)c;
+		if (c == '\n')
+			break;
+		c = fgetc(stream);
+	}
+	if (p == bufptr)
+		return -1;
+
+	*p++ = '\0';
+	*lineptr = bufptr;
+	*n = size;
+
+	return p - bufptr - 1;
 }
 
 int strncasecmp(const char *s1, const char *s2, size_t n)
 {
-  if (n == 0)
-    return 0;
+	if (!n)
+		return 0;
 
-  while (n-- != 0 && tolower(*s1) == tolower(*s2))
-    {
-      if (n == 0 || *s1 == '\0' || *s2 == '\0')
-    break;
-      s1++;
-      s2++;
-    }
+	while (tolower(*s1) == tolower(*s2)) {
+		if (!--n || !*s1 || !*s2)
+			break;
+		s1++;
+		s2++;
+	}
 
-  return tolower(*(unsigned char *) s1) - tolower(*(unsigned char *) s2);
+	return tolower(*(unsigned char*)s1) - tolower(*(unsigned char*)s2);
 }
 

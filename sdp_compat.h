@@ -18,7 +18,7 @@ extern "C" {
 typedef SSIZE_T ssize_t;
 #endif
 
-size_t getline(char **lineptr, size_t *n, FILE *stream);
+ssize_t getline(char **lineptr, size_t *n, FILE *stream);
 int strncasecmp(const char *s1, const char *s2, size_t n);
 
 #ifdef __cplusplus
