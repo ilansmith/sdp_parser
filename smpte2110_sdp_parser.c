@@ -32,7 +32,7 @@ struct param_parse_info {
 	SMPTE_2110_FMTP_MULTI_ENTRY(_param_, 1)
 #define SMPTE_2110_FMTP_TABLE_END };
 
-#define UNLIMITED -1
+#define UNLIMITED ((unsigned int)-1)
 
 struct attr_params {
 	enum smpte_2110_sampling sampling;
@@ -132,9 +132,9 @@ static enum sdp_parse_err sdp_attr_param_parse_sampling(char *str, void *res)
 {
 	struct attr_params *params = (struct attr_params*)res;
 	unsigned int i;
-	int a;
-	int b;
-	int c;
+	int a = 0;
+	int b = 0;
+	int c = 0;
 	struct {
 		char *string;
 		enum smpte_2110_sampling value;
@@ -277,7 +277,7 @@ static enum sdp_parse_err sdp_attr_param_parse_width(char *str, void *res)
 	if (width < 1 || 32767 < width)
 		return sdprerr("width is in the range of: [1, 32767]");
 
-	params->width = width;
+	params->width = (uint16_t)width;
 	return SDP_PARSE_OK;
 }
 
@@ -292,7 +292,7 @@ static enum sdp_parse_err sdp_attr_param_parse_height(char *str, void *res)
 	if (height < 1 || 32767 < height)
 		return sdprerr("height is in the range of: [1, 32767]");
 
-	params->height = height;
+	params->height = (uint16_t)height;
 	return SDP_PARSE_OK;
 }
 
@@ -506,7 +506,7 @@ static enum sdp_parse_err sdp_attr_param_parse_maxudp(char *str, void *res)
 	if (maxudp != 1460 && maxudp != 8960)
 		goto err;
 
-	params->maxudp = maxudp;
+	params->maxudp = (uint16_t)maxudp;
 	return SDP_PARSE_OK;
 
 err:
@@ -627,14 +627,14 @@ static enum sdp_parse_err sdp_attr_param_parse_did_sdid(char *str, void *res)
 	if (!did)
 		return sdprerr("memory allocation");
 
-	did->code_1 = c1;
-	did->code_2 = c2;
+	did->code_1 = (uint8_t)c1;
+	did->code_2 = (uint8_t)c2;
 	if (params->last_did)
 		params->last_did->next = did;
 	else
 		params->dids = did;
 	params->last_did = did;
-       return SDP_PARSE_OK;
+	return SDP_PARSE_OK;
 }
 
 static enum sdp_parse_err sdp_attr_param_parse_vpid_code(char *str, void *res)

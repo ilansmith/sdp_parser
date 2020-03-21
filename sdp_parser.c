@@ -638,8 +638,6 @@ static enum sdp_parse_err parse_attr_session(struct sdp_media *media,
 		a->type = SDP_ATTR_NOT_SUPPORTED;
 		return SDP_PARSE_NOT_SUPPORTED;
 	}
-
-	return SDP_PARSE_OK;
 }
 
 static enum sdp_parse_err sdp_parse_session_level_attr(sdp_stream_t sdp,
@@ -1225,7 +1223,6 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 	while (line) {
 		struct sdp_media *media;
 		struct sdp_media **next;
-		enum sdp_parse_err err;
 
 		if (sdp_parse_descriptor_type(line) != 'm')
 			goto exit;
@@ -1240,8 +1237,8 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 		media = *next;
 
 		/* parse m= */
-		err = sdp_parse_media(sdp, &line, &len, &media->m);
-		if (err == SDP_PARSE_ERROR)
+		if ((err  = sdp_parse_media(sdp, &line, &len, &media->m)) ==
+				SDP_PARSE_ERROR)
 			goto exit;
 
 		/* skip non suppored m= media blocks */
