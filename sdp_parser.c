@@ -1237,7 +1237,7 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 		media = *next;
 
 		/* parse m= */
-		if ((err  = sdp_parse_media(sdp, &line, &len, &media->m)) ==
+		if ((err = sdp_parse_media(sdp, &line, &len, &media->m)) ==
 				SDP_PARSE_ERROR)
 			goto exit;
 
@@ -1245,6 +1245,7 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 		if (err == SDP_PARSE_NOT_SUPPORTED) {
 			while (line && sdp_parse_descriptor_type(line) != 'm')
 				sdp_getline(&line, &len, sdp);
+			err = SDP_PARSE_OK;
 			continue;
 		}
 
@@ -1252,7 +1253,7 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 			break;
 
 		/* skip parsing of non supported media-level descriptors */
-		if (sdp_parse_non_supported(sdp, &line, &len, "i") ==
+		if ((err = sdp_parse_non_supported(sdp, &line, &len, "i")) ==
 				SDP_PARSE_ERROR) {
 			goto exit;
 		}
@@ -1260,15 +1261,15 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 			break;
 
 		/* parse c=* */
-		if (sdp_parse_connection_information(sdp, &line, &len,
-				&media->c) == SDP_PARSE_ERROR) {
+		if ((err = sdp_parse_connection_information(sdp, &line, &len,
+				&media->c)) == SDP_PARSE_ERROR) {
 			goto exit;
 		}
 		if (!line)
 			break;
 
 		/* skip parsing of non supported media-level descriptors */
-		if (sdp_parse_non_supported(sdp, &line, &len, "bk") ==
+		if ((err = sdp_parse_non_supported(sdp, &line, &len, "bk")) ==
 				SDP_PARSE_ERROR) {
 			goto exit;
 		}
@@ -1276,16 +1277,16 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 			break;
 
 		/* parse media-level a=* */
-		if (sdp_parse_media_level_attr(sdp, &line, &len, media,
-				&media->a, specific) == SDP_PARSE_ERROR) {
+		if ((err = sdp_parse_media_level_attr(sdp, &line, &len, media,
+				&media->a, specific)) == SDP_PARSE_ERROR) {
 			goto exit;
 		}
 
 		/* Handle a media-block terminating a=group */
 		for (last_session_a = &session->a; *last_session_a;
 				last_session_a = &(*last_session_a)->next);
-		if (sdp_parse_session_level_attr(sdp, &line, &len,
-				last_session_a, specific) == SDP_PARSE_ERROR) {
+		if ((err = sdp_parse_session_level_attr(sdp, &line, &len,
+				last_session_a, specific)) == SDP_PARSE_ERROR) {
 			goto exit;
 		}
 	}
