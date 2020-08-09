@@ -5,16 +5,24 @@
 
 #include "sdp_parser.h"
 
+#define SDP_DISABLE_LOGGING "SDP_PARSER_DISABLE_LOGGING"
+
 #define SDPOUT(func_suffix, level) \
 	enum sdp_parse_err sdp ## func_suffix(char *fmt, ...) \
 	{ \
+		if (is_logging_disabled) \
+			goto exit; \
+		\
 		va_list va; \
 		va_start(va, fmt); \
 		sdpout(level, fmt, va); \
 		va_end(va); \
 		\
+	exit: \
 		return level; \
 	}
+
+static int is_logging_disabled;
 
 static void sdpout(enum sdp_parse_err level, char *fmt, va_list va)
 {
@@ -39,6 +47,13 @@ static void sdpout(enum sdp_parse_err level, char *fmt, va_list va)
 	vfprintf(stderr, fmt, va);
 	fprintf(stderr, "\n");
 	fflush(stderr);
+}
+
+void sdp_set_logging(void)
+{
+	char *val = getenv(SDP_DISABLE_LOGGING);
+
+	is_logging_disabled = val && !strncmp(val, "1", 1) ? 1 : 0;
 }
 
 #ifdef CONFIG_DEBUG

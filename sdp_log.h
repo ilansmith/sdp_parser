@@ -3,6 +3,14 @@
 
 #include "sdp_parser.h"
 
+/* SDP logging is enabled by default.
+ * To disable it, set the following environment variable:
+ *
+ *     SDP_PARSER_DISABLE_LOGGING=1
+ */
+
+void sdp_set_logging(void);
+
 #ifdef CONFIG_DEBUG
 enum sdp_parse_err sdpdebug(char *fmt, ...);
 #else
