@@ -1,5 +1,6 @@
 #include <string.h>
 #include "sdp_parser.h"
+#include "sdp_log.h"
 #include "sdp_field.h"
 
 static enum sdp_parse_err sdp_parse_type_verify(char *endptr,
@@ -16,11 +17,11 @@ static enum sdp_parse_err sdp_parse_type_verify(char *endptr,
 enum sdp_parse_err sdp_parse_str(char **result, const char *input)
 {
 	if (!input)
-		return sdprerr("no value specified");
+		return sdperr("no value specified");
 	*result = strdup(input);
 	return (*result) ?
 		SDP_PARSE_OK :
-		sdprerr("memory allocation failed");
+		sdperr("memory allocation failed");
 }
 
 enum sdp_parse_err sdp_parse_int(int *result, const char *input)
@@ -28,7 +29,7 @@ enum sdp_parse_err sdp_parse_int(int *result, const char *input)
 	char *endptr;
 
 	if (!input)
-		return sdprerr("no value specified");
+		return sdperr("no value specified");
 	*result = strtol(input, &endptr, 10);
 	return sdp_parse_type_verify(endptr, input, "Integer");
 }
@@ -38,7 +39,7 @@ enum sdp_parse_err sdp_parse_long(long *result, const char *input)
 	char *endptr;
 
 	if (!input)
-		return sdprerr("no value specified");
+		return sdperr("no value specified");
 	*result = strtol(input, &endptr, 10);
 	return sdp_parse_type_verify(endptr, input, "Integer");
 }
@@ -48,7 +49,7 @@ enum sdp_parse_err sdp_parse_long_long(long long *result, const char *input)
 	char *endptr;
 
 	if (!input)
-		return sdprerr("no value specified");
+		return sdperr("no value specified");
 	*result = strtoll(input, &endptr, 10);
 	return sdp_parse_type_verify(endptr, input, "Integer");
 }
@@ -58,7 +59,7 @@ enum sdp_parse_err sdp_parse_float(float *result, const char *input)
 	char *endptr;
 
 	if (!input)
-		return sdprerr("no value specified");
+		return sdperr("no value specified");
 	*result = strtof(input, &endptr);
 	return sdp_parse_type_verify(endptr, input, "Number");
 }
@@ -68,7 +69,7 @@ enum sdp_parse_err sdp_parse_double(double *result, const char *input)
 	char *endptr;
 
 	if (!input)
-		return sdprerr("no value specified");
+		return sdperr("no value specified");
 	*result = strtod(input, &endptr);
 	return sdp_parse_type_verify(endptr, input, "Number");
 }

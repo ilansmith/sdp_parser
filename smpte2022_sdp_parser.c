@@ -1,6 +1,7 @@
 #include <string.h>
 
 #include "sdp_parser.h"
+#include "sdp_log.h"
 #include "sdp_field.h"
 #include "smpte2022_sdp_parser.h"
 
