@@ -46,13 +46,27 @@ enum sdp_ci_addrtype {
 	SDP_CI_ADDRTYPE_NOT_SUPPORTED,
 };
 
- /* c=<nettype> <addrtype> <connection-address> */
+/* c=<nettype> <addrtype> <connection-address> */
 struct sdp_connection_information {
 	enum sdp_ci_nettype nettype;
 	enum sdp_ci_addrtype addrtype;
 	char sdp_ci_addr[256];
 	int sdp_ci_ttl;
 	int count;
+};
+
+enum sdp_bandwidth_bwtype {
+	SDP_BWTYPE_CT,
+	SDP_BWTYPE_AS,
+	SDP_BWTYPE_RR,
+	SDP_BWTYPE_RS,
+	SDP_BWTYPE_TIAS,
+	SDP_BWTYPE_UNKNOWN,
+};
+
+/* b=<bwtype>:<bandwidth> */
+struct sdp_bandwidth_information {
+	int bandwidth[SDP_BWTYPE_UNKNOWN][2];
 };
 
 /* media description */
@@ -219,10 +233,11 @@ struct sdp_media {
 
 	struct sdp_connection_information c; /* c=* */
 
+	struct sdp_bandwidth_information b; /* b=* */
+
 	/* not supported
 	   =============
 
-         b=* (zero or more bandwidth information lines)
          k=* (encryption key)
 
 	 */
@@ -258,10 +273,11 @@ struct sdp_session {
 
 	struct sdp_connection_information c; /* c=* */
 
+	struct sdp_bandwidth_information b; /* b=* */
+
 	/* not supported
 	   =============
 
-	   b=* (zero or more bandwidth information lines)
 	   One or more time descriptions ("t=" and "r=" lines; see below)
 	   z=* (time zone adjustments)
 	   k=* (encryption key)

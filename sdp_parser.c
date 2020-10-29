@@ -335,6 +335,54 @@ static enum sdp_parse_err sdp_parse_connection_information(sdp_stream_t sdp,
 	return SDP_PARSE_OK;
 }
 
+static enum sdp_parse_err sdp_parse_bandwidth_information(sdp_stream_t sdp,
+		char **line, size_t *len, struct sdp_bandwidth_information *b)
+{
+	while (*line && sdp_parse_descriptor_type(*line) == 'b') {
+		char *bwtype_str;
+		enum sdp_bandwidth_bwtype bwtype;
+		int bandwidth;
+		char *ptr;
+		char *tmp;
+		char *endptr;
+
+		ptr = *line + 2;
+
+		bwtype_str = strtok_r(ptr, ":", &tmp);
+		if (!bwtype_str)
+			return sdperr("bad bandwidth information: bwtype");
+
+		bandwidth = strtol(strtok_r(NULL, "", &tmp), &endptr, 10);
+		if (*endptr)
+			return sdperr("bad bandwidth information: bandwidth");
+
+		if (!strcmp(bwtype_str, "CT"))
+			bwtype = SDP_BWTYPE_CT;
+		else if (!strcmp(bwtype_str, "AS"))
+			bwtype = SDP_BWTYPE_AS;
+		else if (!strcmp(bwtype_str, "RS"))
+			bwtype = SDP_BWTYPE_RS;
+		else if (!strcmp(bwtype_str, "RR"))
+			bwtype = SDP_BWTYPE_RR;
+		else if (!strcmp(bwtype_str, "TIAS"))
+			bwtype = SDP_BWTYPE_TIAS;
+		else
+			bwtype = SDP_BWTYPE_UNKNOWN;
+
+		if (b->bandwidth[bwtype][0]) {
+			return sdperr("multiple use of bandwidth type: %s",
+				bwtype_str);
+		}
+
+		b->bandwidth[bwtype][0] = 1;
+		b->bandwidth[bwtype][1] = bandwidth;
+
+		sdp_getline(line, len, sdp);
+	}
+
+	return SDP_PARSE_OK;
+}
+
 static enum sdp_parse_err sdp_parse_media_properties(struct sdp_media_m *m,
 		char **tmp)
 {
@@ -1167,8 +1215,19 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 		goto exit;
 	}
 
+	/* parse b=* */
+	if (sdp_parse_bandwidth_information(sdp, &line, &len, &session->b) ==
+			SDP_PARSE_ERROR) {
+		goto exit;
+	}
+
+	if (!line) {
+		err = SDP_PARSE_OK;
+		goto exit;
+	}
+
 	/* skip parsing of non supported session-level descriptors */
-	if (sdp_parse_non_supported(sdp, &line, &len, "btvuezk") ==
+	if (sdp_parse_non_supported(sdp, &line, &len, "tvuezk") ==
 			SDP_PARSE_ERROR) {
 		goto exit;
 	}
@@ -1237,8 +1296,16 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 		if (!line)
 			break;
 
+		/* parse b=* */
+		if ((err = sdp_parse_bandwidth_information(sdp, &line, &len,
+				&media->b)) == SDP_PARSE_ERROR) {
+			goto exit;
+		}
+		if (!line)
+			break;
+
 		/* skip parsing of non supported media-level descriptors */
-		if ((err = sdp_parse_non_supported(sdp, &line, &len, "bk")) ==
+		if ((err = sdp_parse_non_supported(sdp, &line, &len, "k")) ==
 				SDP_PARSE_ERROR) {
 			goto exit;
 		}
