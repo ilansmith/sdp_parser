@@ -57,6 +57,8 @@ struct attr_params {
 
 static void attribute_params_set_defaults(struct attr_params *params)
 {
+	memset(params, 0, sizeof(struct attr_params));
+
 	/* default for unsupported parameters */
 	params->colorimetry = COLORIMETRY_UNSPECIFIED;
 	params->is_ssn = 1;
