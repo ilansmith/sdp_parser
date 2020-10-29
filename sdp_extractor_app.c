@@ -14,6 +14,10 @@
 #define C_NORMAL "\033[00;00;00m"
 #define C_HIGHLIGHT "\033[01m"
 #define C_RED "\033[01;31m"
+#define C_ERR(_str_) C_RED _str_ C_NORMAL
+#define UDP_SIZE_DEFAULT 1460
+#define DEF(_pred_) (_pred_ ? " [default]" : "")
+#define ALPHA_NUMERIC(_char_ptr_) ('0' <= *(_char_ptr_) && *(_char_ptr_) <= '9')
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
 
@@ -60,6 +64,48 @@ static void abort_printf(const char *format, ...)
 	exit(-1);
 }
 
+static int do_vprintf(char *format, char **flag, va_list va)
+{
+	int ret = 0;
+	int format_len;
+	int inc = 1;
+
+	switch (**flag) {
+	case 's':
+		strcat(format, "%s");
+		printf(format, va_arg(va, char*));
+		break;
+	case 'i':
+		strcat(format, "%i");
+		printf(format, va_arg(va, int));
+		break;
+	case 'd':
+		strcat(format, "%");
+
+		if (ALPHA_NUMERIC(*flag + inc)) {
+			strcat(format, ".");
+			format_len = strlen(format);
+		}
+
+		while (ALPHA_NUMERIC(*flag + inc)) {
+			format[format_len + inc - 1] = *(*flag + inc);
+			format[format_len + inc] = 0;
+			inc++;
+		}
+		strcat(format, "f");
+		printf(format, va_arg(va, double));
+		break;
+	default:
+		strcat(format, "%s");
+		printf(format, C_ERR("Error"));
+		ret = -1;
+		break;
+	}
+
+	*flag += inc;
+	return ret;
+}
+
 static int vstream_printf(char *tital, char *flag, va_list va)
 {
 	char format[256];
@@ -67,34 +113,16 @@ static int vstream_printf(char *tital, char *flag, va_list va)
 	int ret = 0;
 
 	snprintf(tital_colon, sizeof(tital_colon), "%s:", tital);
-	snprintf(format, sizeof(format), "  %s%%-25s%s ",
-		C_HIGHLIGHT, C_NORMAL);
+	snprintf(format, sizeof(format), "  %s%-33s%s ",
+		C_HIGHLIGHT, tital_colon, C_NORMAL);
+	ret = do_vprintf(format, &flag, va);
 
-	switch (*flag) {
-	case 's':
-		strcat(format, "%s\n");
-		printf(format, tital_colon, va_arg(va, char*));
-		break;
-	case 'i':
-		strcat(format, "%i\n");
-		printf(format, tital_colon, va_arg(va, int));
-		break;
-	case 'd':
-		strcat(format, "%");
-		if (*(flag + 1)) {
-			strcat(format, ".");
-			strcat(format, (flag + 1));
-		}
-		strcat(format, "f\n");
-		printf(format, tital_colon, va_arg(va, double));
-		break;
-	default:
-		strcat(format, "%s\n");
-		printf(format, tital_colon, C_RED "Error" C_NORMAL);
-		ret = -1;
-		break;
+	while (!ret && *flag) {
+		*format = 0;
+		ret = do_vprintf(format, &flag, va);
 	}
 
+	printf("\n");
 	return ret;
 }
 
@@ -314,32 +342,66 @@ int main(int argc, char **argv)
 	int stream_num;
 	int i;
 	int pm;
+	int colorimetry;
+	int tcs;
+	int range;
+	struct smpte_2110_par par;
+	int maxudp;
+	int troff;
+	int cmax;
 	int groups_num;
 	char *channel_order;
-	struct code2str specs_sub_types[] = {
+	static struct code2str specs_sub_types[] = {
 		{ SPEC_SUBTYPE_SMPTE_ST2022_6, "SMPTE 2022-6" },
 		{ SPEC_SUBTYPE_SMPTE_ST2110_20, "SMPTE 2110-20" },
 		{ SPEC_SUBTYPE_SMPTE_ST2110_30, "SMPTE 2110-30" },
 		{ SPEC_SUBTYPE_SMPTE_ST2110_40, "SMPTE 2110-40" },
-		{ -1, "Unknown" },
+		{ -1, C_ERR("Unknown") },
 	};
-	struct code2str types[] = {
+	static struct code2str types[] = {
 		{ TP_2110TPN, "Narrow" },
 		{ TP_2110TPNL, "Narrow Linear" },
 		{ TP_2110TPW, "Wide" },
-		{ -1, "Unknown" }
+		{ -1, C_ERR("Unknown") }
 	};
 	char *signal;
-	struct code2str scans[] = {
+	static struct code2str scans[] = {
 		{ SIGNAL_INTERLACE, "Interlace" },
 		{ SIGNAL_PSF, "Progressive segmented Frame (PsF)" },
 		{ SIGNAL_PROGRESSIVE, "Progressive" },
-		{ -1, "Unknown" }
+		{ -1, C_ERR("Unknown") }
 	};
-	struct code2str pms[] = {
+	static struct code2str pms[] = {
 		{ PM_2110GPM, "GPM" },
 		{ PM_2110BPM, "BPM" },
-		{ -1, "Unknown" }
+		{ -1, C_ERR("Unknown") }
+	};
+	static struct code2str colorimetries[] = {
+		{ COLORIMETRY_BT601, "BT601" },
+		{ COLORIMETRY_BT709, "BT709" },
+		{ COLORIMETRY_BT2020, "BT2020" },
+		{ COLORIMETRY_BT2100, "BT2100" },
+		{ COLORIMETRY_ST2065_1, "ST2065_1" },
+		{ COLORIMETRY_ST2065_3, "ST2065_3" },
+		{ -1, C_ERR("Unknown") },
+	};
+	static struct code2str xfer_characteristic_system[] = {
+		{ TCS_SDR, "SCR" },
+		{ TCS_PQ, "PQ" },
+		{ TCS_HLG, "HLG" },
+		{ TCS_LINEAR, "LINEAR" },
+		{ TCS_BT2100LINPQ, "BT2100LINPQ" },
+		{ TCS_BT2100LINHLG, "BT2100LINHLG" },
+		{ TCS_ST2065_1, "ST2065_1" },
+		{ TCS_ST428_1, "ST428_1" },
+		{ TCS_DENSITY, "DENSITY" },
+		{ -1, C_ERR("Unknown") },
+	};
+	static struct code2str ranges[] = {
+		{ RANGE_NARROW, "NARROW" },
+		{ RANGE_FULL, "FULL" },
+		{ RANGE_FULLPROTECT, "FULLPROTECT" },
+		{ -1, C_ERR("Unknown") },
 	};
 
 	dump_header();
@@ -434,18 +496,36 @@ int main(int argc, char **argv)
 					sdp_extractor_get_2110_20_npackets_by_stream(
 					sdp_extractor, i);
 
+			if ((maxudp =
+				sdp_extractor_get_2110_20_maxudp_by_stream(
+				sdp_extractor, i))) {
+					stream_printf_ind("max udp", "is",
+						maxudp, DEF(maxudp ==
+							UDP_SIZE_DEFAULT));
+			}
+
 			if (npackets) {
-				stream_printf_ind("npackets", "i",
+				int packet_size =
+					sdp_extractor_get_2110_20_packet_size_by_stream(
+						sdp_extractor, i);
+				int is_valid;
+				
+				is_valid = packet_size <= maxudp;
+
+				stream_printf_ind("npackets", "is",
 					sdp_extractor_get_2110_20_npackets_by_stream(
-						sdp_extractor, i));
+						sdp_extractor, i),
+					is_valid ? "" :
+					" (" C_ERR("too few") ")");
 				stream_printf_ind(pm == PM_2110BPM ?
 					"packet size" :
-					"approximate packet size", "i",
-					sdp_extractor_get_2110_20_packet_size_by_stream(
-						sdp_extractor, i));
+					"approximate packet size", "is",
+					packet_size,
+					is_valid ? "" :
+					" (" C_ERR("too large") ") ");
 				stream_printf_ind(pm == PM_2110BPM ?
 					"rate (Gbps)" :
-					"approximate rate (Gbps)", "d9",
+					"approximate rate (Gbps)", "d",
 					sdp_extractor_get_2110_20_rate_by_stream(
 						sdp_extractor, i) / 1000000000);
 			}
@@ -457,7 +537,49 @@ int main(int argc, char **argv)
 				sdp_extractor_get_2110_20_signal_by_stream(
 					sdp_extractor, i));
 			stream_printf_ind("scan", "s",
-				signal ? signal : "Unknown");
+				signal ? signal : C_ERR("Unknown"));
+
+			if ((cmax = sdp_extractor_get_2110_20_cmax_by_stream(
+				sdp_extractor, i))) {
+					stream_printf_ind("cmax", "i", cmax);
+			}
+
+			if ((troff = sdp_extractor_get_2110_20_troff_by_stream(
+				sdp_extractor, i))) {
+					stream_printf_ind("tr offset", "i",
+						troff);
+			}
+
+			if ((colorimetry =
+				sdp_extractor_get_2110_20_colorimetry_by_stream(
+				sdp_extractor, i)) != COLORIMETRY_UNSPECIFIED) {
+				stream_printf_ind("colorimetry", "s",
+					code2str(colorimetries, colorimetry));
+			}
+
+			if ((tcs = sdp_extractor_get_2110_20_tcs_by_stream(
+					sdp_extractor, i)) != TCS_UNSPECIFIED) {
+				stream_printf_ind("transfer characteristic "
+					"system", "s",
+					code2str(xfer_characteristic_system,
+						tcs));
+			}
+
+			range = sdp_extractor_get_2110_20_range_by_stream(
+				sdp_extractor, i);
+			stream_printf_ind("range", "sss",
+				code2str(ranges, range),
+				range == RANGE_FULLPROTECT &&
+					colorimetry != COLORIMETRY_BT2100 ?
+					" (" C_ERR("allowed only with "
+						"colorimetry bt2100") ")" : "",
+					DEF(range == RANGE_NARROW));
+
+			sdp_extractor_get_2110_20_par_by_stream(&par,
+				sdp_extractor, i);
+			stream_printf_ind("pixel aspect ratio", "isis",
+				par.width, ":", par.height,
+				DEF(par.width == 1 && par.height == 1));
 			break;
 		case SPEC_SUBTYPE_SMPTE_ST2110_30:
 			stream_printf_ind("sampling rate", "i",
