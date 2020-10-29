@@ -16,6 +16,7 @@ enum sdp_extractor_spec {
 enum sdp_extractor_spec_sub_type {
 	SPEC_SUBTYPE_SMPTE_ST2022_6,
 	SPEC_SUBTYPE_SMPTE_ST2110_20,
+	SPEC_SUBTYPE_SMPTE_ST2110_22,
 	SPEC_SUBTYPE_SMPTE_ST2110_30,
 	SPEC_SUBTYPE_SMPTE_ST2110_31,
 	SPEC_SUBTYPE_SMPTE_ST2110_40,
@@ -56,6 +57,10 @@ uint16_t sdp_extractor_get_dst_port_by_stream(sdp_extractor_t sdp_extractor,
 	int m_idx);
 uint16_t sdp_extractor_get_dst_port_by_group(sdp_extractor_t sdp_extractor,
 	int g_idx, int t_idx);
+int sdp_extractor_get_bandwidth_by_stream(sdp_extractor_t sdp_extractor,
+	int m_idx, enum sdp_bandwidth_bwtype bwtype);
+int sdp_extractor_get_bandwidth_by_group(sdp_extractor_t sdp_extractor,
+	int g_idx, int t_idx, enum sdp_bandwidth_bwtype bwtype);
 
 /* SMPTE ST2022-06 functions */
 double sdp_extractor_get_2022_06_fps_by_stream(sdp_extractor_t sdp_extractor,

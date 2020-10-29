@@ -118,6 +118,7 @@ struct media_attribute {
 	uint16_t port_dst;
 	uint8_t ttl;
 	uint32_t clock_rate;
+	struct sdp_bandwidth_information bw;
 	enum sdp_extractor_spec_sub_type media_type;
 	union {
 		struct media_attribute_video video;
@@ -197,6 +198,36 @@ static int extract_networking_info(struct sdp_extractor *e)
 	}
 
 	return 0;
+}
+
+static void extract_bandwidth_info(struct sdp_extractor *e)
+{
+	struct sdp_session *session = e->session;
+	struct sdp_media **media;
+	int i = 0;
+
+	VEC_FOREACH(e->medias, media) {
+		enum sdp_bandwidth_bwtype bwtype;
+
+		for (bwtype = SDP_BWTYPE_CT; bwtype < SDP_BWTYPE_UNKNOWN;
+				bwtype++) {
+			if ((*media)->b.bandwidth[bwtype][0]) {
+				e->attributes[i].bw.bandwidth[bwtype][0] =
+					(*media)->b.bandwidth[bwtype][0];
+				e->attributes[i].bw.bandwidth[bwtype][1] =
+					(*media)->b.bandwidth[bwtype][1];
+				continue;
+			}
+
+			if (session->b.bandwidth[bwtype][0]) {
+				e->attributes[i].bw.bandwidth[bwtype][0] =
+					session->b.bandwidth[bwtype][0];
+				e->attributes[i].bw.bandwidth[bwtype][1] =
+					session->b.bandwidth[bwtype][1];
+			}
+		}
+		i++;
+	}
 }
 
 static int extract_pgroup_info(enum smpte_2110_sampling sampling,
@@ -475,7 +506,7 @@ static int extract_2110_40_params(struct sdp_session *session,
 			attributes[i].clock_rate =
 				attr->value.rtpmap.clock_rate;
 		} else if (attr->type == SDP_ATTR_FMTP) {
-			// TODO: DID_SDID / VPID_Code
+			/* TODO: DID_SDID / VPID_Code */
 		}
 	}
 
@@ -517,16 +548,16 @@ static int extract_stream_params(struct sdp_extractor *e, int npackets)
 		if (e->spec == SPEC_SMPTE_ST2110) {
 			if ((*media)->m.fmt.sub_type ==
 					SMPTE_2110_SUB_TYPE_20) {
-			ret = extract_2110_20_params(session, *media,
-				e->attributes, i, npackets);
+				ret = extract_2110_20_params(session, *media,
+					e->attributes, i, npackets);
 			} else if ((*media)->m.fmt.sub_type ==
 					SMPTE_2110_SUB_TYPE_30) {
-			ret = extract_2110_30_params(session, *media,
-				e->attributes, i);
+				ret = extract_2110_30_params(session, *media,
+					e->attributes, i);
 			} else if ((*media)->m.fmt.sub_type ==
 					SMPTE_2110_SUB_TYPE_40) {
-			ret = extract_2110_40_params(session, *media,
-				e->attributes, i);
+				ret = extract_2110_40_params(session, *media,
+					e->attributes, i);
 			}
 		} else if (e->spec == SPEC_SMPTE_ST2022) {
 			if ((*media)->m.fmt.sub_type == SMPTE_2022_SUB_TYPE_6) {
@@ -659,6 +690,9 @@ static int sdp_parse(struct sdp_extractor *e, void *sdp,
 		sdp_extractor_err("failed to parse networking info");
 		goto fail;
 	}
+
+	/* extract bandwidth information */
+	extract_bandwidth_info(e);
 
 	/* extract packet size and rate */
 	if (extract_stream_params(e, 0)) {
@@ -842,6 +876,38 @@ SDP_EXTRACTOR_GET(char *, NULL,  src_ip, addr_src)
 SDP_EXTRACTOR_GET(char *, NULL,  dst_ip, addr_dst)
 SDP_EXTRACTOR_GET(uint16_t, -1,  dst_port, port_dst)
 static SDP_EXTRACTOR_GET(double, -1,  fps, type.video.fps)
+
+int sdp_extractor_get_bandwidth_by_stream(sdp_extractor_t sdp_extractor,
+	int m_idx, enum sdp_bandwidth_bwtype bwtype)
+{
+	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
+
+	if (vec_size(e->medias) <= m_idx)
+	 	return -1;
+
+	return e->attributes[m_idx].bw.bandwidth[bwtype][1];
+}
+
+int sdp_extractor_get_bandwidth_by_group(sdp_extractor_t sdp_extractor,
+	int g_idx, int t_idx, enum sdp_bandwidth_bwtype bwtype)
+{
+	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
+	struct group_member *member;
+	struct sdp_media **media;
+	int m_idx;
+
+	member = get_member(e, g_idx, t_idx);
+	if (!member)
+		return -1;
+
+	m_idx = 0;
+	VEC_FOREACH(e->medias, media) {
+		if (*media == member->media)
+			return e->attributes[m_idx].bw.bandwidth[bwtype][1];
+		m_idx++;
+	}
+	return -1;
+}
 
 /* API implementation - SMPTE ST2022-06 functions */
 double sdp_extractor_get_2022_06_fps_by_stream(sdp_extractor_t sdp_extractor,
