@@ -337,19 +337,19 @@ static enum sdp_parse_err sdp_attr_param_parse_colorimetry(char *str, void *res)
 	if (sscanf(str, "colorimetry=%s", colorimetry) != 1)
 		return sdperr("parameter format: %s", str);
 
-	if (!strncmp(colorimetry, "BT601", strlen("BT601")))
+	if (!strncmp(colorimetry, "BT601", sizeof(colorimetry)))
 		params->colorimetry = COLORIMETRY_BT601;
-	else if (!strncmp(colorimetry, "BT709", strlen("BT709")))
+	else if (!strncmp(colorimetry, "BT709", sizeof(colorimetry)))
 		params->colorimetry = COLORIMETRY_BT709;
-	else if (!strncmp(colorimetry, "BT2020", strlen("BT2020")))
+	else if (!strncmp(colorimetry, "BT2020", sizeof(colorimetry)))
 		params->colorimetry = COLORIMETRY_BT2020;
-	else if (!strncmp(colorimetry, "BT2100", strlen("BT2100")))
+	else if (!strncmp(colorimetry, "BT2100", sizeof(colorimetry)))
 		params->colorimetry = COLORIMETRY_BT2100;
-	else if (!strncmp(colorimetry, "ST2065_1", strlen("ST2065_1")))
+	else if (!strncmp(colorimetry, "ST2065_1", sizeof(colorimetry)))
 		params->colorimetry = COLORIMETRY_ST2065_1;
-	else if (!strncmp(colorimetry, "ST2065_3", strlen("ST2065_3")))
+	else if (!strncmp(colorimetry, "ST2065_3", sizeof(colorimetry)))
 		params->colorimetry = COLORIMETRY_ST2065_3;
-	else if (!strncmp(colorimetry, "UNSPECIFIED", strlen("UNSPECIFIED")))
+	else if (!strncmp(colorimetry, "UNSPECIFIED", sizeof(colorimetry)))
 		params->colorimetry = COLORIMETRY_UNSPECIFIED;
 	else
 		goto err;
@@ -369,9 +369,9 @@ static enum sdp_parse_err sdp_attr_param_parse_pm(char *str, void *res)
 	if (sscanf(str, "PM=%s", pm) != 1)
 		return sdperr("parameter format: %s", str);
 
-	if (!strncmp(pm, "2110GPM", strlen("2110GPM")))
+	if (!strncmp(pm, "2110GPM", sizeof(pm)))
 		params->pm = PM_2110GPM;
-	else if (!strncmp(pm, "2110BPM", strlen("2110BPM")))
+	else if (!strncmp(pm, "2110BPM", sizeof(pm)))
 		params->pm = PM_2110BPM;
 	else
 		goto err;
@@ -390,11 +390,11 @@ static enum sdp_parse_err sdp_attr_param_parse_tp(char *str, void *res)
 	if (sscanf(str, "TP=%s", tp) != 1)
 		return sdperr("parameter format: %s", str);
 
-	if (!strncmp(tp, "2110TPNL", strlen("2110TPNL")))
+	if (!strncmp(tp, "2110TPNL", sizeof(tp)))
 		params->tp = TP_2110TPNL;
-	else if (!strncmp(tp, "2110TPN", strlen("2110TPN")))
+	else if (!strncmp(tp, "2110TPN", sizeof(tp)))
 		params->tp = TP_2110TPN;
-	else if (!strncmp(tp, "2110TPW", strlen("2110TPW")))
+	else if (!strncmp(tp, "2110TPW", sizeof(tp)))
 		params->tp = TP_2110TPW;
 	else
 		goto err;
@@ -445,25 +445,25 @@ static enum sdp_parse_err sdp_attr_param_parse_tcs(char *str, void *res)
 	if (sscanf(str, "TCS=%s", tcs) != 1)
 		return sdperr("parameter format: %s", str);
 
-	if (!strncmp(tcs, "SDR", strlen("SDR")))
+	if (!strncmp(tcs, "SDR", sizeof(tcs)))
 		params->tcs = TCS_SDR;
-	else if (!strncmp(tcs, "PQ", strlen("PQ")))
+	else if (!strncmp(tcs, "PQ", sizeof(tcs)))
 		params->tcs = TCS_PQ;
-	else if (!strncmp(tcs, "HLG", strlen("HLGS")))
+	else if (!strncmp(tcs, "HLG", sizeof(tcs)))
 		params->tcs = TCS_HLG;
-	else if (!strncmp(tcs, "LINEAR", strlen("LINEAR")))
+	else if (!strncmp(tcs, "LINEAR", sizeof(tcs)))
 		params->tcs = TCS_LINEAR;
-	else if (!strncmp(tcs, "BT2100LINPQ", strlen("BT2100LINPQ")))
+	else if (!strncmp(tcs, "BT2100LINPQ", sizeof(tcs)))
 		params->tcs = TCS_BT2100LINPQ;
-	else if (!strncmp(tcs, "BT2100LINHLG", strlen("BT2100LINHLG")))
+	else if (!strncmp(tcs, "BT2100LINHLG", sizeof(tcs)))
 		params->tcs = TCS_BT2100LINHLG;
-	else if (!strncmp(tcs, "ST2065-1", strlen("ST2065-1")))
+	else if (!strncmp(tcs, "ST2065-1", sizeof(tcs)))
 		params->tcs = TCS_ST2065_1;
-	else if (!strncmp(tcs, "ST428-1", strlen("ST428-1")))
+	else if (!strncmp(tcs, "ST428-1", sizeof(tcs)))
 		params->tcs = TCS_ST428_1;
-	else if (!strncmp(tcs, "DENSITY", strlen("DENSITY")))
+	else if (!strncmp(tcs, "DENSITY", sizeof(tcs)))
 		params->tcs = TCS_DENSITY;
-	else if (!strncmp(tcs, "UNSPECIFIED", strlen("UNSPECIFIED")))
+	else if (!strncmp(tcs, "UNSPECIFIED", sizeof(tcs)))
 		params->tcs = TCS_UNSPECIFIED;
 	else
 		goto err;
@@ -483,11 +483,11 @@ static enum sdp_parse_err sdp_attr_param_parse_range(char *str, void *res)
 	if (sscanf(str, "RANGE=%s", range) != 1)
 		return sdperr("parameter format: %s", str);
 
-	if (!strncmp(range, "NARROW", strlen("NARROW")))
+	if (!strncmp(range, "NARROW", sizeof(range)))
 		params->range = RANGE_NARROW;
-	else if (!strncmp(range, "FULL", strlen("FULL")))
+	else if (!strncmp(range, "FULL", sizeof(range)))
 		params->range = RANGE_FULL;
-	else if (!strncmp(range, "FULLPROTECT", strlen("FULLPROTECT")))
+	else if (!strncmp(range, "FULLPROTECT", sizeof(range)))
 		params->range = RANGE_FULLPROTECT;
 	else
 		goto err;
