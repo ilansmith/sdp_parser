@@ -16,7 +16,7 @@ type code2##name(struct code2##name *list, int code);
 		int code) \
 { \
 	for ( ; list->code != -1 && list->code != code; list++); \
-	return list->code == -1 ? def : list->val; \
+	return list->code != -1 || list->val ? list->val : def; \
 }
 #endif
 
