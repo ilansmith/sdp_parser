@@ -140,7 +140,7 @@ struct smpte2110_media_attr_fmtp_params {
 	uint16_t maxudp;
 	struct smpte_2110_par par;
 	uint64_t troff;
-	int cmax;
+	uint16_t cmax;
 };
 
 struct smpte2110_media_attr_fmtp {

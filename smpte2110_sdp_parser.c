@@ -608,8 +608,11 @@ static enum sdp_parse_err smpte2110_20_parse_fmtp_params(
 			SIGNAL_PROGRESSIVE;
 	smpte2110_fmtp->params.tcs = p.tcs;
 	smpte2110_fmtp->params.range = p.range;
+	memcpy(&smpte2110_fmtp->params.par, &p.par,
+		sizeof(struct smpte_2110_par));
 	smpte2110_fmtp->params.maxudp = p.maxudp;
-	smpte2110_fmtp->params.par = p.par;
+	smpte2110_fmtp->params.troff = p.troff;
+	smpte2110_fmtp->params.cmax = p.cmax;
 
 	field->as.as_ptr = smpte2110_fmtp;
 	field->dtor = free;
