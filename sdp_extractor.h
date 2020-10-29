@@ -115,6 +115,41 @@ double sdp_extractor_get_2110_20_fps_by_stream(sdp_extractor_t sdp_extractor,
 double sdp_extractor_get_2110_20_fps_by_group(sdp_extractor_t sdp_extractor,
 	int g_idx, int t_idx);
 
+int sdp_extractor_get_2110_20_colorimetry_by_stream(
+	sdp_extractor_t sdp_extractor, int m_idx);
+int sdp_extractor_get_2110_20_colorimetry_by_group(
+	sdp_extractor_t sdp_extractor, int g_idx, int t_idx);
+
+int sdp_extractor_get_2110_20_tcs_by_stream(
+	sdp_extractor_t sdp_extractor, int m_idx);
+int sdp_extractor_get_2110_20_tcs_by_group(
+	sdp_extractor_t sdp_extractor, int g_idx, int t_idx);
+
+int sdp_extractor_get_2110_20_range_by_stream(
+	sdp_extractor_t sdp_extractor, int m_idx);
+int sdp_extractor_get_2110_20_range_by_group(
+	sdp_extractor_t sdp_extractor, int g_idx, int t_idx);
+
+int sdp_extractor_get_2110_20_par_by_stream(struct smpte_2110_par *par,
+	sdp_extractor_t sdp_extractor, int m_idx);
+int sdp_extractor_get_2110_20_par_by_group(struct smpte_2110_par *par,
+	sdp_extractor_t sdp_extractor, int g_idx, int t_idx);
+
+int sdp_extractor_get_2110_20_maxudp_by_stream(sdp_extractor_t sdp_extractor,
+	int m_idx);
+int sdp_extractor_get_2110_20_maxudp_by_group(sdp_extractor_t sdp_extractor,
+	int g_idx, int t_idx);
+
+int sdp_extractor_get_2110_20_troff_by_stream(sdp_extractor_t sdp_extractor,
+	int m_idx);
+int sdp_extractor_get_2110_20_troff_by_group(sdp_extractor_t sdp_extractor,
+	int g_idx, int t_idx);
+
+int sdp_extractor_get_2110_20_cmax_by_stream(sdp_extractor_t sdp_extractor,
+	int m_idx);
+int sdp_extractor_get_2110_20_cmax_by_group(sdp_extractor_t sdp_extractor,
+	int g_idx, int t_idx);
+
 int sdp_extractor_set_2110_20_npackets(sdp_extractor_t sdp_extractor,
 	int npackets);
 

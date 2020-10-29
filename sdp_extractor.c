@@ -85,13 +85,19 @@ struct media_attribute_video {
 	double rate;
 	uint16_t width;
 	uint16_t height;
-	enum smpte_2110_colorimetry colorimetry;
 	int is_rate_integer;
 	enum smpte_2110_pm pm;
 	int npackets;
 	double fps;
 	enum smpte_2110_tp type;
 	enum smpte_2110_signal signal;
+	enum smpte_2110_range range;
+	enum smpte_2110_colorimetry colorimetry;
+	enum smpte_2110_tcs tcs;
+	uint16_t maxudp;
+	struct smpte_2110_par par;
+	uint64_t troff;
+	uint16_t cmax;
 };
 
 struct media_attribute_audio {
@@ -376,8 +382,6 @@ static int extract_2110_20_params(struct sdp_session *session,
 				(struct smpte2110_media_attr_fmtp_params*)
 				attr->value.fmtp.params.as.as_ptr;
 
-			attributes[i].type.video.colorimetry =
-				fmtp_params->colorimetry;
 			attributes[i].type.video.width = fmtp_params->width;
 			attributes[i].type.video.height = fmtp_params->height;
 			attributes[i].type.video.pm = fmtp_params->pm;
@@ -405,6 +409,15 @@ static int extract_2110_20_params(struct sdp_session *session,
 				attributes[i].type.video.fps * BYTE_SIZE;
 			attributes[i].type.video.type = fmtp_params->tp;
 			attributes[i].type.video.signal = fmtp_params->signal;
+			attributes[i].type.video.colorimetry =
+				fmtp_params->colorimetry;
+			attributes[i].type.video.tcs = fmtp_params->tcs;
+			attributes[i].type.video.range = fmtp_params->range;
+			memcpy(&attributes[i].type.video.par, &fmtp_params->par,
+				sizeof(struct smpte_2110_par));
+			attributes[i].type.video.maxudp = fmtp_params->maxudp;
+			attributes[i].type.video.troff = fmtp_params->troff;
+			attributes[i].type.video.cmax = fmtp_params->cmax;
 		}
 	}
 
@@ -886,6 +899,37 @@ double sdp_extractor_get_2110_20_fps_by_group(sdp_extractor_t sdp_extractor,
 	return sdp_extractor_get_fps_by_group(e, g_idx, t_idx);
 }
 
+SDP_EXTRACTOR_GET(int, -1, 2110_20_par_width, type.video.par.width)
+SDP_EXTRACTOR_GET(int, -1, 2110_20_par_height, type.video.par.height)
+
+int sdp_extractor_get_2110_20_par_by_stream(struct smpte_2110_par *par,
+		sdp_extractor_t sdp_extractor, int m_idx)
+{
+	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
+
+	if (e->spec != SPEC_SMPTE_ST2110)
+		return -1;
+
+	par->width = sdp_extractor_get_2110_20_par_width_by_stream(e, m_idx);
+	par->height = sdp_extractor_get_2110_20_par_height_by_stream(e, m_idx);
+	return 0;
+}
+
+int sdp_extractor_get_2110_20_par_by_group(struct smpte_2110_par *par,
+		sdp_extractor_t sdp_extractor, int g_idx, int t_idx)
+{
+	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
+
+	if (e->spec != SPEC_SMPTE_ST2110)
+		return -1;
+
+	par->width = sdp_extractor_get_2110_20_par_width_by_group(e, g_idx,
+		t_idx);
+	par->height = sdp_extractor_get_2110_20_par_height_by_group(e, g_idx,
+		t_idx);
+	return 0;
+}
+
 int sdp_extractor_set_2110_20_npackets(sdp_extractor_t sdp_extractor,
 		int npackets)
 {
@@ -893,6 +937,13 @@ int sdp_extractor_set_2110_20_npackets(sdp_extractor_t sdp_extractor,
 
 	return extract_stream_params(e, npackets);
 }
+
+SDP_EXTRACTOR_GET(int, -1, 2110_20_colorimetry, type.video.colorimetry)
+SDP_EXTRACTOR_GET(int, -1, 2110_20_tcs, type.video.tcs)
+SDP_EXTRACTOR_GET(int, -1, 2110_20_range, type.video.range)
+SDP_EXTRACTOR_GET(int, -1, 2110_20_maxudp, type.video.maxudp)
+SDP_EXTRACTOR_GET(int, -1, 2110_20_troff, type.video.troff)
+SDP_EXTRACTOR_GET(int, -1, 2110_20_cmax, type.video.cmax)
 
 /* API implementation - SMPTE ST2110-30 functions */
 SDP_EXTRACTOR_GET(int, -1, 2110_30_bit_depth, type.audio.bit_depth)
