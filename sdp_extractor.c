@@ -267,10 +267,10 @@ static int extract_pgroup_info(enum smpte_2110_sampling sampling,
 	return 0;
 }
 
-static int extract_packet_info(
+static int extract_packet_info(struct sdp_session *session,
+		struct sdp_media *media, int media_idx,
 		struct smpte2110_media_attr_fmtp_params *fmtp_params,
-		struct sdp_connection_information *c, int *npackets,
-		int *packet_size)
+		int *npackets, int *packet_size)
 {
 	int pg_per_packet;
 	int pixels_per_packet;
@@ -279,6 +279,7 @@ static int extract_packet_info(
 	int ip_hdr_size;
 	int ret;
 	struct pgroup_info pgi;
+	struct sdp_connection_information *c;
 
 	ret = extract_pgroup_info(fmtp_params->sampling, fmtp_params->depth,
 		&pgi);
@@ -286,6 +287,13 @@ static int extract_packet_info(
 		sdp_extractor_err("unsupported pixle sampling/depth "
 			"combination, sampling:%d, depth:%d",
 			fmtp_params->sampling, fmtp_params->depth); 
+		return -1;
+	}
+
+	c = get_connection_information(session, media);
+	if (!c) {
+		sdp_extractor_err("no connection information for stream %d",
+			media_idx);
 		return -1;
 	}
 
@@ -395,14 +403,7 @@ static int extract_2110_20_params(struct sdp_session *session,
 		int i, int npackets)
 {
 	struct sdp_attr *attr;
-	struct sdp_connection_information *c;
 	uint32_t found_attributes = 0;
-
-	c = get_connection_information(session, media);
-	if (!c) {
-		sdp_extractor_err("no connection information for stream %d", i);
-		return -1;
-	}
 
 	attributes[i].media_type = SPEC_SUBTYPE_SMPTE_ST2110_20;
 	for (attr = media->a; attr; attr = attr->next) {
@@ -418,7 +419,7 @@ static int extract_2110_20_params(struct sdp_session *session,
 			attributes[i].type.video.pm = fmtp_params->pm;
 
 			attributes[i].type.video.npackets = npackets;
-			if (extract_packet_info(fmtp_params, c,
+			if (extract_packet_info(session, media, i, fmtp_params,
 					&attributes[i].type.video.npackets,
 					&attributes[i].type.video.packet_size)){
 				attributes[i].type.video.npackets = 0;
