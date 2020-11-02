@@ -403,6 +403,15 @@ int main(int argc, char **argv)
 		{ RANGE_FULLPROTECT, "FULLPROTECT" },
 		{ -1, C_ERR("Unknown") },
 	};
+	static struct code2str bwtypes[] = {
+		{ SDP_BWTYPE_CT, "CT" },
+		{ SDP_BWTYPE_AS, "AS" },
+		{ SDP_BWTYPE_RR, "RR" },
+		{ SDP_BWTYPE_RS, "RS" },
+		{ SDP_BWTYPE_TIAS, "TIAS" },
+		{ SDP_BWTYPE_UNKNOWN, "Unknown" },
+		{ -1, C_ERR("Not Supported") },
+	};
 
 	dump_header();
 
@@ -450,6 +459,7 @@ int main(int argc, char **argv)
 		int g_idx;
 		enum sdp_extractor_spec_sub_type sub_type =
 			sdp_extractor_stream_sub_type(sdp_extractor, i);
+		enum sdp_bandwidth_bwtype bwtype;
 
 		stream_printf("stream index", "i", i);
 		stream_printf_ind("spec sub type", "s",
@@ -460,6 +470,18 @@ int main(int argc, char **argv)
 			sdp_extractor_get_dst_ip_by_stream(sdp_extractor, i));
 		stream_printf_ind("destination port", "i",
 			sdp_extractor_get_dst_port_by_stream(sdp_extractor, i));
+		for (bwtype = SDP_BWTYPE_CT; bwtype < SDP_BWTYPE_UNKNOWN;
+				bwtype++) {
+			int bandwidth;
+
+			bandwidth = sdp_extractor_get_bandwidth_by_stream(
+					sdp_extractor, i, bwtype);
+			if (bandwidth) {
+				stream_printf_ind("bandwidth", "ssi",
+					code2str(bwtypes, bwtype), ", ",
+					bandwidth);
+			}
+		}
 
 		switch (sub_type) {
 		case SPEC_SUBTYPE_SMPTE_ST2022_6:

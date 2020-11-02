@@ -8,6 +8,9 @@ a=group:DUP primary secondary
 a=group:DUP third fourth
 m=video 50020 RTP/AVP 96
 c=IN IP4 224.1.1.1/64
+b=AS:256
+b=RS:800
+b=RR:2400
 a=source-filter: incl IN IP4 224.1.1.1 192.168.1.2
 a=rtpmap:96 raw/90000
 a=fmtp:96 sampling=YCbCr-4:2:2; width=1920; height=1080; exactframerate=25; depth=10; TCS=SDR; colorimetry=BT709; PM=2110GPM; TP=2110TPN; RANGE=FULL; PAR=12:11; CMAX=5; SSN=ST2110-20:2017
@@ -25,6 +28,9 @@ a=mediaclk:direct=0
 a=mid:third
 m=video 50021 RTP/AVP 98
 c=IN IP4 224.1.1.1/64
+b=AS:256
+b=RS:800
+b=RR:2400
 a=source-filter: incl IN IP4 224.1.1.1 192.168.1.2
 a=rtpmap:98 raw/90000
 a=fmtp:98 sampling=YCbCr-4:2:2; width=1920; height=1080; exactframerate=25; depth=10; TCS=SDR; colorimetry=BT709; PM=2110GPM; TP=2110TPN; RANGE=FULL; PAR=12:11; TROFF=764436; SSN=ST2110-20:2017
