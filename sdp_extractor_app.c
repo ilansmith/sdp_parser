@@ -79,6 +79,14 @@ static int do_vprintf(char *format, char **flag, va_list va)
 		strcat(format, "%i");
 		printf(format, va_arg(va, int));
 		break;
+	case 'h':
+		strcat(format, "0x%x");
+		printf(format, va_arg(va, int));
+		break;
+	case 'H':
+		strcat(format, "0x%X");
+		printf(format, va_arg(va, int));
+		break;
 	case 'd':
 		strcat(format, "%");
 
