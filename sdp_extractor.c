@@ -7,6 +7,7 @@
 #include "smpte2110_sdp_parser.h"
 #include "sdp_extractor.h"
 #include "vector.h"
+#include "util.h"
 
 #define NOT_IN_USE(a) ((void)(a))
 
@@ -109,7 +110,14 @@ struct media_attribute_audio {
 };
 
 struct media_attribute_ancillary {
-	int dummy;
+	struct {
+		uint8_t **vals;
+		uint32_t num;
+	} did_sdid;
+	struct {
+		uint32_t val;
+		int is_set;
+	} vpid_code;
 };
 
 struct media_attribute {
@@ -512,7 +520,42 @@ static int extract_2110_40_params(struct sdp_session *session,
 			attributes[i].clock_rate =
 				attr->value.rtpmap.clock_rate;
 		} else if (attr->type == SDP_ATTR_FMTP) {
-			/* TODO: DID_SDID / VPID_Code */
+			struct smpte2110_40_fmtp_params *fmtp_params =
+				(struct smpte2110_40_fmtp_params*)
+				attr->value.fmtp.params.as.as_ptr;
+			struct smpte2110_did_sdid *dids;
+			size_t dids_num;
+
+			for (dids = fmtp_params->dids, dids_num = 0; dids;
+				dids = dids->next, dids_num++);
+
+			if (dids_num) {
+				int j;
+
+				attributes[i].type.anc.did_sdid.vals =
+					(uint8_t**)alloc_array2d(dids_num, 2,
+						sizeof(uint8_t));
+				if (!(attributes[i].type.anc.did_sdid.vals)) {
+					sdp_extractor_err("Memory "
+						"allocation");
+					return -1;
+				}
+
+				for (dids = fmtp_params->dids, j = 0; dids;
+						dids = dids->next, j++) {
+					attributes[i].type.anc.did_sdid.vals[j][0] =
+						dids->code_1;
+					attributes[i].type.anc.did_sdid.vals[j][1] =
+						dids->code_2;
+				}
+
+				attributes[i].type.anc.did_sdid.num = dids_num;
+			}
+
+			if (fmtp_params->is_set_vpid_code) {
+				attributes[i].type.anc.vpid_code.val = fmtp_params->vpid_code;
+				attributes[i].type.anc.vpid_code.is_set = 1;
+			}
 		}
 	}
 
@@ -630,12 +673,27 @@ static void group_vector_uninit(vector_t groups)
 	vector_uninit(groups);
 }
 
+static void sdp_free_attributes(struct media_attribute *attributes, size_t num)
+{
+	size_t i;
+
+	for (i = 0; i < num; i++) {
+		if (attributes[i].media_type != SPEC_SUBTYPE_SMPTE_ST2110_40)
+			continue;
+
+		free(attributes[i].type.anc.did_sdid.vals);
+	}
+
+	free(attributes);
+}
+
 static int sdp_parse(struct sdp_extractor *e, void *sdp,
 		enum sdp_stream_type type)
 {
 	struct sdp_session *session;
 	int i;
 	int ret;
+	size_t num_medias = 0;
 	static struct {
 		enum sdp_extractor_spec spec;
 		struct sdp_specific **parser;
@@ -673,7 +731,7 @@ static int sdp_parse(struct sdp_extractor *e, void *sdp,
 		sdp_extractor_err("failed to initialize medias vector");
 		goto fail;
 	}
-	if (!vec_size(e->medias)) {
+	if (!(num_medias = vec_size(e->medias))) {
 		sdp_extractor_err("no media blocks found");
 		goto fail;
 	}
@@ -711,7 +769,7 @@ static int sdp_parse(struct sdp_extractor *e, void *sdp,
 fail:
 	vec_uninit(e->medias);
 	vec_uninit(e->groups);
-	free(e->attributes);
+	sdp_free_attributes(e->attributes, num_medias);
 	return -1;
 }
 
@@ -736,10 +794,11 @@ static struct group_member *get_member(struct sdp_extractor *e, int g_idx,
 void sdp_extractor_uninit(sdp_extractor_t sdp_extractor)
 {
 	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
+	size_t num_medias = vec_size(e->medias);
 
 	group_vector_uninit(e->groups);
 	media_vector_uninit(e->medias);
-	free(e->attributes);
+	sdp_free_attributes(e->attributes, num_medias);
 	if (e->session)
 		sdp_parser_uninit(e->session);
 	memset(e, 0, sizeof(struct sdp_extractor));
@@ -1025,5 +1084,8 @@ SDP_EXTRACTOR_GET(char*, NULL, 2110_30_channel_order, type.audio.channel_order)
 SDP_EXTRACTOR_GET(double, -1, 2110_30_ptime, type.audio.ptime)
 
 /* API implementation - SMPTE ST2110-40 functions */
-SDP_EXTRACTOR_GET(int, -1, 2110_40_dummy, type.anc.dummy)
+SDP_EXTRACTOR_GET(uint8_t**, NULL, 2110_40_did_sdid, type.anc.did_sdid.vals)
+SDP_EXTRACTOR_GET(int, -1, 2110_40_did_sdid_num, type.anc.did_sdid.num)
+SDP_EXTRACTOR_GET(uint32_t, -1, 2110_40_vpid_code, type.anc.vpid_code.val)
+SDP_EXTRACTOR_GET(int, -1, 2110_40_vpid_code_is_set, type.anc.vpid_code.is_set)
 

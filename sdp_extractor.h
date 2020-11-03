@@ -185,10 +185,21 @@ double sdp_extractor_get_2110_30_ptime_by_group(sdp_extractor_t sdp_extractor,
 	int g_idx, int t_idx);
 
 /* SMPTE ST2110-40 functions */
-int sdp_extractor_get_2110_40_dummy_by_stream(sdp_extractor_t sdp_extractor,
-	int m_idx);
-int sdp_extractor_get_2110_40_dummy_by_group(sdp_extractor_t sdp_extractor,
-	int g_idx, int t_idx);
-
+uint8_t **sdp_extractor_get_2110_40_did_sdid_by_stream(
+	sdp_extractor_t sdp_extractor, int m_idx);
+uint8_t **sdp_extractor_get_2110_40_did_sdid_by_group(
+	sdp_extractor_t sdp_extractor, int g_idx, int t_idx);
+int sdp_extractor_get_2110_40_did_sdid_num_by_stream(
+	sdp_extractor_t sdp_extractor, int m_idx);
+int sdp_extractor_get_2110_40_did_sdid_num_by_group(
+	sdp_extractor_t sdp_extractor, int g_idx, int t_idx);
+uint32_t sdp_extractor_get_2110_40_vpid_code_by_stream(
+	sdp_extractor_t sdp_extractor, int m_idx);
+uint32_t sdp_extractor_get_2110_40_vpid_code_by_group(
+	sdp_extractor_t sdp_extractor, int g_idx, int t_idx);
+int sdp_extractor_get_2110_40_vpid_code_is_set_by_stream(
+	sdp_extractor_t sdp_extractor, int m_idx);
+int sdp_extractor_get_2110_40_vpid_code_is_set_by_group(
+	sdp_extractor_t sdp_extractor, int g_idx, int t_idx);
 #endif /* _SDP_EXTRACTOR_H_ */
 
