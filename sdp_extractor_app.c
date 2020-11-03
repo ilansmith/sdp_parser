@@ -359,6 +359,7 @@ int main(int argc, char **argv)
 	int cmax;
 	int groups_num;
 	char *channel_order;
+	uint32_t did_sdid_num;
 	static struct code2str specs_sub_types[] = {
 		{ SPEC_SUBTYPE_SMPTE_ST2022_6, "SMPTE 2022-6" },
 		{ SPEC_SUBTYPE_SMPTE_ST2110_20, "SMPTE 2110-20" },
@@ -632,9 +633,27 @@ int main(int argc, char **argv)
 					channel_order ? channel_order : "N/A");
 			break;
 		case SPEC_SUBTYPE_SMPTE_ST2110_40:
-			stream_printf_ind("dummy", "i",
-				sdp_extractor_get_2110_40_dummy_by_stream(
-					sdp_extractor, i));
+			did_sdid_num = sdp_extractor_get_2110_40_did_sdid_num_by_stream(
+				sdp_extractor, i);
+			if (did_sdid_num) {
+				uint8_t **did_sdid;
+				uint32_t j;
+				
+				did_sdid = sdp_extractor_get_2110_40_did_sdid_by_stream(
+					sdp_extractor, i);
+				for (j = 0; j < did_sdid_num; j++) {
+					stream_printf_ind("did sdid", "HsH",
+						did_sdid[j][0], ", ",
+						did_sdid[j][1]);
+				}
+			}
+
+			if (sdp_extractor_get_2110_40_vpid_code_is_set_by_stream(
+					sdp_extractor, i)) {
+				stream_printf_ind("vpid code", "i",
+					sdp_extractor_get_2110_40_vpid_code_by_stream(
+						sdp_extractor, i));
+			}
 			break;
 		case SPEC_SUBTYPE_SUBTYPE_UNKNOWN:
 		default:
