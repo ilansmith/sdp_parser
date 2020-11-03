@@ -57,7 +57,7 @@ static int missing_required_fmtp_param(enum smpte_2110_attr_param_err missing)
 ******************************************************************************/
 #define MAX_NUM_DID_SDIDS 10
 
-struct smpte2110_40_did_sdid_validator_info
+struct smpte2110_did_sdid_validator_info
 {
 	int code_1;
 	int code_2;
@@ -65,7 +65,7 @@ struct smpte2110_40_did_sdid_validator_info
 
 struct smpte2110_40_fmtp_validator_info
 {
-	struct smpte2110_40_did_sdid_validator_info dids[MAX_NUM_DID_SDIDS];
+	struct smpte2110_did_sdid_validator_info dids[MAX_NUM_DID_SDIDS];
 	int vpid_code;
 };
 
@@ -116,8 +116,8 @@ static int smpte2110_40_fmtp(const struct sdp_attr *attr,
 	struct smpte2110_40_fmtp_params *params =
 			(struct smpte2110_40_fmtp_params *)
 					attr->value.fmtp.params.as.as_ptr;
-	struct smpte2110_40_did_sdid *did;
-	struct smpte2110_40_did_sdid_validator_info *dv;
+	struct smpte2110_did_sdid *did;
+	struct smpte2110_did_sdid_validator_info *dv;
 	int res = 1;
 	int d_cnt = 0;
 

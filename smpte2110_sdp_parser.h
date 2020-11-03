@@ -147,15 +147,15 @@ struct smpte2110_30_fmtp_params {
 	char channel_order[256];
 };
 
-struct smpte2110_40_did_sdid {
+struct smpte2110_did_sdid {
 	uint8_t code_1;
 	uint8_t code_2;
-	struct smpte2110_40_did_sdid *next;
+	struct smpte2110_did_sdid *next;
 };
 
 struct smpte2110_40_fmtp_params {
-	struct smpte2110_40_did_sdid *dids;
-	struct smpte2110_40_did_sdid *last_did;
+	struct smpte2110_did_sdid *dids;
+	struct smpte2110_did_sdid *last_did;
 	uint32_t vpid_code;
 };
 

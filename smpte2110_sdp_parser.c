@@ -627,8 +627,8 @@ static enum sdp_parse_err sdp_attr_param_parse_did_sdid(char *str, void *res)
 	if (sscanf(str, "DID_SDID={0x%x,0x%x}", &c1, &c2) != 2)
 		return sdperr("parameter format: '%s'", str);
 
-	struct smpte2110_40_did_sdid *did = (struct smpte2110_40_did_sdid*)
-		calloc(1, sizeof(struct smpte2110_40_did_sdid));
+	struct smpte2110_did_sdid *did = (struct smpte2110_did_sdid*)
+		calloc(1, sizeof(struct smpte2110_did_sdid));
 	if (!did)
 		return sdperr("memory allocation");
 
@@ -656,7 +656,7 @@ static void smpte2110_40_free_fmtp_param(void *ptr)
 {
 	struct smpte2110_40_fmtp_params *params =
 			(struct smpte2110_40_fmtp_params*)ptr;
-	struct smpte2110_40_did_sdid *did, *tmp;
+	struct smpte2110_did_sdid *did, *tmp;
 
 	if (!params)
 		return;
