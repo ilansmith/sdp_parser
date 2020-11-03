@@ -27,3 +27,6 @@
 
 #endif
 
+void **alloc_array2d(size_t rows, size_t cols, size_t entry_size);
+void free_array2d(void **array2d);
+
