@@ -157,6 +157,7 @@ struct smpte2110_40_fmtp_params {
 	struct smpte2110_did_sdid *dids;
 	struct smpte2110_did_sdid *last_did;
 	uint32_t vpid_code;
+	int is_set_vpid_code;
 };
 
 /* 2110 specific interpreter */

@@ -649,6 +649,8 @@ static enum sdp_parse_err sdp_attr_param_parse_vpid_code(char *str, void *res)
 
 	if (sscanf(str, "VPID_Code=%u", &params->vpid_code) != 1)
 		return sdperr("parameter format: '%s'", str);
+
+	params->is_set_vpid_code = 1;
 	return SDP_PARSE_OK;
 }
 
