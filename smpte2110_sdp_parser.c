@@ -558,7 +558,7 @@ static enum sdp_parse_err smpte2110_20_parse_fmtp_params(
 		struct interpretable *field, char *input)
 {
 	struct attr_params p;
-	struct smpte2110_media_attr_fmtp *smpte2110_fmtp;
+	struct smpte2110_20_attr_fmtp_params *smpte2110_fmtp;
 
 	SMPTE_2110_FMTP_TABLE_START(attribute_param_list)
 		SMPTE_2110_FMTP_NUM_ENTRY(sampling)
@@ -589,30 +589,29 @@ static enum sdp_parse_err smpte2110_20_parse_fmtp_params(
 	if (p.is_segmented && ! p.is_interlace)
 		return sdperr("cannot signal 'segmented' without 'interlace'");
 
-	smpte2110_fmtp = (struct smpte2110_media_attr_fmtp*)calloc(1,
-		sizeof(struct smpte2110_media_attr_fmtp));
+	smpte2110_fmtp = (struct smpte2110_20_attr_fmtp_params*)calloc(1,
+		sizeof(struct smpte2110_20_attr_fmtp_params));
 	if (!smpte2110_fmtp)
 		return sdperr("Memory allocation");
 
 	/* update output parameters */
-	smpte2110_fmtp->params.sampling = p.sampling;
-	smpte2110_fmtp->params.depth = p.depth;
-	smpte2110_fmtp->params.width = p.width;
-	smpte2110_fmtp->params.height = p.height;
-	smpte2110_fmtp->params.exactframerate = p.exactframerate;
-	smpte2110_fmtp->params.colorimetry = p.colorimetry;
-	smpte2110_fmtp->params.pm = p.pm;
-	smpte2110_fmtp->params.tp = p.tp;
-	smpte2110_fmtp->params.signal = p.is_interlace ?
+	smpte2110_fmtp->sampling = p.sampling;
+	smpte2110_fmtp->depth = p.depth;
+	smpte2110_fmtp->width = p.width;
+	smpte2110_fmtp->height = p.height;
+	smpte2110_fmtp->exactframerate = p.exactframerate;
+	smpte2110_fmtp->colorimetry = p.colorimetry;
+	smpte2110_fmtp->pm = p.pm;
+	smpte2110_fmtp->tp = p.tp;
+	smpte2110_fmtp->signal = p.is_interlace ?
 		p.is_segmented ? SIGNAL_PSF : SIGNAL_INTERLACE :
 			SIGNAL_PROGRESSIVE;
-	smpte2110_fmtp->params.tcs = p.tcs;
-	smpte2110_fmtp->params.range = p.range;
-	memcpy(&smpte2110_fmtp->params.par, &p.par,
-		sizeof(struct smpte_2110_par));
-	smpte2110_fmtp->params.maxudp = p.maxudp;
-	smpte2110_fmtp->params.troff = p.troff;
-	smpte2110_fmtp->params.cmax = p.cmax;
+	smpte2110_fmtp->tcs = p.tcs;
+	smpte2110_fmtp->range = p.range;
+	memcpy(&smpte2110_fmtp->par, &p.par, sizeof(struct smpte_2110_par));
+	smpte2110_fmtp->maxudp = p.maxudp;
+	smpte2110_fmtp->troff = p.troff;
+	smpte2110_fmtp->cmax = p.cmax;
 
 	field->as.as_ptr = smpte2110_fmtp;
 	field->dtor = free;

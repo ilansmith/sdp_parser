@@ -269,7 +269,7 @@ static int extract_pgroup_info(enum smpte_2110_sampling sampling,
 
 static int extract_packet_info(struct sdp_session *session,
 		struct sdp_media *media, int media_idx,
-		struct smpte2110_media_attr_fmtp_params *fmtp_params,
+		struct smpte2110_20_attr_fmtp_params *fmtp_params,
 		int *npackets, int *packet_size)
 {
 	int pg_per_packet;
@@ -410,8 +410,8 @@ static int extract_2110_20_params(struct sdp_session *session,
 		found_attributes  |= (1 << attr->type);
 
 		if (attr->type == SDP_ATTR_FMTP) {
-			struct smpte2110_media_attr_fmtp_params *fmtp_params =
-				(struct smpte2110_media_attr_fmtp_params*)
+			struct smpte2110_20_attr_fmtp_params *fmtp_params =
+				(struct smpte2110_20_attr_fmtp_params*)
 				attr->value.fmtp.params.as.as_ptr;
 
 			attributes[i].type.video.width = fmtp_params->width;

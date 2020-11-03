@@ -125,7 +125,7 @@ struct smpte_2110_par {
 	uint32_t height;
 };
 
-struct smpte2110_media_attr_fmtp_params {
+struct smpte2110_20_attr_fmtp_params {
 	enum smpte_2110_sampling sampling;
 	enum smpte_2110_depth depth;
 	uint16_t width;
@@ -141,11 +141,6 @@ struct smpte2110_media_attr_fmtp_params {
 	struct smpte_2110_par par;
 	uint64_t troff;
 	uint16_t cmax;
-};
-
-struct smpte2110_media_attr_fmtp {
-	struct smpte2110_media_attr_fmtp_params params;
-	uint32_t err;
 };
 
 struct smpte2110_30_fmtp_params {
