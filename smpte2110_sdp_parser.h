@@ -148,6 +148,10 @@ struct smpte2110_media_attr_fmtp {
 	uint32_t err;
 };
 
+struct smpte2110_30_fmtp_params {
+	char channel_order[256];
+};
+
 struct smpte2110_40_did_sdid {
 	uint8_t code_1;
 	uint8_t code_2;

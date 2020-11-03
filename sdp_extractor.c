@@ -105,7 +105,7 @@ struct media_attribute_audio {
 	int num_channels;
 	int sampling_rate;
 	double ptime;
-	char *channel_order;
+	char channel_order[256];
 };
 
 struct media_attribute_ancillary {
@@ -481,8 +481,13 @@ static int extract_2110_30_params(struct sdp_session *session,
 			attributes[i].type.audio.ptime =
 				attr->value.ptime.packet_time;
 		} else if (attr->type == SDP_ATTR_FMTP) {
-			attributes[i].type.audio.channel_order =
-				attr->value.fmtp.params.as.as_str;
+			struct smpte2110_30_fmtp_params *fmtp_params =
+				(struct smpte2110_30_fmtp_params*)
+				attr->value.fmtp.params.as.as_ptr;
+
+			memcpy(attributes[i].type.audio.channel_order,
+				fmtp_params->channel_order,
+				sizeof(attributes[i].type.audio.channel_order));
 		}
 	}
 

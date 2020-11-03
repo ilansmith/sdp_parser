@@ -589,8 +589,8 @@ static enum sdp_parse_err smpte2110_20_parse_fmtp_params(
 	if (p.is_segmented && ! p.is_interlace)
 		return sdperr("cannot signal 'segmented' without 'interlace'");
 
- 	smpte2110_fmtp = (struct smpte2110_media_attr_fmtp *)calloc(1,
- 		sizeof(struct smpte2110_media_attr_fmtp));
+	smpte2110_fmtp = (struct smpte2110_media_attr_fmtp*)calloc(1,
+		sizeof(struct smpte2110_media_attr_fmtp));
 	if (!smpte2110_fmtp)
 		return sdperr("Memory allocation");
 
@@ -628,7 +628,7 @@ static enum sdp_parse_err sdp_attr_param_parse_did_sdid(char *str, void *res)
 	if (sscanf(str, "DID_SDID={0x%x,0x%x}", &c1, &c2) != 2)
 		return sdperr("parameter format: '%s'", str);
 
-	struct smpte2110_40_did_sdid *did = (struct smpte2110_40_did_sdid *)
+	struct smpte2110_40_did_sdid *did = (struct smpte2110_40_did_sdid*)
 		calloc(1, sizeof(struct smpte2110_40_did_sdid));
 	if (!did)
 		return sdperr("memory allocation");
@@ -681,7 +681,7 @@ static enum sdp_parse_err smpte2110_40_parse_fmtp_params(
 		SMPTE_2110_FMTP_NUM_ENTRY(vpid_code)
 	SMPTE_2110_FMTP_TABLE_END;
 
-	params = (struct smpte2110_40_fmtp_params *)calloc(1,
+	params = (struct smpte2110_40_fmtp_params*)calloc(1,
 		sizeof(struct smpte2110_40_fmtp_params));
 	if (!params)
 		return sdperr("Memory allocation");
@@ -725,38 +725,41 @@ static enum sdp_parse_err smpte2110_30_parse_num_channels(
 	return SDP_PARSE_OK;
 }
 
-static enum sdp_parse_err smpte2110_30_parse_channel_order(
+static enum sdp_parse_err sdp_attr_param_parse_channel_order(char *str,
+		void *res)
+{
+	struct smpte2110_30_fmtp_params *params =
+			(struct smpte2110_30_fmtp_params*)res;
+
+	if (sscanf(str, "channel-order=%s", params->channel_order) != 1)
+		return sdperr("parameter format: %s", str);
+	return SDP_PARSE_OK;
+}
+
+static enum sdp_parse_err smpte2110_30_parse_fmtp_params(
 		struct interpretable *field, char *input)
 {
-	char *token;
-	size_t co_len = strlen("channel-order");
+	struct smpte2110_30_fmtp_params *params;
 
-	if (!input) {
-		field->as.as_str = NULL;
-		return SDP_PARSE_OK;
-	}
-	/* check channel-order= */
-	token = strtok(input, "=");
-	if (!token) {
-		field->as.as_str = NULL;
-		return SDP_PARSE_ERROR;
-	}
-	if (strncasecmp("channel-order", token, co_len)) {
-		field->as.as_str = NULL;
-		return SDP_PARSE_ERROR;
-	}
-	token += co_len + 1;
-	if (!token) {
-		field->as.as_str = NULL;
-		return SDP_PARSE_ERROR;
-	}
-	if (sdp_parse_str(&field->as.as_str, token) != SDP_PARSE_OK)
-		return sdperr("invalid channel-order '%s'", token);
-	if (*field->as.as_str == 0)
-		return sdperr("invalid channel_order: 0");
-	else 
-		field->dtor = free;
+	SMPTE_2110_FMTP_TABLE_START(attribute_param_list)
+		SMPTE_2110_FMTP_NUM_ENTRY(channel_order)
+	SMPTE_2110_FMTP_TABLE_END;
 
+	attribute_param_list[0].name = "channel-order";
+
+	params = (struct smpte2110_30_fmtp_params*)calloc(1,
+		sizeof(struct smpte2110_30_fmtp_params));
+	if (!params)
+		return sdperr("Memory allocation");
+
+	if (sdp_parse_params(params, input, attribute_param_list,
+			ARRAY_SIZE(attribute_param_list), 0) != SDP_PARSE_OK) {
+		free(params);
+		return sdperr("failed to parse smpte2110-30 fmtp params");
+	}
+
+	field->as.as_ptr = params;
+	field->dtor = free;
 	return SDP_PARSE_OK;
 }
 
@@ -821,7 +824,7 @@ static enum sdp_parse_err smpte2110_parse_fmtp_params(
 	if (sub_type == SMPTE_2110_SUB_TYPE_20)
 		return smpte2110_20_parse_fmtp_params(field, input);
 	if (sub_type == SMPTE_2110_SUB_TYPE_30)
-		return smpte2110_30_parse_channel_order(field, input);
+		return smpte2110_30_parse_fmtp_params(field, input);
 	if (sub_type == SMPTE_2110_SUB_TYPE_40)
 		return smpte2110_40_parse_fmtp_params(field, input);
 	return sdp_parse_field_default(field, input);
