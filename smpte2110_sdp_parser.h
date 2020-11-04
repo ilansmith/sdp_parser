@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "sdp_parser.h"
+#include "vector.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -13,6 +14,7 @@ extern "C" {
 enum smpte_2110_media_sub_type {
 	SMPTE_2110_SUB_TYPE_UNKNOWN,
 	SMPTE_2110_SUB_TYPE_20,
+	SMPTE_2110_SUB_TYPE_22,
 	SMPTE_2110_SUB_TYPE_30,
 	SMPTE_2110_SUB_TYPE_31,
 	SMPTE_2110_SUB_TYPE_40,
@@ -126,6 +128,11 @@ struct smpte_2110_par {
 	uint32_t height;
 };
 
+struct key_value {
+	char *key;
+	char *val;
+};
+
 struct smpte2110_20_attr_fmtp_params {
 	enum smpte_2110_sampling sampling;
 	enum smpte_2110_depth depth;
@@ -142,6 +149,7 @@ struct smpte2110_20_attr_fmtp_params {
 	struct smpte_2110_par par;
 	uint64_t troff;
 	uint16_t cmax;
+	vector_t unrecognized;
 };
 
 struct smpte2110_30_fmtp_params {

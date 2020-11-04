@@ -1,17 +1,22 @@
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include "smpte2110_sdp_parser.h"
 #include "sdp_log.h"
 #include "sdp_field.h"
+#include "vector.h"
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
 #endif
 
-#define SMPTE_2110_ATTR_PARAM_ERR_REQUIRED (SMPTE_ERR_SAMPLING | \
+#define SMPTE_2110_20_ATTR_PARAM_ERR_REQUIRED (SMPTE_ERR_SAMPLING | \
 		SMPTE_ERR_DEPTH | SMPTE_ERR_WIDTH | SMPTE_ERR_HEIGHT | \
 		SMPTE_ERR_EXACTFRAMERATE | SMPTE_ERR_COLORIMETRY | \
 		SMPTE_ERR_PM | SMPTE_ERR_TP | SMPTE_ERR_SSN)
+
+#define SMPTE_2110_22_ATTR_PARAM_ERR_REQUIRED (SMPTE_ERR_WIDTH | \
+		SMPTE_ERR_HEIGHT | SMPTE_ERR_TP)
 
 #define IS_PARAM_REQUIRED(_mask_, _err_) (_mask_ & (1 << (_err_)) ? 1 : 0)
 
@@ -35,6 +40,8 @@ struct param_parse_info {
 
 #define UNLIMITED ((unsigned int)-1)
 
+#define FPS_NON_INT_DEMONINATOR 1001
+
 struct attr_params {
 	enum smpte_2110_sampling sampling;
 	enum smpte_2110_depth depth;
@@ -53,6 +60,7 @@ struct attr_params {
 	struct smpte_2110_par par;
 	uint32_t troff;
 	int cmax;
+	vector_t unrecognized;
 };
 
 static void attribute_params_set_defaults(struct attr_params *params)
@@ -75,7 +83,8 @@ static void attribute_params_set_defaults(struct attr_params *params)
 
 static enum sdp_parse_err sdp_parse_params(void *result,
 		char *input, struct param_parse_info *attribute_param_list,
-		size_t list_size, uint32_t required_params)
+		size_t list_size, uint32_t required_params,
+		int (*default_parser)(char*, void*))
 {
 	char *token;
 	struct param_parse_info *param = NULL;
@@ -85,6 +94,8 @@ static enum sdp_parse_err sdp_parse_params(void *result,
 		input = "";
 
 	while ((token = strtok(input, ";"))) {
+		input = NULL;
+
 		/* skip the white space(s) peceding the current token */
 		while (IS_WHITESPACE(*token))
 			token++;
@@ -99,8 +110,19 @@ static enum sdp_parse_err sdp_parse_params(void *result,
 					strlen(param->name)))
 				break;
 		}
-		if (i == list_size)
-			return sdperr("unknown attribute: %s", token);
+		if (i == list_size) {
+			if (default_parser) {
+				enum sdp_parse_err err;
+
+				err = default_parser(token, result);
+				if (err != SDP_PARSE_OK)
+					return err;
+
+				continue;
+			} else {
+				return sdperr("unknown attribute: %s", token);
+			}
+		}
 
 		/* verify no multiple attribute signaling */
 		if (param->occurrences == param->max_occurrences)
@@ -115,7 +137,6 @@ static enum sdp_parse_err sdp_parse_params(void *result,
 
 		/* mark attriute as parsed */
 		param->occurrences += 1;
-		input = NULL;
 	}
 
 	/* assert all required attributes parameters have been provided */
@@ -554,11 +575,22 @@ static enum sdp_parse_err sdp_attr_param_parse_cmax(char *str, void *res)
 	return SDP_PARSE_OK;
 }
 
-static enum sdp_parse_err smpte2110_20_parse_fmtp_params(
-		struct interpretable *field, char *input)
+static void smpte2110_20_free_fmtp_param(void *ptr)
+{
+	struct attr_params *params = (struct attr_params*)ptr;
+
+	vec_uninit(params->unrecognized);
+	free(params);
+}
+
+static enum sdp_parse_err smpte2110_2x_parse_fmtp_params(
+		struct interpretable *field, char *input,
+		uint32_t required_params,
+		int (*default_parser)(char*, void*))
 {
 	struct attr_params p;
 	struct smpte2110_20_attr_fmtp_params *smpte2110_fmtp;
+	char *err_str = NULL;
 
 	SMPTE_2110_FMTP_TABLE_START(attribute_param_list)
 		SMPTE_2110_FMTP_NUM_ENTRY(sampling)
@@ -580,19 +612,21 @@ static enum sdp_parse_err smpte2110_20_parse_fmtp_params(
 		SMPTE_2110_FMTP_NUM_ENTRY(cmax)
 	SMPTE_2110_FMTP_TABLE_END;
 
-	attribute_params_set_defaults(&p);
-	if (sdp_parse_params(&p, input, attribute_param_list,
-			ARRAY_SIZE(attribute_param_list),
-			SMPTE_2110_ATTR_PARAM_ERR_REQUIRED) != SDP_PARSE_OK)
-		return sdperr("failed to parse one or more parameters");
-	/* assert segmented parameter is not provided without interlace */
-	if (p.is_segmented && ! p.is_interlace)
-		return sdperr("cannot signal 'segmented' without 'interlace'");
-
 	smpte2110_fmtp = (struct smpte2110_20_attr_fmtp_params*)calloc(1,
 		sizeof(struct smpte2110_20_attr_fmtp_params));
 	if (!smpte2110_fmtp)
 		return sdperr("Memory allocation");
+
+	attribute_params_set_defaults(&p);
+	if (sdp_parse_params(&p, input, attribute_param_list,
+			ARRAY_SIZE(attribute_param_list),
+			required_params, default_parser) !=
+			SDP_PARSE_OK) {
+		err_str = "failed to parse one or more parameters";
+	}
+	/* assert segmented parameter is not provided without interlace */
+	if (!err_str && (p.is_segmented && ! p.is_interlace))
+		err_str = "cannot signal 'segmented' without 'interlace'";
 
 	/* update output parameters */
 	smpte2110_fmtp->sampling = p.sampling;
@@ -612,9 +646,140 @@ static enum sdp_parse_err smpte2110_20_parse_fmtp_params(
 	smpte2110_fmtp->maxudp = p.maxudp;
 	smpte2110_fmtp->troff = p.troff;
 	smpte2110_fmtp->cmax = p.cmax;
+	smpte2110_fmtp->unrecognized = p.unrecognized;
 
 	field->as.as_ptr = smpte2110_fmtp;
-	field->dtor = free;
+	field->dtor = smpte2110_20_free_fmtp_param;
+	return err_str ? sdperr(err_str): SDP_PARSE_OK;
+}
+
+static enum sdp_parse_err smpte2110_20_parse_fmtp_params(
+		struct interpretable *field, char *input)
+{
+	return smpte2110_2x_parse_fmtp_params(field, input,
+		SMPTE_2110_20_ATTR_PARAM_ERR_REQUIRED, NULL);
+}
+
+static int smpte2110_22_is_registered_subtype(char *subtype)
+{
+	size_t i;
+	size_t array_size;
+	static struct smpte2110_22_codec {
+		enum sdp_media_type type;
+		char *subtype;
+		uint32_t clock_rate;
+		char *references;
+	} codec_list[] = {
+		{ SDP_MEDIA_TYPE_AUDIO, "MPA", 90000, "RFC3555" },
+		{ SDP_MEDIA_TYPE_AUDIO, "mpa-robust", 90000, "RFC5219" },
+		{ SDP_MEDIA_TYPE_VIDEO, "BMPEG", 90000, "RFC2343 RFC3555" },
+		{ SDP_MEDIA_TYPE_VIDEO, "BT656", 90000, "RFC2431 RFC3555" },
+		{ SDP_MEDIA_TYPE_VIDEO, "DV", 90000, "RFC6469" },
+		{ SDP_MEDIA_TYPE_VIDEO, "H263", 90000, "RFC4628" },
+		{ SDP_MEDIA_TYPE_VIDEO, "H263-1998", 90000, "RFC4629" },
+		{ SDP_MEDIA_TYPE_VIDEO, "H263-2000", 90000, "RFC4629" },
+		{ SDP_MEDIA_TYPE_VIDEO, "H264-RCDO", 90000, "RFC6185" },
+		{ SDP_MEDIA_TYPE_VIDEO, "MP1S", 90000, "RFC2250 RFC3555" },
+		{ SDP_MEDIA_TYPE_VIDEO, "MP2P", 90000, "RFC2250 RFC3555" },
+		{ SDP_MEDIA_TYPE_VIDEO, "MP4V-ES", 90000, "RFC3016" },
+		{ SDP_MEDIA_TYPE_VIDEO, "pointer", 90000, "RFC2862" },
+		{ SDP_MEDIA_TYPE_VIDEO, "vc1", 90000, "RFC4425" },
+		{ SDP_MEDIA_TYPE_VIDEO, "vc2", 90000, "RFC8450" },
+		{ SDP_MEDIA_TYPE_VIDEO, "jxsv", 90000, "RFC" },
+	};
+
+	array_size = ARRAY_SIZE(codec_list);
+	for (i = 0; i < array_size &&
+		strncmp(subtype, codec_list[i].subtype,
+			strlen(codec_list[i].subtype)); i++);
+
+	return i < array_size;
+}
+
+static void free_key_val(void *ptr)
+{
+	struct key_value *kv = (struct key_value*)ptr;
+
+	free(kv->key);
+	free(kv->val);
+	free(kv);
+}
+
+static int sdp_attr_param_parse_unrecognized(char *str, void *res)
+{
+	struct attr_params *params = (struct attr_params*)res;
+	struct key_value *kv;
+	char *key = NULL;
+	char *val = NULL;
+	char *tmp;
+	size_t len;
+	int ret;
+
+	for (tmp = str; *tmp && *tmp != '='; tmp++);
+	len = tmp - str + 1;
+	key = (char*)calloc(sizeof(char), len);
+	if (!key)
+		return sdperr("Memory allocation", str);
+
+	snprintf(key, len, "%s", str);
+	if (*tmp++) {
+		for (str = tmp; *tmp; tmp++);
+		len = tmp - str + 1;
+		if (len) {
+			val = (char*)calloc(sizeof(char), len);
+			if (!val) {
+				free(key);
+				return sdperr("Memory allocation", str);
+			}
+			snprintf(val, len, "%s", str);
+		}
+	}
+
+	kv = (struct key_value*)calloc(sizeof(struct key_value), 1);
+	if (!kv) {
+		free(key);
+		free(val);
+		return sdperr("Memory allocation");
+	}
+	kv->key = key;
+	kv->val = val;
+
+	if (!params->unrecognized)
+		params->unrecognized = vec_init(free_key_val);
+	if (!params->unrecognized) {
+		free(key);
+		free(val);
+		free(kv);
+		return sdperr("Vector initialization");
+	}
+
+	ret = vec_push_back(params->unrecognized, kv);
+	if (ret)
+		return sdperr("Vector push back");
+
+	return SDP_PARSE_OK;
+}
+
+static enum sdp_parse_err smpte2110_22_parse_fmtp_params(
+		struct interpretable *field, char *input)
+{
+	struct smpte2110_20_attr_fmtp_params *smpte2110_fmtp;
+	enum sdp_parse_err ret;
+
+	ret = smpte2110_2x_parse_fmtp_params(field, input,
+		SMPTE_2110_22_ATTR_PARAM_ERR_REQUIRED,
+		sdp_attr_param_parse_unrecognized);
+	if (ret != SDP_PARSE_OK)
+		return ret;
+
+	smpte2110_fmtp =
+		(struct smpte2110_20_attr_fmtp_params*)field->as.as_ptr;
+	if (smpte2110_fmtp->tp != TP_2110TPNL &&
+			smpte2110_fmtp->tp != TP_2110TPW) {
+		return sdperr("Illegal value for SMPTE ST2110-22 'type' "
+			"fmtp parameter: TP=TP_2110TPN");
+	}
+
 	return SDP_PARSE_OK;
 }
 
@@ -688,7 +853,8 @@ static enum sdp_parse_err smpte2110_40_parse_fmtp_params(
 		return sdperr("Memory allocation");
 
 	if (sdp_parse_params(params, input, attribute_param_list,
-			ARRAY_SIZE(attribute_param_list), 0) != SDP_PARSE_OK) {
+			ARRAY_SIZE(attribute_param_list), 0, NULL) !=
+			SDP_PARSE_OK) {
 		smpte2110_40_free_fmtp_param(params);
 		return sdperr("failed to parse smpte2110-40 fmtp params");
 	}
@@ -754,7 +920,7 @@ static enum sdp_parse_err smpte2110_30_parse_fmtp_params(
 		return sdperr("Memory allocation");
 
 	if (sdp_parse_params(params, input, attribute_param_list,
-			ARRAY_SIZE(attribute_param_list), 0) != SDP_PARSE_OK) {
+			ARRAY_SIZE(attribute_param_list), 0, NULL) != SDP_PARSE_OK) {
 		free(params);
 		return sdperr("failed to parse smpte2110-30 fmtp params");
 	}
@@ -768,6 +934,7 @@ static int get_required_attr_mask(int sub_type)
 {
 	switch (sub_type) {
 	case SMPTE_2110_SUB_TYPE_20:
+	case SMPTE_2110_SUB_TYPE_22:
 		return (1 << SDP_ATTR_FMTP);
 	case SMPTE_2110_SUB_TYPE_30:
 		return 0;
@@ -790,6 +957,8 @@ static enum sdp_parse_err smpte2110_parse_rtpmap_encoding_name(
 		} else if (!strcmp(input, "smpte291")) {
 			*sub_type = SMPTE_2110_SUB_TYPE_40;
 			media->m.type = SDP_MEDIA_TYPE_TEXT;
+		} else if (smpte2110_22_is_registered_subtype(input)) {
+			*sub_type = SMPTE_2110_SUB_TYPE_22;
 		}
 	} else if (media->m.type == SDP_MEDIA_TYPE_AUDIO) {
 		if (!strncmp(input, "L16", strlen("L16")) ||
@@ -826,11 +995,62 @@ static enum sdp_parse_err smpte2110_parse_fmtp_params(
 
 	if (sub_type == SMPTE_2110_SUB_TYPE_20)
 		return smpte2110_20_parse_fmtp_params(field, input);
+	if (sub_type == SMPTE_2110_SUB_TYPE_22)
+		return smpte2110_22_parse_fmtp_params(field, input);
 	if (sub_type == SMPTE_2110_SUB_TYPE_30)
 		return smpte2110_30_parse_fmtp_params(field, input);
 	if (sub_type == SMPTE_2110_SUB_TYPE_40)
 		return smpte2110_40_parse_fmtp_params(field, input);
 	return sdp_parse_field_default(field, input);
+}
+
+static enum sdp_parse_err smpte2110_validate_no_frame_rate_conflict(
+		struct sdp_media *media)
+{
+	struct sdp_attr *attr_framerate;
+	struct sdp_attr_value_framerate *framerate;
+	int framerate_is_rate_integer;
+	double framerate_val;
+
+	struct sdp_attr *attr_fmtp;
+	struct smpte2110_20_attr_fmtp_params *fmtp_params;
+	struct smpte_2110_fps *exactframerate;
+	double exactframerate_val;
+
+	attr_framerate = sdp_media_attr_get(media, SDP_ATTR_FRAMERATE);
+	if (!attr_framerate)
+		return SDP_PARSE_OK;
+
+	attr_fmtp = sdp_media_attr_get(media, SDP_ATTR_FMTP);
+	if (!attr_fmtp)
+		return SDP_PARSE_OK;
+
+	framerate = &attr_framerate->value.framerate;
+	framerate_val = framerate->frame_rate;
+	if (!framerate_val)
+		return SDP_PARSE_OK;
+	framerate_is_rate_integer = framerate_val == (int)framerate_val;
+	if (!framerate_is_rate_integer) {
+		framerate_val = round(framerate_val * FPS_NON_INT_DEMONINATOR) /
+			FPS_NON_INT_DEMONINATOR;
+	}
+
+	fmtp_params = (struct smpte2110_20_attr_fmtp_params*)
+		attr_fmtp->value.fmtp.params.as.as_ptr;
+	exactframerate = &fmtp_params->exactframerate;
+	exactframerate_val = (double)exactframerate->nominator;
+	if (!exactframerate_val)
+		return SDP_PARSE_OK;
+	if (!exactframerate->is_integer)
+		exactframerate_val /= FPS_NON_INT_DEMONINATOR;
+
+	if (framerate_is_rate_integer != exactframerate->is_integer ||
+			framerate_val != exactframerate_val) {
+		return sdperr("inconsistent a=framerate and a=fmtp "
+			"exactframerate= parameter");
+	}
+
+	return SDP_PARSE_OK;
 }
 
 static enum sdp_parse_err smpte2110_validate_media(struct sdp_media *media)
@@ -840,6 +1060,10 @@ static enum sdp_parse_err smpte2110_validate_media(struct sdp_media *media)
 
 	if (!sdp_validate_required_attributes(media, get_required_attr_mask))
 		return SDP_PARSE_ERROR;
+
+	if (smpte2110_validate_no_frame_rate_conflict(media))
+		return SDP_PARSE_ERROR;
+
 	return SDP_PARSE_OK;
 }
 
