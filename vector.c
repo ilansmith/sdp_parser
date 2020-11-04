@@ -38,22 +38,23 @@ static inline unsigned int pos2capacity(unsigned int x)
 	return ((x >> 1) + 1) << 2;
 }
 
-static inline void buf_realloc(struct vector *vec, unsigned int pos)
+static inline int buf_realloc(struct vector *vec, unsigned int pos)
 {
 	void **buf;
 	unsigned int capacity_required = pos2capacity(pos);
 	
 	if (capacity_required <= vec->capacity)
-		return;
+		return 0;
 
 	buf = (void**)realloc(vec->buf, capacity_required * sizeof(void*));
 	if (!buf)
-		return;
+		return -1;
 
 	vec->buf = buf;
 	memset(vec->buf + vec->capacity, 0,
 		sizeof(void*) * (capacity_required - vec->capacity));
 	vec->capacity = capacity_required;
+	return 0;
 }
 
 static inline void do_replace(struct vector *vec, int pos, void *e)
@@ -112,7 +113,9 @@ int vec_push_back(vector_t vector, void *e)
 	if (!e)
 		return -1;
 
-	buf_realloc(vec, vec->push_back_idx);
+	if (buf_realloc(vec, vec->push_back_idx))
+		return -1;
+
 	if (vec->push_back_idx == vec->capacity)
 		return -1;
 
@@ -127,7 +130,9 @@ int vec_insert(vector_t vector, void *e, unsigned int pos)
 	if (!e)
 		return -1;
 
-	buf_realloc(vec, pos);
+	if (buf_realloc(vec, pos))
+		return -1;
+
 	if (vec->capacity <= pos)
 		return -1;
 
@@ -150,7 +155,7 @@ void *vec_at(vector_t vector, int pos)
 {
 	struct vector *vec = (struct vector*)vector;
 
-	if (vec->capacity <= pos)
+	if (vec->capacity <= (unsigned int)pos)
 		return NULL;
 
 	return vec->buf[pos];
@@ -170,11 +175,12 @@ unsigned int vec_capacity(vector_t vector)
 	return vec->capacity;
 }
 
-unsigned int vec_for_each(vector_t vector, int (func)(void *e, va_list va), ...)
+unsigned int vec_for_each(vector_t vector, int (*func)(void *e, va_list va),
+		...)
 {
 	struct vector *vec = (struct vector*)vector;
 	va_list va;
-	int i;
+	unsigned int i;
 
 	va_start(va, func);
 	for (i = 0; i < vec->capacity; i++) {
