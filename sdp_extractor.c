@@ -599,6 +599,8 @@ static int extract_stream_params(struct sdp_extractor *e, int npackets)
 					SMPTE_2110_SUB_TYPE_20) {
 				ret = extract_2110_20_params(session, *media,
 					e->attributes, i, npackets);
+			} else if (npackets) {
+				return 0;
 			} else if ((*media)->m.fmt.sub_type ==
 					SMPTE_2110_SUB_TYPE_30) {
 				ret = extract_2110_30_params(session, *media,

@@ -346,6 +346,7 @@ static void parse_input(int argc, char **argv, char **sdp_path, int *packets)
 
 int main(int argc, char **argv)
 {
+	int ret = 0;
 	char *sdp_path;
 	int npackets;
 	sdp_extractor_t sdp_extractor;
@@ -437,7 +438,8 @@ int main(int argc, char **argv)
 
 	if (npackets && sdp_extractor_set_2110_20_npackets(sdp_extractor,
 			npackets)) {
-		return -1;
+		ret = -1;
+		goto exit;
 	}
 
 	stream_num = sdp_extractor_get_stream_num(sdp_extractor);
@@ -675,7 +677,8 @@ int main(int argc, char **argv)
 		printf("\n");
 	}
 
+exit:
 	sdp_extractor_uninit(sdp_extractor);
-	return 0;
+	return ret;
 }
 
