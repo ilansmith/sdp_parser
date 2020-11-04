@@ -207,7 +207,9 @@ static void usage(char *app_name)
 {
 	int i;
 
-	printf("            SMPTE ST2110-20 SDP parser\n");
+	printf("            SDP parser for\n");
+	printf("            o SMPTE ST2110 20/30/40\n");
+	printf("            o SMPTE ST2022 6/7\n");
 	printf("\n"
 		"%sUsage:   %s [OPTIONS]%s\n"
 		"\n"
