@@ -123,6 +123,7 @@ struct media_attribute_ancillary {
 };
 
 struct media_attribute {
+	char encoding_name[256];
 	char addr_src[IP_MAX_HDR_LEN + 1];
 	char addr_dst[IP_MAX_HDR_LEN + 1];
 	uint16_t port_dst;
@@ -465,6 +466,14 @@ static int extract_2110_2x_params(enum sdp_extractor_spec_sub_type media_type,
 	for (attr = media->a; attr; attr = attr->next) {
 		found_attributes  |= (1 << attr->type);
 
+		if (attr->type == SDP_ATTR_RTPMAP) {
+			snprintf(attributes[i].encoding_name,
+				sizeof(attributes[i].encoding_name),
+				"%s", attr->value.rtpmap.encoding_name.as.as_str);
+			attributes[i].clock_rate =
+				attr->value.rtpmap.clock_rate;
+		}
+
 		if (attr->type == SDP_ATTR_FMTP) {
 			struct smpte2110_20_attr_fmtp_params *fmtp_params =
 				(struct smpte2110_20_attr_fmtp_params*)
@@ -590,6 +599,9 @@ static int extract_2110_40_params(struct sdp_session *session,
 		found_attributes |= (1 << attr->type);
 
 		if (attr->type == SDP_ATTR_RTPMAP) {
+			snprintf(attributes[i].encoding_name,
+				sizeof(attributes[i].encoding_name),
+				"%s", attr->value.rtpmap.encoding_name.as.as_str);
 			attributes[i].clock_rate =
 				attr->value.rtpmap.clock_rate;
 		} else if (attr->type == SDP_ATTR_FMTP) {
@@ -1082,6 +1094,7 @@ double sdp_extractor_get_2022_06_fps_by_group(sdp_extractor_t sdp_extractor,
 }
 
 /* API implementation - SMPTE ST2110-20 functions */
+SDP_EXTRACTOR_GET(char*, NULL, 2110_20_encoding_name, encoding_name)
 SDP_EXTRACTOR_GET(int, -1, 2110_20_packaging_mode, type.video.pm)
 SDP_EXTRACTOR_GET(int, -1, 2110_20_packet_size, type.video.packet_size)
 SDP_EXTRACTOR_GET(double, -1, 2110_20_rate, type.video.rate)
@@ -1161,6 +1174,7 @@ SDP_EXTRACTOR_GET(int, -1, 2110_20_troff, type.video.troff)
 SDP_EXTRACTOR_GET(int, -1, 2110_20_cmax, type.video.cmax)
 
 /* API implementation - SMPTE ST2110-22 functions */
+SDP_EXTRACTOR_GET(char*, NULL, 2110_22_encoding_name, encoding_name)
 SDP_EXTRACTOR_GET(int, -1, 2110_22_width, type.video.width)
 SDP_EXTRACTOR_GET(int, -1, 2110_22_height, type.video.height)
 SDP_EXTRACTOR_GET(int, -1, 2110_22_type, type.video.type)
@@ -1269,6 +1283,7 @@ SDP_EXTRACTOR_GET(char*, NULL, 2110_30_channel_order, type.audio.channel_order)
 SDP_EXTRACTOR_GET(double, -1, 2110_30_ptime, type.audio.ptime)
 
 /* API implementation - SMPTE ST2110-40 functions */
+SDP_EXTRACTOR_GET(char*, NULL, 2110_40_encoding_name, encoding_name)
 SDP_EXTRACTOR_GET(uint8_t**, NULL, 2110_40_did_sdid, type.anc.did_sdid.vals)
 SDP_EXTRACTOR_GET(int, -1, 2110_40_did_sdid_num, type.anc.did_sdid.num)
 SDP_EXTRACTOR_GET(uint32_t, -1, 2110_40_vpid_code, type.anc.vpid_code.val)

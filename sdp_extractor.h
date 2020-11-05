@@ -74,6 +74,11 @@ double sdp_extractor_get_2022_06_fps_by_group(sdp_extractor_t sdp_extractor,
 	int g_idx, int t_idx);
 
 /* SMPTE ST2110-20 functions */
+char *sdp_extractor_get_2110_20_encoding_name_by_stream(
+	sdp_extractor_t sdp_extractor, int m_idx);
+char *sdp_extractor_get_2110_20_encoding_name_by_group(
+	sdp_extractor_t sdp_extractor, int g_idx, int t_idx);
+
 int sdp_extractor_get_2110_20_packaging_mode_by_stream(
 	sdp_extractor_t sdp_extractor, int m_idx);
 int sdp_extractor_get_2110_20_packaging_mode_by_group(
@@ -164,6 +169,11 @@ int sdp_extractor_set_2110_20_npackets(sdp_extractor_t sdp_extractor,
 	int npackets);
 
 /* SMPTE ST2110-22 functions */
+char *sdp_extractor_get_2110_22_encoding_name_by_stream(
+	sdp_extractor_t sdp_extractor, int m_idx);
+char *sdp_extractor_get_2110_22_encoding_name_by_group(
+	sdp_extractor_t sdp_extractor, int g_idx, int t_idx);
+
 int sdp_extractor_get_2110_22_width_by_stream(sdp_extractor_t sdp_extractor,
 	int m_idx);
 int sdp_extractor_get_2110_22_width_by_group(sdp_extractor_t sdp_extractor,
@@ -236,6 +246,10 @@ double sdp_extractor_get_2110_30_ptime_by_group(sdp_extractor_t sdp_extractor,
 	int g_idx, int t_idx);
 
 /* SMPTE ST2110-40 functions */
+char *sdp_extractor_get_2110_40_encoding_name_by_stream(
+	sdp_extractor_t sdp_extractor, int m_idx);
+char *sdp_extractor_get_2110_40_encoding_name_by_group(
+	sdp_extractor_t sdp_extractor, int g_idx, int t_idx);
 uint8_t **sdp_extractor_get_2110_40_did_sdid_by_stream(
 	sdp_extractor_t sdp_extractor, int m_idx);
 uint8_t **sdp_extractor_get_2110_40_did_sdid_by_group(
