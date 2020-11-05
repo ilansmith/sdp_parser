@@ -1,0 +1,12 @@
+v=0
+o=- 3836180430 0 IN IP4 192.99.99.20
+s=SMPTE ST2022-6 stream
+t=0 0
+m=video 10000 RTP/AVP 98
+c=IN IP4 239.99.99.20/64
+a=source-filter: incl IN IP4 239.99.99.20 192.168.1.2
+a=rtpmap:98 smpte2022-6/27000000
+a=framerate:59.94
+a=ts-refclk:local
+a=mediaclk:direct
+
