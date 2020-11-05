@@ -1,5 +1,6 @@
 CC=gcc
 CFLAGS=-Wall -Werror -pedantic -std=gnu99 -DSDP_EXTRACTOR_VERSION=\""$(SDP_EXTRACTOR_VERSION)"\"
+LFLAGS=-lm
 EXTRACTOR=sdp_extractor
 LIB_OBJS=sdp_field.o sdp_stream.o sdp_parser.o sdp_log.o smpte2110_sdp_parser.o smpte2022_sdp_parser.o
 APP_GENERIC_OBJS=util.o
@@ -23,10 +24,10 @@ endif
 all: $(EXTRACTOR)
 
 $(EXTRACTOR): $(EXTRACTOR_OBJS) $(SDP_LIB)
-	$(CC) -o $@ $^
+	$(CC) -o $@ $^ $(LFLAGS)
 
 tests: $(TESTS_OBJS) $(SDP_LIB)
-	$(CC) -o sdp_$@ $^
+	$(CC) -o sdp_$@ $^ $(LFLAGS)
 
 $(SDP_LIB): $(LIB_OBJS)
 	$(AR) -r $@ $^

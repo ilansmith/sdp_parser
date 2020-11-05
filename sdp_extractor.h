@@ -63,6 +63,11 @@ int sdp_extractor_get_bandwidth_by_group(sdp_extractor_t sdp_extractor,
 	int g_idx, int t_idx, enum sdp_bandwidth_bwtype bwtype);
 
 /* SMPTE ST2022-06 functions */
+int sdp_extractor_get_2022_06_is_rate_integer_by_stream(
+	sdp_extractor_t sdp_extractor, int m_idx);
+int sdp_extractor_get_2022_06_is_rate_integer_by_group(
+	sdp_extractor_t sdp_extractor, int g_idx, int t_idx);
+
 double sdp_extractor_get_2022_06_fps_by_stream(sdp_extractor_t sdp_extractor,
 	int m_idx);
 double sdp_extractor_get_2022_06_fps_by_group(sdp_extractor_t sdp_extractor,
@@ -157,6 +162,52 @@ int sdp_extractor_get_2110_20_cmax_by_group(sdp_extractor_t sdp_extractor,
 
 int sdp_extractor_set_2110_20_npackets(sdp_extractor_t sdp_extractor,
 	int npackets);
+
+/* SMPTE ST2110-22 functions */
+int sdp_extractor_get_2110_22_width_by_stream(sdp_extractor_t sdp_extractor,
+	int m_idx);
+int sdp_extractor_get_2110_22_width_by_group(sdp_extractor_t sdp_extractor,
+	int g_idx, int t_idx);
+
+int sdp_extractor_get_2110_22_height_by_stream(sdp_extractor_t sdp_extractor,
+	int m_idx);
+int sdp_extractor_get_2110_22_height_by_group(sdp_extractor_t sdp_extractor,
+	int g_idx, int t_idx);
+
+int sdp_extractor_get_2110_22_is_rate_integer_by_stream(
+	sdp_extractor_t sdp_extractor, int m_idx);
+int sdp_extractor_get_2110_22_is_rate_integer_by_group(
+	sdp_extractor_t sdp_extractor, int g_idx, int t_idx);
+
+double sdp_extractor_get_2110_22_fps_by_stream(sdp_extractor_t sdp_extractor,
+	int m_idx);
+double sdp_extractor_get_2110_22_fps_by_group(sdp_extractor_t sdp_extractor,
+	int g_idx, int t_idx);
+
+int sdp_extractor_get_2110_22_type_by_stream(sdp_extractor_t sdp_extractor,
+	int m_idx);
+int sdp_extractor_get_2110_22_type_by_group(sdp_extractor_t sdp_extractor,
+	int g_idx, int t_idx);
+
+int sdp_extractor_get_2110_22_cmax_by_stream(sdp_extractor_t sdp_extractor,
+	int m_idx);
+int sdp_extractor_get_2110_22_cmax_by_group(sdp_extractor_t sdp_extractor,
+	int g_idx, int t_idx);
+
+vector_t sdp_extractor_get_2110_22_unrecognized_by_stream(
+	sdp_extractor_t sdp_extractor, int m_idx);
+vector_t sdp_extractor_get_2110_22_unrecognized_by_group(
+	sdp_extractor_t sdp_extractor, int g_idx, int t_idx);
+
+int sdp_extractor_get_2110_22_unrecognized_num_by_stream(
+	sdp_extractor_t sdp_extractor, int m_idx);
+int sdp_extractor_get_2110_22_unrecognized_num_by_group(
+	sdp_extractor_t sdp_extractor, int g_idx, int t_idx);
+
+char *sdp_extractor_get_2110_22_val_by_stream(char *key,
+	sdp_extractor_t sdp_extractor, int m_idx);
+char *sdp_extractor_get_2110_22_val_by_group(char *key,
+	sdp_extractor_t sdp_extractor, int g_idx, int t_idx);
 
 /* SMPTE ST2110-30 functions */
 int sdp_extractor_get_2110_30_bit_depth_by_stream(sdp_extractor_t sdp_extractor,

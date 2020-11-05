@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
+#include <math.h>
 
 #include "sdp_parser.h"
 #include "smpte2110_sdp_parser.h"
@@ -99,6 +100,7 @@ struct media_attribute_video {
 	struct smpte_2110_par par;
 	uint64_t troff;
 	uint16_t cmax;
+	vector_t unrecognized;
 };
 
 struct media_attribute_audio {
@@ -406,14 +408,60 @@ static int check_required_attributes(const char *spec_name, uint32_t found,
 	return -1;
 }
 
-static int extract_2110_20_params(struct sdp_session *session,
+static void extract_framerate_param(struct media_attribute_video *video,
+		struct sdp_attr_value_framerate *framerate)
+{
+	double val_fps;
+	int val_is_rate_integer;
+
+	if (video->fps)
+		return;
+
+	val_is_rate_integer =
+		framerate->frame_rate == (int)framerate->frame_rate;
+	if (val_is_rate_integer) {
+		val_fps = framerate->frame_rate;
+	} else {
+		double nominator =
+			round(framerate->frame_rate * FPS_NON_INT_DEMONINATOR);
+		val_fps = nominator / FPS_NON_INT_DEMONINATOR;
+	}
+
+	video->fps = val_fps;
+	video->is_rate_integer = val_is_rate_integer;
+}
+
+static void extract_exactframerate_param(struct media_attribute_video *video,
+		struct smpte_2110_fps *exactframerate)
+{
+	double val_fps;
+	int val_is_rate_integer;
+
+	if (video->fps)
+		return;
+
+	val_fps = (double)exactframerate->nominator;
+	if (!val_fps)
+		return;
+
+	val_is_rate_integer = exactframerate->is_integer;
+	if (!val_is_rate_integer)
+		val_fps /= FPS_NON_INT_DEMONINATOR;
+
+	video->fps = val_fps;
+	video->is_rate_integer = val_is_rate_integer;
+}
+
+static int extract_2110_2x_params(enum sdp_extractor_spec_sub_type media_type,
+		const char *spec_name, struct sdp_session *session,
 		struct sdp_media *media, struct media_attribute *attributes,
 		int i, int npackets)
 {
 	struct sdp_attr *attr;
 	uint32_t found_attributes = 0;
+	int ret = 0;
 
-	attributes[i].media_type = SPEC_SUBTYPE_SMPTE_ST2110_20;
+	attributes[i].media_type = media_type;
 	for (attr = media->a; attr; attr = attr->next) {
 		found_attributes  |= (1 << attr->type);
 
@@ -432,21 +480,12 @@ static int extract_2110_20_params(struct sdp_session *session,
 					&attributes[i].type.video.packet_size)){
 				attributes[i].type.video.npackets = 0;
 				attributes[i].type.video.packet_size = 0;
-				return -1;
-			}
-			attributes[i].type.video.is_rate_integer =
-				fmtp_params->exactframerate.is_integer;
-			attributes[i].type.video.fps =
-				(double)fmtp_params->exactframerate.nominator;
-			if (!attributes[i].type.video.is_rate_integer) {
-				attributes[i].type.video.fps /=
-					FPS_NON_INT_DEMONINATOR;
+				ret = -1;
 			}
 
-			attributes[i].type.video.rate =
-				attributes[i].type.video.packet_size *
-				attributes[i].type.video.npackets *
-				attributes[i].type.video.fps * BYTE_SIZE;
+			extract_exactframerate_param(&attributes[i].type.video,
+				&fmtp_params->exactframerate);
+
 			attributes[i].type.video.type = fmtp_params->tp;
 			attributes[i].type.video.signal = fmtp_params->signal;
 			attributes[i].type.video.colorimetry =
@@ -458,11 +497,45 @@ static int extract_2110_20_params(struct sdp_session *session,
 			attributes[i].type.video.maxudp = fmtp_params->maxudp;
 			attributes[i].type.video.troff = fmtp_params->troff;
 			attributes[i].type.video.cmax = fmtp_params->cmax;
+			attributes[i].type.video.unrecognized =
+				fmtp_params->unrecognized;
+			fmtp_params->unrecognized = NULL;
+		}
+
+		if (attr->type == SDP_ATTR_FRAMERATE) {
+			extract_framerate_param(&attributes[i].type.video,
+				&attr->value.framerate);
 		}
 	}
 
-	return check_required_attributes("2110_20", found_attributes,
-		(1 << SDP_ATTR_FMTP));
+	if (!attributes[i].type.video.fps) {
+		sdp_extractor_err("frames per second not provided");
+		return -1;
+	}
+
+	attributes[i].type.video.rate =
+		attributes[i].type.video.packet_size *
+		attributes[i].type.video.npackets *
+		attributes[i].type.video.fps * BYTE_SIZE;
+
+	return ret || check_required_attributes(spec_name, found_attributes,
+		(1 << SDP_ATTR_FMTP)) ? -1 : 0;
+}
+
+static int extract_2110_20_params(struct sdp_session *session,
+		struct sdp_media *media, struct media_attribute *attributes,
+		int i, int npackets)
+{
+	return extract_2110_2x_params(SPEC_SUBTYPE_SMPTE_ST2110_20, "2110_20",
+		session, media, attributes, i, npackets);
+}
+
+static int extract_2110_22_params(struct sdp_session *session,
+		struct sdp_media *media, struct media_attribute *attributes,
+		int i, int npackets)
+{
+	return extract_2110_2x_params(SPEC_SUBTYPE_SMPTE_ST2110_22, "2110_22",
+		session, media, attributes, i, npackets);
 }
 
 static int extract_2110_30_params(struct sdp_session *session,
@@ -576,13 +649,13 @@ static int extract_2022_6_params(struct sdp_session *session,
 		found_attributes |= (1 << attr->type);
 
 		if (attr->type == SDP_ATTR_FRAMERATE) {
-			attributes[i].type.video.fps =
-				attr->value.framerate.frame_rate;
+			extract_framerate_param(&attributes[i].type.video,
+				&attr->value.framerate);
 		}
 	}
 
 	return check_required_attributes("2022_6", found_attributes,
-		(1 << SDP_ATTR_FRAMERATE));
+		(1 << SDP_ATTR_FRAMERATE)) ? -1 : 0;
 }
 
 static int extract_stream_params(struct sdp_extractor *e, int npackets)
@@ -592,12 +665,16 @@ static int extract_stream_params(struct sdp_extractor *e, int npackets)
 	int i = 0;
 
 	VEC_FOREACH(e->medias, media) {
-		int ret = 1;
+		int ret = -1;
 
 		if (e->spec == SPEC_SMPTE_ST2110) {
 			if ((*media)->m.fmt.sub_type ==
 					SMPTE_2110_SUB_TYPE_20) {
 				ret = extract_2110_20_params(session, *media,
+					e->attributes, i, npackets);
+			} else if ((*media)->m.fmt.sub_type ==
+					SMPTE_2110_SUB_TYPE_22) {
+				ret = extract_2110_22_params(session, *media,
 					e->attributes, i, npackets);
 			} else if (npackets) {
 				return 0;
@@ -617,7 +694,7 @@ static int extract_stream_params(struct sdp_extractor *e, int npackets)
 			}
 		}
 
-		if (ret == 1) {
+		if (ret == -1) {
 			sdp_extractor_err("unsupported media format");
 			return -1;
 		}
@@ -680,10 +757,14 @@ static void sdp_free_attributes(struct media_attribute *attributes, size_t num)
 	size_t i;
 
 	for (i = 0; i < num; i++) {
-		if (attributes[i].media_type != SPEC_SUBTYPE_SMPTE_ST2110_40)
-			continue;
-
-		free(attributes[i].type.anc.did_sdid.vals);
+		if (attributes[i].media_type ==
+					SPEC_SUBTYPE_SMPTE_ST2110_20 ||
+				attributes[i].media_type ==
+					SPEC_SUBTYPE_SMPTE_ST2110_22) {
+			vec_uninit(attributes[i].type.video.unrecognized);
+		}
+		if (attributes[i].media_type == SPEC_SUBTYPE_SMPTE_ST2110_40)
+			free(attributes[i].type.anc.did_sdid.vals);
 	}
 
 	free(attributes);
@@ -977,6 +1058,7 @@ int sdp_extractor_get_bandwidth_by_group(sdp_extractor_t sdp_extractor,
 }
 
 /* API implementation - SMPTE ST2022-06 functions */
+SDP_EXTRACTOR_GET(int, -1, 2022_06_is_rate_integer, type.video.is_rate_integer)
 double sdp_extractor_get_2022_06_fps_by_stream(sdp_extractor_t sdp_extractor,
 		int m_idx)
 {
@@ -1077,6 +1159,107 @@ SDP_EXTRACTOR_GET(int, -1, 2110_20_range, type.video.range)
 SDP_EXTRACTOR_GET(int, -1, 2110_20_maxudp, type.video.maxudp)
 SDP_EXTRACTOR_GET(int, -1, 2110_20_troff, type.video.troff)
 SDP_EXTRACTOR_GET(int, -1, 2110_20_cmax, type.video.cmax)
+
+/* API implementation - SMPTE ST2110-22 functions */
+SDP_EXTRACTOR_GET(int, -1, 2110_22_width, type.video.width)
+SDP_EXTRACTOR_GET(int, -1, 2110_22_height, type.video.height)
+SDP_EXTRACTOR_GET(int, -1, 2110_22_type, type.video.type)
+SDP_EXTRACTOR_GET(int, -1, 2110_22_cmax, type.video.cmax)
+SDP_EXTRACTOR_GET(vector_t, NULL, 2110_22_unrecognized, type.video.unrecognized)
+
+int sdp_extractor_get_2110_22_unrecognized_num_by_stream(
+	sdp_extractor_t sdp_extractor, int m_idx)
+{
+	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
+
+	if (e->spec != SPEC_SMPTE_ST2110)
+		return -1;
+
+	return e->attributes[m_idx].type.video.unrecognized ?
+		(int)vec_size(e->attributes[m_idx].type.video.unrecognized) :
+		0;
+}
+
+int sdp_extractor_get_2110_22_unrecognized_num_by_group(
+	sdp_extractor_t sdp_extractor, int g_idx, int t_idx)
+{
+	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
+	struct group_member *member;
+	struct sdp_media **media;
+	int m_idx;
+
+	member = get_member(e, g_idx, t_idx);
+	if (!member)
+		return -1;
+
+	m_idx = 0;
+	VEC_FOREACH(e->medias, media) {
+		if (*media == member->media) {
+			return e->attributes[m_idx].type.video.unrecognized ?
+				(int)vec_size(
+				e->attributes[m_idx].type.video.unrecognized) :
+				0;
+		}
+
+		m_idx++;
+	}
+	return -1;
+}
+
+char *sdp_extractor_get_2110_22_val_by_stream(char *key,
+	sdp_extractor_t sdp_extractor, int m_idx)
+{
+	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
+	struct key_value **kv;
+	size_t key_len;
+
+	if (e->spec != SPEC_SMPTE_ST2110)
+		return NULL;
+
+	if (!e->attributes[m_idx].type.video.unrecognized)
+		return NULL;
+
+	key_len = strlen(key);
+	VEC_FOREACH(e->attributes[m_idx].type.video.unrecognized, kv) {
+		if (!strncmp(key, (*kv)->key, key_len))
+			return (*kv)->val;
+	}
+
+	return NULL;
+}
+
+char *sdp_extractor_get_2110_22_val_by_group(char *key,
+	sdp_extractor_t sdp_extractor, int g_idx, int t_idx)
+{
+	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
+	struct group_member *member;
+	struct sdp_media **media;
+	int m_idx;
+	size_t key_len;
+
+	member = get_member(e, g_idx, t_idx);
+	if (!member)
+		return NULL;
+
+	key_len = strlen(key);
+	m_idx = 0;
+	VEC_FOREACH(e->medias, media) {
+		struct key_value **kv;
+
+		if (*media != member->media) {
+			m_idx++;
+			continue;
+		}
+
+		VEC_FOREACH(e->attributes[m_idx].type.video.unrecognized, kv) {
+			if (!strncmp(key, (*kv)->key, key_len))
+				return (*kv)->val;
+		}
+
+		return NULL;
+	}
+	return NULL;
+}
 
 /* API implementation - SMPTE ST2110-30 functions */
 SDP_EXTRACTOR_GET(int, -1, 2110_30_bit_depth, type.audio.bit_depth)
