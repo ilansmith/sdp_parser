@@ -367,11 +367,11 @@ int main(int argc, char **argv)
 {
 	int ret = 0;
 	char *sdp_path;
-	int npackets;
+	int npackets = 0;
 	sdp_extractor_t sdp_extractor;
 	int stream_num;
 	int i;
-	int pm;
+	int pm = PM_2110UNSPECIFIED;
 	int colorimetry;
 	int tcs;
 	int range;
@@ -497,6 +497,22 @@ int main(int argc, char **argv)
 		stream_printf("stream index", "i", i);
 		stream_printf_ind("spec sub type", "s",
 			code2str(specs_sub_types, sub_type));
+
+		if (sub_type == SPEC_SUBTYPE_SMPTE_ST2110_22) {
+			stream_printf_ind("encoding name", "sss", "\"",
+				sdp_extractor_get_2110_22_encoding_name_by_stream(
+					sdp_extractor, i), "\"");
+			stream_printf_ind("profile", "s",
+				sdp_extractor_get_2110_22_val_by_stream(
+					"profile", sdp_extractor, i));
+			stream_printf_ind("level", "s",
+				sdp_extractor_get_2110_22_val_by_stream(
+					"level", sdp_extractor, i));
+			stream_printf_ind("transmode", "s",
+				sdp_extractor_get_2110_22_val_by_stream(
+					"transmode", sdp_extractor, i));
+		}
+
 		stream_printf_ind("source ip", "s",
 			sdp_extractor_get_src_ip_by_stream(sdp_extractor, i));
 		stream_printf_ind("destination ip", "s",
