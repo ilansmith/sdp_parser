@@ -344,6 +344,25 @@ static void parse_input(int argc, char **argv, char **sdp_path, int *packets)
 	*packets = __packets;
 }
 
+static void stream_printf_ind_fps(
+		int (*sdp_extractor_get_is_rate_integer_by_stream)(
+			sdp_extractor_t, int),
+		double (*sdp_extractor_get_fps_by_stream)(
+			sdp_extractor_t, int),
+		sdp_extractor_t sdp_extractor, int stream_num)
+{
+	if (sdp_extractor_get_is_rate_integer_by_stream(
+			sdp_extractor, stream_num)) {
+		stream_printf_ind("frames per second", "i",
+			(int)sdp_extractor_get_fps_by_stream(
+				sdp_extractor, stream_num));
+	} else {
+		stream_printf_ind("frames per second", "d2",
+			sdp_extractor_get_fps_by_stream(sdp_extractor,
+				stream_num));
+	}
+}
+
 int main(int argc, char **argv)
 {
 	int ret = 0;
@@ -366,6 +385,7 @@ int main(int argc, char **argv)
 	static struct code2str specs_sub_types[] = {
 		{ SPEC_SUBTYPE_SMPTE_ST2022_6, "SMPTE 2022-6" },
 		{ SPEC_SUBTYPE_SMPTE_ST2110_20, "SMPTE 2110-20" },
+		{ SPEC_SUBTYPE_SMPTE_ST2110_22, "SMPTE 2110-22" },
 		{ SPEC_SUBTYPE_SMPTE_ST2110_30, "SMPTE 2110-30" },
 		{ SPEC_SUBTYPE_SMPTE_ST2110_40, "SMPTE 2110-40" },
 		{ -1, C_ERR("Unknown") },
@@ -498,38 +518,43 @@ int main(int argc, char **argv)
 
 		switch (sub_type) {
 		case SPEC_SUBTYPE_SMPTE_ST2022_6:
-			stream_printf_ind("frames per second", "i",
-				(int)sdp_extractor_get_2022_06_fps_by_stream(
-					sdp_extractor, i));
+			stream_printf_ind_fps(
+				sdp_extractor_get_2022_06_is_rate_integer_by_stream,
+				sdp_extractor_get_2022_06_fps_by_stream,
+				sdp_extractor, i);
 			break;
 		case SPEC_SUBTYPE_SMPTE_ST2110_20:
-			if (sdp_extractor_get_2110_20_is_rate_integer_by_stream(
-					sdp_extractor, i)) {
-				stream_printf_ind("frames per second", "i",
-					(int)sdp_extractor_get_2110_20_fps_by_stream(
-						sdp_extractor, i));
-			} else {
-				stream_printf_ind("frames per second", "d2",
-					sdp_extractor_get_2110_20_fps_by_stream(
-						sdp_extractor, i));
-			}
-
-			snprintf(resolution, sizeof(resolution), "%ix%i",
-				sdp_extractor_get_2110_20_height_by_stream(
-					sdp_extractor, i),
-				sdp_extractor_get_2110_20_width_by_stream(
-					sdp_extractor, i));
-			stream_printf_ind("resolution", "s", resolution);
-
-			pm = sdp_extractor_get_2110_20_packaging_mode_by_stream(
+		case SPEC_SUBTYPE_SMPTE_ST2110_22:
+			stream_printf_ind_fps(
+				sdp_extractor_get_2110_20_is_rate_integer_by_stream,
+				sdp_extractor_get_2110_20_fps_by_stream,
 				sdp_extractor, i);
-			stream_printf_ind("packaging mode", "s",
-				code2str(pms, pm));
 
-			if (!npackets && pm == PM_2110BPM)
-				npackets =
-					sdp_extractor_get_2110_20_npackets_by_stream(
+			if (sub_type == SPEC_SUBTYPE_SMPTE_ST2110_20) {
+				snprintf(resolution, sizeof(resolution),
+					"%ix%i",
+					sdp_extractor_get_2110_20_height_by_stream(
+						sdp_extractor, i),
+					sdp_extractor_get_2110_20_width_by_stream(
+						sdp_extractor, i));
+				stream_printf_ind("resolution", "s",
+					resolution);
+
+				pm = sdp_extractor_get_2110_20_packaging_mode_by_stream(
 					sdp_extractor, i);
+				stream_printf_ind("packaging mode", "s",
+					code2str(pms, pm));
+			}
+			if (sub_type == SPEC_SUBTYPE_SMPTE_ST2110_22) {
+				snprintf(resolution, sizeof(resolution),
+					"%ix%i",
+					sdp_extractor_get_2110_22_height_by_stream(
+						sdp_extractor, i),
+					sdp_extractor_get_2110_22_width_by_stream(
+						sdp_extractor, i));
+				stream_printf_ind("resolution", "s",
+					resolution);
+			}
 
 			if ((maxudp =
 				sdp_extractor_get_2110_20_maxudp_by_stream(
@@ -537,6 +562,12 @@ int main(int argc, char **argv)
 					stream_printf_ind("max udp", "is",
 						maxudp, DEF(maxudp ==
 							UDP_SIZE_DEFAULT));
+			}
+
+			if (!npackets && pm == PM_2110BPM) {
+				npackets =
+					sdp_extractor_get_2110_20_npackets_by_stream(
+					sdp_extractor, i);
 			}
 
 			if (npackets) {
