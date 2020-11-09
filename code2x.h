@@ -9,8 +9,7 @@ struct code2##name { \
 	type val; \
 }; \
 type code2##name(struct code2##name *list, int code);
-#endif
-
+#else
 #ifdef CODE2X_IMPLEMENTATION
 #define CODE2X(type, name, def) type code2##name(struct code2##name *list, \
 		int code) \
@@ -18,6 +17,9 @@ type code2##name(struct code2##name *list, int code);
 	for ( ; list->code != -1 && list->code != code; list++); \
 	return list->code != -1 || list->val ? list->val : def; \
 }
+#else
+#define CODE2X(type, name, def)
+#endif
 #endif
 
 CODE2X(int, code, -1)
