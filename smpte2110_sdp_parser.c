@@ -796,6 +796,8 @@ static enum sdp_parse_err smpte2110_parse_rtpmap_encoding_name(
 		    !strncmp(input, "L24", strlen("L24"))) {
 			*sub_type = SMPTE_2110_SUB_TYPE_30;
 			return smpte2110_30_parse_bit_depth(field, input);
+		} else if (!strncmp(input, "AM824", strlen("AM824"))) {
+			*sub_type = SMPTE_2110_SUB_TYPE_31;
 		}
 	}
 	return sdp_parse_field_default(field, input);
