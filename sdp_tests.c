@@ -1414,6 +1414,41 @@ REG_TEST(test_ptime_5, "PASS - smpte2110 ptime double.")
 	return test_generic(content, SDP_PARSE_OK, assert_session, no_specific);
 }
 
+REG_TEST(test_ptime_6, "FAIL - smpte2110 rtpmap not specified.")
+{
+	char *content =
+		"v=0\n"
+		"s=SDP test: ptime 1\n"
+		"t=0 0\n"
+		"m=audio 50000 RTP/AVP 100\n"
+		"a=ptime:1\n";
+	return test_generic(content, SDP_PARSE_NOT_SUPPORTED, NULL, smpte2110);
+}
+
+REG_TEST(test_ptime_7, "PASS - smpte2110 simple raw audio SDP.")
+{
+	char *content =
+		"v=0\n"
+		"s=SDP test: ptime 0.125\n"
+		"t=0 0\n"
+		"m=audio 50000 RTP/AVP 100\n"
+		"a=rtpmap:100 L24/48000/2\n"
+		"a=ptime:0.125\n";
+	return test_generic(content, SDP_PARSE_OK, NULL, smpte2110);
+}
+
+REG_TEST(test_ptime_8, "PASS - smpte2110 simple compressed audio SDP.")
+{
+	char *content =
+		"v=0\n"
+		"s=SDP test: ptime 0.250\n"
+		"t=0 0\n"
+		"m=audio 40000 RTP/AVP 100\n"
+		"a=rtpmap:100 AM824/48000/2\n"
+		"a=ptime:0.250\n";
+	return test_generic(content, SDP_PARSE_OK, NULL, smpte2110);
+}
+
 /******************************************************************************
                                  Framerate
 ******************************************************************************/
@@ -2243,6 +2278,9 @@ void init_tests()
 	ADD_TEST(test_ptime_3);
 	ADD_TEST(test_ptime_4);
 	ADD_TEST(test_ptime_5);
+	ADD_TEST(test_ptime_6);
+	ADD_TEST(test_ptime_7);
+	ADD_TEST(test_ptime_8);
 	ADD_TEST(test_framerate_1);
 	ADD_TEST(test_framerate_2);
 	ADD_TEST(test_framerate_3);
@@ -2279,5 +2317,6 @@ void init_tests()
 	ADD_TEST(test_groups_14);
 	ADD_TEST(test_groups_15);
 	ADD_TEST(test_groups_16);
+	/* TODO: (eladw) Test memory deallocation. */
 }
 
