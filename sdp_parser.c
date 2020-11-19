@@ -327,7 +327,7 @@ static enum sdp_parse_err sdp_parse_connection_information(sdp_stream_t sdp,
 		c->addrtype = SDP_CI_ADDRTYPE_NOT_SUPPORTED;
 	}
 
-	strncpy(c->sdp_ci_addr, addr, sizeof(c->sdp_ci_addr));
+	strncpy(c->sdp_ci_addr, addr, sizeof(c->sdp_ci_addr) - 1);
 	c->sdp_ci_ttl = ttl;
 	c->count = 1;
 
@@ -733,7 +733,7 @@ static enum sdp_parse_err sdp_parse_attr_source_filter(struct sdp_media *media,
 		return sdperr("bad source-filter src-addr");
 
 	memset(&src_list, 0, sizeof(struct source_filter_src_addr));
-	strncpy(src_list.addr, src_addr, sizeof(src_list.addr));
+	strncpy(src_list.addr, src_addr, sizeof(src_list.addr) - 1);
 	src_list.next = NULL;
 	src_list_len = 1;
 
@@ -760,7 +760,7 @@ static enum sdp_parse_err sdp_parse_attr_source_filter(struct sdp_media *media,
 		source_filter->spec.addrtype = SDP_CI_ADDRTYPE_NOT_SUPPORTED;
 
 	strncpy(source_filter->spec.dst_addr, dst_addr,
-		sizeof(source_filter->spec.dst_addr));
+		sizeof(source_filter->spec.dst_addr) - 1);
 
 	memcpy(&source_filter->spec.src_list, &src_list,
 		sizeof(struct source_filter_src_addr));
