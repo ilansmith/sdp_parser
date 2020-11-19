@@ -2190,6 +2190,136 @@ REG_TEST(test_groups_16,
 	return test_generic(content, SDP_PARSE_OK, assert_session, no_specific);
 }
 
+REG_TEST(test_smpte_22_1,
+		"PASS - smpte st2110-22 basic test.")
+{
+	char *content =
+		"v=0\n"
+		"o=- 1524820997 IN IP4 sender.example.com\n"
+		"s=Example Session\n"
+		"t=0 0\n"
+		"m=video 5004 RTP/AVP 96\n"
+		"c=IN IP4 232.0.1.0/127\n"
+		"b=AS:216000\n"
+		"a=source-filter: incl IN IP4 232.0.1.0 192.168.1.2\n"
+		"a=rtpmap:96 vc2/90000\n"
+		"a=ts-refclk:ptp=IEEE1588-2008:traceable\n"
+		"a=mediaclk:direct=0\n"
+		"a=framerate:29.97\n"
+		"a=fmtp:96 profile=HQ;width=1920;height=1080;TP=2110TPW;"
+			"exactframerate=30000/1001\n";
+
+	return test_generic_smpte2110_get_error(content, SDP_PARSE_OK);
+}
+
+REG_TEST(test_smpte_22_2,
+		"PASS - smpte st2110-22 missing TP= fmtp parameter value.")
+{
+	char *content =
+		"v=0\n"
+		"o=- 1524820997 IN IP4 sender.example.com\n"
+		"s=Example Session\n"
+		"t=0 0\n"
+		"m=video 5004 RTP/AVP 96\n"
+		"c=IN IP4 232.0.1.0/127\n"
+		"b=AS:216000\n"
+		"a=source-filter: incl IN IP4 232.0.1.0 192.168.1.2\n"
+		"a=rtpmap:96 vc2/90000\n"
+		"a=ts-refclk:ptp=IEEE1588-2008:traceable\n"
+		"a=mediaclk:direct=0\n"
+		"a=framerate:29.97\n"
+		"a=fmtp:96 profile=HQ;width=1920;height=1080;"
+			"exactframerate=30000/1001\n";
+
+	return test_generic_smpte2110_get_error(content, SDP_PARSE_ERROR);
+}
+
+REG_TEST(test_smpte_22_3,
+		"PASS - smpte st2110-22 illegal TP= fmtp parameter value.")
+{
+	char *content =
+		"v=0\n"
+		"o=- 1524820997 IN IP4 sender.example.com\n"
+		"s=Example Session\n"
+		"t=0 0\n"
+		"m=video 5004 RTP/AVP 96\n"
+		"c=IN IP4 232.0.1.0/127\n"
+		"b=AS:216000\n"
+		"a=source-filter: incl IN IP4 232.0.1.0 192.168.1.2\n"
+		"a=rtpmap:96 vc2/90000\n"
+		"a=ts-refclk:ptp=IEEE1588-2008:traceable\n"
+		"a=mediaclk:direct=0\n"
+		"a=framerate:29.97\n"
+		"a=fmtp:96 profile=HQ;width=1920;height=1080;TP=2110TPN;"
+			"exactframerate=30000/1001\n";
+
+	return test_generic_smpte2110_get_error(content, SDP_PARSE_ERROR);
+}
+
+REG_TEST(test_smpte_22_4,
+		"PASS - smpte st2110-22 set fps via exactframerate= only.")
+{
+	char *content =
+		"v=0\n"
+		"o=- 1524820997 IN IP4 sender.example.com\n"
+		"s=Example Session\n"
+		"t=0 0\n"
+		"m=video 5004 RTP/AVP 96\n"
+		"c=IN IP4 232.0.1.0/127\n"
+		"b=AS:216000\n"
+		"a=source-filter: incl IN IP4 232.0.1.0 192.168.1.2\n"
+		"a=rtpmap:96 vc2/90000\n"
+		"a=ts-refclk:ptp=IEEE1588-2008:traceable\n"
+		"a=mediaclk:direct=0\n"
+		"a=fmtp:96 profile=HQ;width=1920;height=1080;TP=2110TPNL;"
+			"exactframerate=30000/1001\n";
+
+	return test_generic_smpte2110_get_error(content, SDP_PARSE_OK);
+}
+
+REG_TEST(test_smpte_22_5,
+		"PASS - smpte st2110-22 set fps via a=framerate only.")
+{
+	char *content =
+		"v=0\n"
+		"o=- 1524820997 IN IP4 sender.example.com\n"
+		"s=Example Session\n"
+		"t=0 0\n"
+		"m=video 5004 RTP/AVP 96\n"
+		"c=IN IP4 232.0.1.0/127\n"
+		"b=AS:216000\n"
+		"a=source-filter: incl IN IP4 232.0.1.0 192.168.1.2\n"
+		"a=rtpmap:96 vc2/90000\n"
+		"a=ts-refclk:ptp=IEEE1588-2008:traceable\n"
+		"a=mediaclk:direct=0\n"
+		"a=framerate:29.97\n"
+		"a=fmtp:96 profile=HQ;width=1920;height=1080;TP=2110TPW;\n";
+
+	return test_generic_smpte2110_get_error(content, SDP_PARSE_OK);
+}
+
+REG_TEST(test_smpte_22_6,
+		"PASS - smpte st2110-22 set conflicting fps values.")
+{
+	char *content =
+		"v=0\n"
+		"o=- 1524820997 IN IP4 sender.example.com\n"
+		"s=Example Session\n"
+		"t=0 0\n"
+		"m=video 5004 RTP/AVP 96\n"
+		"c=IN IP4 232.0.1.0/127\n"
+		"b=AS:216000\n"
+		"a=source-filter: incl IN IP4 232.0.1.0 192.168.1.2\n"
+		"a=rtpmap:96 vc2/90000\n"
+		"a=ts-refclk:ptp=IEEE1588-2008:traceable\n"
+		"a=mediaclk:direct=0\n"
+		"a=framerate:29.97\n"
+		"a=fmtp:96 profile=HQ;width=1920;height=1080;TP=2110TPN;"
+			"exactframerate=60000/1001\n";
+
+	return test_generic_smpte2110_get_error(content, SDP_PARSE_ERROR);
+}
+
 /******************************************************************************
                                 Smpte2022-6
 ******************************************************************************/
@@ -2317,6 +2447,12 @@ void init_tests()
 	ADD_TEST(test_groups_14);
 	ADD_TEST(test_groups_15);
 	ADD_TEST(test_groups_16);
+	ADD_TEST(test_smpte_22_1);
+	ADD_TEST(test_smpte_22_2);
+	ADD_TEST(test_smpte_22_3);
+	ADD_TEST(test_smpte_22_4);
+	ADD_TEST(test_smpte_22_5);
+	ADD_TEST(test_smpte_22_6);
 	/* TODO: (eladw) Test memory deallocation. */
 }
 
