@@ -466,6 +466,8 @@ static enum sdp_parse_err sdp_attr_param_parse_tcs(char *str, void *res)
 	if (sscanf(str, "TCS=%s", tcs) != 1)
 		return sdperr("parameter format: %s", str);
 
+	params->tcs = TCS_UNSPECIFIED;
+
 	if (!strncmp(tcs, "SDR", sizeof(tcs)))
 		params->tcs = TCS_SDR;
 	else if (!strncmp(tcs, "PQ", sizeof(tcs)))
