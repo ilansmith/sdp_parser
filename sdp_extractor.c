@@ -547,18 +547,16 @@ static int extract_2110_22_params(struct sdp_session *session,
 		session, media, attributes, i, npackets);
 }
 
-static int extract_2110_30_params(struct sdp_session *session,
-		struct sdp_media *media, struct media_attribute *attributes,
-		int i)
+static void extract_2110_30_31_params(struct sdp_media *media,
+		struct media_attribute *attributes, int i,
+		uint32_t *found_attributes)
 {
 	struct sdp_attr *attr;
-	uint32_t found_attributes = 0;
 
-	NOT_IN_USE(session);
-
+	*found_attributes = 0;
 	attributes[i].media_type = SPEC_SUBTYPE_SMPTE_ST2110_30;
 	for (attr = media->a; attr; attr = attr->next) {
-		found_attributes |= (1 << attr->type);
+		*found_attributes |= (1 << attr->type);
 
 		if (attr->type == SDP_ATTR_RTPMAP) {
 			attributes[i].clock_rate =
@@ -580,8 +578,31 @@ static int extract_2110_30_params(struct sdp_session *session,
 				sizeof(attributes[i].type.audio.channel_order));
 		}
 	}
+}
 
+static int extract_2110_30_params(struct sdp_session *session,
+		struct sdp_media *media, struct media_attribute *attributes,
+		int i)
+{
+	uint32_t found_attributes = 0;
+
+	NOT_IN_USE(session);
+
+	extract_2110_30_31_params(media, attributes, i, &found_attributes);
 	return check_required_attributes("2110_30", found_attributes,
+		(1 << SDP_ATTR_PTIME));
+}
+
+static int extract_2110_31_params(struct sdp_session *session,
+		struct sdp_media *media, struct media_attribute *attributes,
+		int i)
+{
+	uint32_t found_attributes = 0;
+
+	NOT_IN_USE(session);
+
+	extract_2110_30_31_params(media, attributes, i, &found_attributes);
+	return check_required_attributes("2110_31", found_attributes,
 		(1 << SDP_ATTR_PTIME));
 }
 
@@ -693,6 +714,10 @@ static int extract_stream_params(struct sdp_extractor *e, int npackets)
 			} else if ((*media)->m.fmt.sub_type ==
 					SMPTE_2110_SUB_TYPE_30) {
 				ret = extract_2110_30_params(session, *media,
+					e->attributes, i);
+			} else if ((*media)->m.fmt.sub_type ==
+					SMPTE_2110_SUB_TYPE_31) {
+				ret = extract_2110_31_params(session, *media,
 					e->attributes, i);
 			} else if ((*media)->m.fmt.sub_type ==
 					SMPTE_2110_SUB_TYPE_40) {
