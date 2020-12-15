@@ -367,6 +367,8 @@ static int extract_packet_info(struct sdp_session *session,
 		pg_per_packet = *npackets == 1 ?
 			pg_num : pg_num / (*npackets - 1);
 		rtp_payload_size = pg_per_packet * pgi.size;
+	} else if (fmtp_params->pm == PM_2110UNSPECIFIED) {
+		return 0;
 	} else {
 		return -1; /* should never get here */
 	}
@@ -890,6 +892,9 @@ fail:
 	vec_uninit(e->medias);
 	vec_uninit(e->groups);
 	sdp_free_attributes(e->attributes, num_medias);
+	e->medias = NULL;
+	e->groups = NULL;
+	e->attributes = NULL;
 	return -1;
 }
 
