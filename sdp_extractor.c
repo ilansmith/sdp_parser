@@ -186,10 +186,10 @@ static int extract_networking_info(struct sdp_extractor *e)
 				"a=source-filter");
 			return -1;
 		}
-		strncpy(e->attributes[i].addr_src,
+		memcpy(e->attributes[i].addr_src,
 			source_filter_attr->value.source_filter.spec.src_list.addr,
 			IP_MAX_HDR_LEN);
-
+		*(e->attributes[i].addr_src + IP_MAX_HDR_LEN) = 0;
 		c = get_connection_information(session, *media);
 		if (!c) {
 			sdp_extractor_err("no connection information for "
@@ -202,8 +202,9 @@ static int extract_networking_info(struct sdp_extractor *e)
 			return -1;
 		}
 
-		strncpy(e->attributes[i].addr_dst, c->sdp_ci_addr,
+		memcpy(e->attributes[i].addr_dst, c->sdp_ci_addr,
 			IP_MAX_HDR_LEN);
+		*(e->attributes[i].addr_dst + IP_MAX_HDR_LEN) = 0;
 		e->attributes[i].port_dst = (*media)->m.port;
 		i++;
 	}
