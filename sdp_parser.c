@@ -157,7 +157,7 @@ static char sdp_parse_descriptor_type(char *line)
 	case 'v': /* Protocol Version */
 	case 'o': /* Origin */
 	case 's': /* Session Name */
-	case 'i': /* Session Invormation */
+	case 'i': /* Session Information */
 	case 'u': /* URI */
 	case 'e': /* Email Address */
 	case 'p': /* Phone Number */
@@ -242,7 +242,7 @@ static enum sdp_parse_err sdp_parse_session_name(sdp_stream_t sdp, char **line,
 
 	*s = strdup(ptr);
 	if (!*s) {
-		sdperr("memory acllocation");
+		sdperr("memory allocation");
 		return SDP_PARSE_ERROR;
 	}
 
@@ -428,7 +428,7 @@ static enum sdp_parse_err sdp_parse_media_properties(struct sdp_media_m *m,
 	while (*tmp && **tmp) {
 		if (!(*smf = (struct sdp_media_fmt*)calloc(1,
 				sizeof(struct sdp_media_fmt))))
-			return sdperr("memory acllocation");
+			return sdperr("memory allocation");
 
 		fmt = strtol(strtok_r(NULL, " ", tmp), &endptr, 10);
 		if (*endptr)
@@ -564,7 +564,7 @@ static enum sdp_parse_err sdp_parse_attr(sdp_stream_t sdp, char **line,
 #if 0
 		"recvonly",
 		"sendrecv",
-		"sendoly",
+		"sendonly",
 		"inactive",
 		"sdplang",
 		"lang",
@@ -592,7 +592,7 @@ static enum sdp_parse_err sdp_parse_attr(sdp_stream_t sdp, char **line,
 
 		*a = (struct sdp_attr*)calloc(1, sizeof(struct sdp_attr));
 		if (!*a)
-			return sdperr("memory acllocation");
+			return sdperr("memory allocation");
 
 		/* try to find a supported attribute in the session/media
 		 * common list */
@@ -1050,7 +1050,7 @@ static enum sdp_parse_err validate_session_groups(struct sdp_session *session)
 		sdp_media_attr_get(media, SDP_ATTR_MID);
 		media = media->next, i++);
 	if (media) {
-		sdpwarn("meida line %d does not contain an a=mid attribute. "
+		sdpwarn("media line %d does not contain an a=mid attribute. "
 			"Ignoring all grouping...", i);
 		delete_all_groups(session);
 		return SDP_PARSE_OK;
@@ -1269,7 +1269,7 @@ enum sdp_parse_err sdp_session_parse(struct sdp_session *session,
 				SDP_PARSE_ERROR)
 			goto exit;
 
-		/* skip non suppored m= media blocks */
+		/* skip non supported m= media blocks */
 		if (err == SDP_PARSE_NOT_SUPPORTED) {
 			while (line && sdp_parse_descriptor_type(line) != 'm')
 				sdp_getline(&line, &len, sdp);

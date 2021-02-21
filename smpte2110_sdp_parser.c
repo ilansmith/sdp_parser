@@ -939,6 +939,7 @@ static int get_required_attr_mask(int sub_type)
 	case SMPTE_2110_SUB_TYPE_22:
 		return (1 << SDP_ATTR_FMTP);
 	case SMPTE_2110_SUB_TYPE_30:
+	case SMPTE_2110_SUB_TYPE_31:
 		return 0;
 	case SMPTE_2110_SUB_TYPE_40:
 		return 0;
@@ -982,8 +983,10 @@ static enum sdp_parse_err smpte2110_parse_rtpmap_encoding_parameters(
 
 	NOT_IN_USE(media);
 
-	if (sub_type == SMPTE_2110_SUB_TYPE_30)
+	if ((sub_type == SMPTE_2110_SUB_TYPE_30) ||
+			(sub_type == SMPTE_2110_SUB_TYPE_31)) {
 		return smpte2110_30_parse_num_channels(field, input);
+	}
 	return sdp_parse_field_default(field, input);
 }
 
@@ -999,8 +1002,10 @@ static enum sdp_parse_err smpte2110_parse_fmtp_params(
 		return smpte2110_20_parse_fmtp_params(field, input);
 	if (sub_type == SMPTE_2110_SUB_TYPE_22)
 		return smpte2110_22_parse_fmtp_params(field, input);
-	if (sub_type == SMPTE_2110_SUB_TYPE_30)
+	if (sub_type == SMPTE_2110_SUB_TYPE_30 ||
+			sub_type == SMPTE_2110_SUB_TYPE_31) {
 		return smpte2110_30_parse_fmtp_params(field, input);
+	}
 	if (sub_type == SMPTE_2110_SUB_TYPE_40)
 		return smpte2110_40_parse_fmtp_params(field, input);
 	return sdp_parse_field_default(field, input);

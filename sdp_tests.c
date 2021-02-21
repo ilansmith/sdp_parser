@@ -1130,6 +1130,36 @@ REG_TEST(smpte2110_sub_types_5,
 	return test_generic(content, SDP_PARSE_OK, assert_session, smpte2110);
 }
 
+REG_TEST(smpte2110_sub_types_6,
+		"PASS - smpte2110 multiple formats with compressed audio")
+{
+	char *content =
+		"v=0\n"
+		"s=SDP test: sub types 5\n"
+		"m=video 50000 RTP/AVP 100 101\n"
+		"a=rtpmap:100 raw/90000\n"
+		"a=rtpmap:101 smpte291/10000\n"
+		"a=fmtp:100 sampling=YCbCr-4:2:2; width=1280; height=720; "
+			"exactframerate=60000/1001; depth=10; TCS=SDR; "
+			"colorimetry=BT709; PM=2110GPM; TP=2110TPN; "
+			"SSN=ST2110-20:2017; \n"
+		"m=audio 50000 RTP/AVP 100 101\n"
+		"a=rtpmap:100 L16/90000\n"
+		"a=rtpmap:101 AM824/90000\n";
+	init_session_validator();
+	validator_info.medias[0].fmt_count = 2;
+	validator_info.medias[0].formats[0].id = 100;
+	validator_info.medias[0].formats[0].sub_type = SMPTE_2110_SUB_TYPE_20;
+	validator_info.medias[0].formats[1].id = 101;
+	validator_info.medias[0].formats[1].sub_type = SMPTE_2110_SUB_TYPE_40;
+	validator_info.medias[1].fmt_count = 2;
+	validator_info.medias[1].formats[0].id = 100;
+	validator_info.medias[1].formats[0].sub_type = SMPTE_2110_SUB_TYPE_30;
+	validator_info.medias[1].formats[1].id = 101;
+	validator_info.medias[1].formats[1].sub_type = SMPTE_2110_SUB_TYPE_31;
+	return test_generic(content, SDP_PARSE_OK, NULL, smpte2110);
+}
+
 /******************************************************************************
                                  Payload Type
 ******************************************************************************/
@@ -2387,6 +2417,7 @@ void init_tests()
 	ADD_TEST(smpte2110_sub_types_3);
 	ADD_TEST(smpte2110_sub_types_4);
 	ADD_TEST(smpte2110_sub_types_5);
+	ADD_TEST(smpte2110_sub_types_6);
 	ADD_TEST(test_rtpmap_payload_type_1);
 	ADD_TEST(test_rtpmap_payload_type_2);
 	ADD_TEST(test_rtpmap_payload_type_3);

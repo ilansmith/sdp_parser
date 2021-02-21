@@ -387,6 +387,7 @@ int main(int argc, char **argv)
 		{ SPEC_SUBTYPE_SMPTE_ST2110_20, "SMPTE 2110-20" },
 		{ SPEC_SUBTYPE_SMPTE_ST2110_22, "SMPTE 2110-22" },
 		{ SPEC_SUBTYPE_SMPTE_ST2110_30, "SMPTE 2110-30" },
+		{ SPEC_SUBTYPE_SMPTE_ST2110_31, "SMPTE 2110-31" },
 		{ SPEC_SUBTYPE_SMPTE_ST2110_40, "SMPTE 2110-40" },
 		{ -1, C_ERR("Unknown") },
 	};
@@ -664,10 +665,10 @@ int main(int argc, char **argv)
 				DEF(par.width == 1 && par.height == 1));
 			break;
 		case SPEC_SUBTYPE_SMPTE_ST2110_30:
+		case SPEC_SUBTYPE_SMPTE_ST2110_31:
 			stream_printf_ind("sampling rate", "i",
 				sdp_extractor_get_2110_30_sampling_rate_by_stream(
 					sdp_extractor, i));
-
 			stream_printf_ind("bit depth", "i",
 				sdp_extractor_get_2110_30_bit_depth_by_stream(
 					sdp_extractor, i));

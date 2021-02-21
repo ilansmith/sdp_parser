@@ -77,6 +77,8 @@ _type_ sdp_extractor_get_ ## _name_ ## _by_stream( \
 #define IPV4_MAX_HDR_LEN 60
 #define IP_MAX_HDR_LEN IPV4_MAX_HDR_LEN
 
+#define BIT_DEPTH_2110_31 24
+
 struct pgroup_info {
 	int size;
 	int coverage;
@@ -557,7 +559,7 @@ static void extract_2110_30_31_params(struct sdp_media *media,
 	struct sdp_attr *attr;
 
 	*found_attributes = 0;
-	attributes[i].media_type = SPEC_SUBTYPE_SMPTE_ST2110_30;
+	attributes[i].media_type = media->m.fmt.sub_type;
 	for (attr = media->a; attr; attr = attr->next) {
 		*found_attributes |= (1 << attr->type);
 
@@ -565,7 +567,10 @@ static void extract_2110_30_31_params(struct sdp_media *media,
 			attributes[i].clock_rate =
 				attr->value.rtpmap.clock_rate;
 			attributes[i].type.audio.bit_depth =
-				attr->value.rtpmap.encoding_name.as.as_ll;
+					media->m.fmt.sub_type ==
+					SPEC_SUBTYPE_SMPTE_ST2110_30 ?
+				attr->value.rtpmap.encoding_name.as.as_ll :
+				BIT_DEPTH_2110_31;
 			attributes[i].type.audio.num_channels =
 				attr->value.rtpmap.encoding_parameters.as.as_ll;
 		} else if (attr->type == SDP_ATTR_PTIME) {
