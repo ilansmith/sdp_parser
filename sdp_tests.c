@@ -2350,6 +2350,20 @@ REG_TEST(test_smpte_22_6,
 	return test_generic_smpte2110_get_error(content, SDP_PARSE_ERROR);
 }
 
+REG_TEST(test_attribute_order, "a=fmtp preceeds a=fmtp: fail due to ordering")
+{
+	char *content =
+		"v=0\n"
+		"s=Example of a SMPTE ST2110-20 signal\n"
+		"m=video 50000 RTP/AVP 112\n"
+		"a=fmtp:112 sampling=YCbCr-4:2:2; width=1280; height=720; "
+			"exactframerate=60000/1001; depth=10; "
+			"colorimetry=BT709; PM=2110GPM; TP=2110TPN; "
+			"SSN=ST2110-20:2017; \n"
+		"a=rtpmap:112 raw/90000\n";
+
+	return test_generic_smpte2110_get_error(content, SDP_PARSE_ERROR);
+}
 /******************************************************************************
                                 Smpte2022-6
 ******************************************************************************/
@@ -2484,6 +2498,7 @@ void init_tests()
 	ADD_TEST(test_smpte_22_4);
 	ADD_TEST(test_smpte_22_5);
 	ADD_TEST(test_smpte_22_6);
+	ADD_TEST(test_attribute_order);
 	/* TODO: (eladw) Test memory deallocation. */
 }
 

@@ -998,6 +998,11 @@ static enum sdp_parse_err smpte2110_parse_fmtp_params(
 
 	NOT_IN_USE(media);
 
+	if (sub_type == SMPTE_2110_SUB_TYPE_UNKNOWN) {
+		return sdperr("Media sub type unknown when parsing fmtp "
+			"attributes");
+	}
+
 	if (sub_type == SMPTE_2110_SUB_TYPE_20)
 		return smpte2110_20_parse_fmtp_params(field, input);
 	if (sub_type == SMPTE_2110_SUB_TYPE_22)

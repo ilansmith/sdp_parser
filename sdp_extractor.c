@@ -473,8 +473,8 @@ static int extract_2110_2x_params(enum sdp_extractor_spec_sub_type media_type,
 
 		if (attr->type == SDP_ATTR_RTPMAP) {
 			snprintf(attributes[i].encoding_name,
-				sizeof(attributes[i].encoding_name),
-				"%s", attr->value.rtpmap.encoding_name.as.as_str);
+				sizeof(attributes[i].encoding_name),"%s",
+				attr->value.rtpmap.encoding_name.as.as_str);
 			attributes[i].clock_rate =
 				attr->value.rtpmap.clock_rate;
 		}
