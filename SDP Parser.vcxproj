@@ -114,6 +114,7 @@
   <ItemGroup>
     <ClCompile Include="sdp_compat.c" />
     <ClCompile Include="sdp_field.c" />
+    <ClCompile Include="sdp_log.c" />
     <ClCompile Include="sdp_parser.c" />
     <ClCompile Include="sdp_stream.c" />
     <ClCompile Include="sdp_tests.c" />
