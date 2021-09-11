@@ -177,7 +177,7 @@ static int no_specific_group(struct sdp_session *session,
 
 static int no_attr(struct sdp_attr *attr, int type)
 {
-	return attr->type != type;
+	return (int)attr->type != type;
 }
 
 static int num_args(sdp_attr_func_ptr func)
@@ -280,7 +280,7 @@ int assert_attr(struct sdp_session *session,
 		res = no_specific_group(session, attr,
 			(struct group_validator_info*)av->args[0].as.as_ptr);
 	} else if (av->func == (sdp_attr_func_ptr)no_attr) {
-		res = no_attr(attr, av->args[0].as.as_ll);
+		res = no_attr(attr, (int)av->args[0].as.as_ll);
 	} else {
 		res = assert_error("Unsupported assertion function %p.\n",
 			av->func);

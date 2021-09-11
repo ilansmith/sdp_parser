@@ -690,7 +690,7 @@ int main(int argc, char **argv)
 			if (did_sdid_num) {
 				uint8_t **did_sdid;
 				uint32_t j;
-				
+
 				did_sdid = sdp_extractor_get_2110_40_did_sdid_by_stream(
 					sdp_extractor, i);
 				for (j = 0; j < did_sdid_num; j++) {
