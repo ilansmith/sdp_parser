@@ -774,6 +774,7 @@ static int sdp_parse(struct sdp_extractor *e, void *sdp,
 
 fail:
 	vec_uninit(e->medias);
+	e->medias = NULL;
 	vec_uninit(e->groups);
 	sdp_free_attributes(e->attributes, num_medias);
 	return -1;
@@ -800,10 +801,15 @@ static struct group_member *get_member(struct sdp_extractor *e, int g_idx,
 void sdp_extractor_uninit(sdp_extractor_t sdp_extractor)
 {
 	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
-	size_t num_medias = vec_size(e->medias);
+	size_t num_medias = 0;
 
 	group_vector_uninit(e->groups);
-	media_vector_uninit(e->medias);
+
+	if (e->medias) {
+		num_medias = vec_size(e->medias);
+		media_vector_uninit(e->medias);
+	}
+
 	sdp_free_attributes(e->attributes, num_medias);
 	if (e->session)
 		sdp_parser_uninit(e->session);
