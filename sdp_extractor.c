@@ -247,37 +247,76 @@ static void extract_bandwidth_info(struct sdp_extractor *e)
 static int extract_pgroup_info(enum smpte_2110_sampling sampling,
 		enum smpte_2110_depth depth, struct pgroup_info *pgi)
 {
-	static struct pgroup_info pgi_lookup_table[3][5] = {
-		[SAMPLING_YCbCr_444] = {
+	enum sampling_system {
+		SAMPLING_SYSTEM_YCBCR_444,
+		SAMPLING_SYSTEM_YCBCR_422,
+		SAMPLING_SYSTEM_YCBCR_420,
+		SAMPLING_SYSTEM_KEY,
+	} sample_map;
+	static struct pgroup_info pgi_lookup_table[4][5] = {
+		[SAMPLING_SYSTEM_YCBCR_444] = {
 			[DEPTH_8] = { .size = 3, .coverage = 1 },
 			[DEPTH_10] = { .size = 15, .coverage = 4 },
 			[DEPTH_12] = { .size = 9, .coverage = 2 },
 			[DEPTH_16] = { .size = 6, .coverage = 1 },
 			[DEPTH_16F] = { .size = 6, .coverage = 1 },
 		},
-		[SAMPLING_YCbCr_422] = {
+		[SAMPLING_SYSTEM_YCBCR_422] = {
 			[DEPTH_8] = { .size = 4, .coverage = 2 },
 			[DEPTH_10] = { .size = 5, .coverage = 2 },
 			[DEPTH_12] = { .size = 6, .coverage = 2 },
 			[DEPTH_16] = { .size = 8, .coverage = 2 },
 			[DEPTH_16F] = { .size = 8, .coverage = 2 },
 		},
-		[SAMPLING_YCbCr_420] = {
+		[SAMPLING_SYSTEM_YCBCR_420] = {
 			[DEPTH_8] = { .size = 6, .coverage = 4 },
 			[DEPTH_10] = { .size = 15, .coverage = 8 },
 			[DEPTH_12] = { .size = 9, .coverage = 4 },
 			[DEPTH_16] = { .size = -1, .coverage = -1 },
 			[DEPTH_16F] = { .size = -1, .coverage = -1 },
 		},
+		[SAMPLING_SYSTEM_KEY] = {
+			[DEPTH_8] = { .size = 1, .coverage = 1 },
+			[DEPTH_10] = { .size = 5, .coverage = 4 },
+			[DEPTH_12] = { .size = 3, .coverage = 2 },
+			[DEPTH_16] = { .size = 2, .coverage = 1 },
+			[DEPTH_16F] = { .size = 2, .coverage = 1 },
+		},
 	};
 
-	if (pgi_lookup_table[sampling][depth].size == -1 ||
-			pgi_lookup_table[sampling][depth].coverage == -1) {
+	switch (sampling) {
+	case SAMPLING_YCbCr_444:
+	case SAMPLING_CLYCbCr_444:
+	case SAMPLING_ICtCp_444:
+	case SAMPLING_RGB:
+	case SAMPLING_XYZ:
+		sample_map = SAMPLING_SYSTEM_YCBCR_444;
+		break;
+	case SAMPLING_YCbCr_422:
+	case SAMPLING_CLYCbCr_422:
+	case SAMPLING_ICtCp_422:
+		sample_map = SAMPLING_SYSTEM_YCBCR_422;
+		break;
+	case SAMPLING_YCbCr_420:
+	case SAMPLING_CLYCbCr_420:
+	case SAMPLING_ICtCp_420:
+		sample_map = SAMPLING_SYSTEM_YCBCR_420;
+		break;
+	case SAMPLING_KEY:
+		sample_map = SAMPLING_SYSTEM_KEY;
+		break;
+	default:
+		return -1;
+		break;
+	}
+
+	if (pgi_lookup_table[sample_map][depth].size == -1 ||
+			pgi_lookup_table[sample_map][depth].coverage == -1) {
 		return -1;
 	}
 
-	pgi->size = pgi_lookup_table[sampling][depth].size;
-	pgi->coverage = pgi_lookup_table[sampling][depth].coverage;
+	pgi->size = pgi_lookup_table[sample_map][depth].size;
+	pgi->coverage = pgi_lookup_table[sample_map][depth].coverage;
 	return 0;
 }
 
