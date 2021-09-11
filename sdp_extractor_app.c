@@ -353,6 +353,8 @@ int main(int argc, char **argv)
 	int stream_num;
 	int i;
 	int pm;
+	int depth;
+	int sampling;
 	int colorimetry;
 	int tcs;
 	int range;
@@ -383,9 +385,32 @@ int main(int argc, char **argv)
 		{ SIGNAL_PROGRESSIVE, "Progressive" },
 		{ -1, C_ERR("Unknown") }
 	};
+	static struct code2str depths[] = {
+		{ DEPTH_8, "8" },
+		{ DEPTH_10, "10" },
+		{ DEPTH_12, "12" },
+		{ DEPTH_16, "16" },
+		{ DEPTH_16F, "16F" },
+		{ -1, C_ERR("Unknown") }
+	};
 	static struct code2str pms[] = {
 		{ PM_2110GPM, "GPM" },
 		{ PM_2110BPM, "BPM" },
+		{ -1, C_ERR("Unknown") }
+	};
+	static struct code2str samplings[] = {
+		{ SAMPLING_YCbCr_444, "YCbCr_444" },
+		{ SAMPLING_YCbCr_422, "YCbCr_422" },
+		{ SAMPLING_YCbCr_420, "YCbCr_420" },
+		{ SAMPLING_CLYCbCr_444, "CLYCbCr_444" },
+		{ SAMPLING_CLYCbCr_422, "CLYCbCr_422" },
+		{ SAMPLING_CLYCbCr_420, "CLYCbCr_420" },
+		{ SAMPLING_ICtCp_444, "ICtCp_444" },
+		{ SAMPLING_ICtCp_422, "ICtCp_422" },
+		{ SAMPLING_ICtCp_420, "ICtCp_420" },
+		{ SAMPLING_RGB, "RGB" },
+		{ SAMPLING_XYZ, "XYZ" },
+		{ SAMPLING_KEY, "KEY" },
 		{ -1, C_ERR("Unknown") }
 	};
 	static struct code2str colorimetries[] = {
@@ -525,6 +550,16 @@ int main(int argc, char **argv)
 				sdp_extractor, i);
 			stream_printf_ind("packaging mode", "s",
 				code2str(pms, pm));
+
+			sampling = sdp_extractor_get_2110_20_sampling_by_stream(
+				sdp_extractor, i);
+			stream_printf_ind("sampling", "s",
+				code2str(samplings, sampling));
+
+			depth = sdp_extractor_get_2110_20_depth_by_stream(
+				sdp_extractor, i);
+			stream_printf_ind("depth", "s",
+				code2str(depths, depth));
 
 			if (!npackets && pm == PM_2110BPM)
 				npackets =
