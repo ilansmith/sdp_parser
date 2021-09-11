@@ -145,7 +145,7 @@ enum sdp_parse_err sdp_parse_field_default(struct interpretable *field,
 	if (!input) {
 		field->as.as_str = "";
 		return SDP_PARSE_OK;
- 	}
+	}
 	if (sdp_parse_str(&field->as.as_str, input) != SDP_PARSE_OK)
 		return SDP_PARSE_ERROR;
 	field->dtor = free;

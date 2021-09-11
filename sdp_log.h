@@ -3,6 +3,8 @@
 
 #include "sdp_parser.h"
 
+#define NOT_USED(x) (void)(x)
+
 /* SDP logging is enabled by default.
  * To disable it, set the following environment variable:
  *
@@ -16,6 +18,8 @@ enum sdp_parse_err sdpdebug(char *fmt, ...);
 #else
 static inline enum sdp_parse_err sdpdebug(char *fmt, ...)
 {
+	NOT_USED(fmt);
+
 	return SDP_PARSE_OK;
 }
 #endif
