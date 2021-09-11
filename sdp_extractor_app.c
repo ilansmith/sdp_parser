@@ -398,7 +398,7 @@ int main(int argc, char **argv)
 		{ -1, C_ERR("Unknown") },
 	};
 	static struct code2str xfer_characteristic_system[] = {
-		{ TCS_SDR, "SCR" },
+		{ TCS_SDR, "SDR" },
 		{ TCS_PQ, "PQ" },
 		{ TCS_HLG, "HLG" },
 		{ TCS_LINEAR, "LINEAR" },
