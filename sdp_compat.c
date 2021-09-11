@@ -1,5 +1,7 @@
 #include "sdp_compat.h"
 
+#define INCREASE_BLOCK 256
+
 ssize_t getline(char **lineptr, size_t *n, FILE *stream)
 {
 	char *bufptr;
@@ -13,11 +15,11 @@ ssize_t getline(char **lineptr, size_t *n, FILE *stream)
 	if (!*lineptr) {
 		bufptr = (char*)malloc(INCREASE_BLOCK);
 		if (!bufptr)
-		return -1;
+			return -1;
 		size = INCREASE_BLOCK;
 	} else {
-	bufptr = *lineptr;
-	size = *n;
+		bufptr = *lineptr;
+		size = *n;
 	}
 
 	p = bufptr;
@@ -32,7 +34,7 @@ ssize_t getline(char **lineptr, size_t *n, FILE *stream)
 
 			p = new_bufptr + (p - bufptr);
 			bufptr = new_bufptr;
-			}
+		}
 		*p++ = (char)c;
 		if (c == '\n')
 			break;
