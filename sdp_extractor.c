@@ -95,6 +95,8 @@ struct media_attribute_video {
 	enum smpte_2110_range range;
 	enum smpte_2110_colorimetry colorimetry;
 	enum smpte_2110_tcs tcs;
+	enum smpte_2110_sampling sampling;
+	enum smpte_2110_depth depth;
 	uint16_t maxudp;
 	struct smpte_2110_par par;
 	uint64_t troff;
@@ -458,6 +460,8 @@ static int extract_2110_20_params(struct sdp_session *session,
 			attributes[i].type.video.maxudp = fmtp_params->maxudp;
 			attributes[i].type.video.troff = fmtp_params->troff;
 			attributes[i].type.video.cmax = fmtp_params->cmax;
+			attributes[i].type.video.sampling = fmtp_params->sampling;
+			attributes[i].type.video.depth = fmtp_params->depth;
 		}
 	}
 
@@ -770,6 +774,7 @@ static int sdp_parse(struct sdp_extractor *e, void *sdp,
 
 fail:
 	vec_uninit(e->medias);
+	e->medias = NULL;
 	vec_uninit(e->groups);
 	sdp_free_attributes(e->attributes, num_medias);
 	return -1;
@@ -796,10 +801,15 @@ static struct group_member *get_member(struct sdp_extractor *e, int g_idx,
 void sdp_extractor_uninit(sdp_extractor_t sdp_extractor)
 {
 	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
-	size_t num_medias = vec_size(e->medias);
+	size_t num_medias = 0;
 
 	group_vector_uninit(e->groups);
-	media_vector_uninit(e->medias);
+
+	if (e->medias) {
+		num_medias = vec_size(e->medias);
+		media_vector_uninit(e->medias);
+	}
+
 	sdp_free_attributes(e->attributes, num_medias);
 	if (e->session)
 		sdp_parser_uninit(e->session);
@@ -1071,6 +1081,8 @@ int sdp_extractor_set_2110_20_npackets(sdp_extractor_t sdp_extractor,
 	return extract_stream_params(e, npackets);
 }
 
+SDP_EXTRACTOR_GET(int, -1, 2110_20_depth, type.video.depth)
+SDP_EXTRACTOR_GET(int, -1, 2110_20_sampling, type.video.sampling)
 SDP_EXTRACTOR_GET(int, -1, 2110_20_colorimetry, type.video.colorimetry)
 SDP_EXTRACTOR_GET(int, -1, 2110_20_tcs, type.video.tcs)
 SDP_EXTRACTOR_GET(int, -1, 2110_20_range, type.video.range)

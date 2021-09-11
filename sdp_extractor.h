@@ -105,6 +105,11 @@ int sdp_extractor_get_2110_20_signal_by_stream(sdp_extractor_t sdp_extractor,
 int sdp_extractor_get_2110_20_signal_by_group(sdp_extractor_t sdp_extractor,
 	int g_idx, int t_idx);
 
+int sdp_extractor_get_2110_20_sampling_by_stream(sdp_extractor_t sdp_extractor,
+	int m_idx);
+int sdp_extractor_get_2110_20_depth_by_stream(sdp_extractor_t sdp_extractor,
+	int m_idx);
+
 int sdp_extractor_get_2110_20_width_by_stream(sdp_extractor_t sdp_extractor,
 	int m_idx);
 int sdp_extractor_get_2110_20_width_by_group(sdp_extractor_t sdp_extractor,
