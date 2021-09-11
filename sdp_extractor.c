@@ -62,7 +62,7 @@ _type_ sdp_extractor_get_ ## _name_ ## _by_stream( \
 #define ARRAY_SIZE(_arr_) (sizeof(_arr_) / sizeof(_arr_)[0])
 
 #define BYTE_SIZE 8
-#define BPM_OCTET_MULTIPLE 180 
+#define BPM_OCTET_MULTIPLE 180
 #define MAC_HDR_SIZE 14
 #define UDP_HDR_SIZE 8
 #define IPV4_HDR_SIZE 20
@@ -339,7 +339,7 @@ static int extract_packet_info(struct sdp_session *session,
 	if (ret) {
 		sdp_extractor_err("unsupported pixle sampling/depth "
 			"combination, sampling:%d, depth:%d",
-			fmtp_params->sampling, fmtp_params->depth); 
+			fmtp_params->sampling, fmtp_params->depth);
 		return -1;
 	}
 
@@ -964,7 +964,7 @@ static struct group_member *get_member(struct sdp_extractor *e, int g_idx,
 void sdp_extractor_uninit(sdp_extractor_t sdp_extractor)
 {
 	struct sdp_extractor *e = (struct sdp_extractor*)sdp_extractor;
-	size_t num_medias = vec_size(e->medias);
+	size_t num_medias = e->medias ? vec_size(e->medias) : 0;
 
 	group_vector_uninit(e->groups);
 	media_vector_uninit(e->medias);
